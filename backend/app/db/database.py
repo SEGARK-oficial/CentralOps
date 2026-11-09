@@ -907,6 +907,10 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(text("ALTER TABLE organizations ADD COLUMN depth INTEGER NOT NULL DEFAULT 0"))
             if "kind" not in _org_cols:
                 conn.execute(text("ALTER TABLE organizations ADD COLUMN kind VARCHAR NOT NULL DEFAULT 'customer'"))
+            # External ID do STS para papéis AWS cross-account (nullable: só existe
+            # depois do primeiro onboarding AWS da org).
+            if "aws_external_id" not in _org_cols:
+                conn.execute(text("ALTER TABLE organizations ADD COLUMN aws_external_id VARCHAR"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_parent_organization_id ON organizations (parent_organization_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_root_id ON organizations (root_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_organizations_kind ON organizations (kind)"))
@@ -1429,6 +1433,9 @@ def _run_lightweight_migrations() -> None:
                 ("okta", "okta.system_log", 3002, "Okta — System Log (Authentication)"),
                 ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
                 ("aws_cloudwatch", "aws_cloudwatch.event", 0, "AWS CloudWatch Logs — log events de um log group (Base Event: transporte heterogêneo)"),
+                ("aws_waf", "aws_waf.event", 4002, "AWS WAF — log de requisição das web ACLs, do S3 ou do CloudWatch Logs (HTTP Activity)"),
+                ("aws_securityhub", "aws_securityhub.finding", 2004, "AWS Security Hub — achados agregados no formato ASFF (Detection Finding)"),
+                ("aws_guardduty", "aws_guardduty.finding", 2004, "Amazon GuardDuty — achados de ameaça (Detection Finding)"),
                 ("veeam", "veeam.session", 1006, "Veeam Backup & Replication — sessões de job (Scheduled Job Activity)"),
                 # Classe decidida por evento (value_map); o seed anuncia a dominante.
                 ("gcp_pubsub", "gcp.audit", 6003, "Google Cloud Audit Logs via Pub/Sub (API Activity; login do Workspace → Authentication)"),

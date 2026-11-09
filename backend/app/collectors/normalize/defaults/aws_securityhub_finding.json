@@ -1,0 +1,303 @@
+{
+  "_comment": [
+    "AWS Security Hub (ASFF, GetFindings) -> Detection Finding (2004).",
+    "Severity.Label -> severity_id; Workflow.Status/RecordState -> status_id; ARCHIVED = Close."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "AWS"
+    },
+    {
+      "_comment": "Arquivado = Close; criado e nunca atualizado = Create; o resto = Update.",
+      "target": "normalized.activity_id",
+      "source": "(RecordState == 'ARCHIVED' && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": 1,
+        "update": 2,
+        "close": 3
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(RecordState == 'ARCHIVED' && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": "Create",
+        "update": "Update",
+        "close": "Close"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(RecordState == 'ARCHIVED' && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": 200401,
+        "update": 200402,
+        "close": 200403
+      },
+      "default": 200400,
+      "required": true
+    },
+    {
+      "target": "normalized.time",
+      "source": "UpdatedAt",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.severity_id",
+      "source": "(Severity.Label || '')",
+      "value_map": {
+        "INFORMATIONAL": 1,
+        "LOW": 2,
+        "MEDIUM": 3,
+        "HIGH": 4,
+        "CRITICAL": 5
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "(Severity.Label || '')",
+      "value_map": {
+        "INFORMATIONAL": "Informational",
+        "LOW": "Low",
+        "MEDIUM": "Medium",
+        "HIGH": "High",
+        "CRITICAL": "Critical"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Controles CSPM geram achados INFORMATIONAL/PASSED em massa: entram, mas sem alerta.",
+      "target": "normalized.is_alert",
+      "source": "(Severity.Label || '')",
+      "value_map": {
+        "LOW": true,
+        "MEDIUM": true,
+        "HIGH": true,
+        "CRITICAL": true
+      },
+      "default": false
+    },
+    {
+      "_comment": "RecordState ARCHIVED vence o workflow (o achado saiu de cena).",
+      "target": "normalized.status_id",
+      "source": "(RecordState == 'ARCHIVED' && 'ARCHIVED') || (Workflow.Status || '')",
+      "value_map": {
+        "NEW": 1,
+        "NOTIFIED": 2,
+        "SUPPRESSED": 3,
+        "RESOLVED": 4,
+        "ARCHIVED": 5
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "(RecordState == 'ARCHIVED' && 'ARCHIVED') || (Workflow.Status || '')",
+      "value_map": {
+        "NEW": "New",
+        "NOTIFIED": "In Progress",
+        "SUPPRESSED": "Suppressed",
+        "RESOLVED": "Resolved",
+        "ARCHIVED": "Archived"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.message",
+      "source": "Title",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "Id",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "Title",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.desc",
+      "source": "Description",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.types",
+      "source": "Types",
+      "when": {
+        "exists": "Types[0]"
+      }
+    },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "CreatedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "CreatedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.modified_time",
+      "source": "UpdatedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "UpdatedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.first_seen_time",
+      "source": "FirstObservedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "FirstObservedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.last_seen_time",
+      "source": "LastObservedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "LastObservedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.product.name",
+      "source": "ProductName",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.analytic.uid",
+      "source": "GeneratorId",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.analytic.type_id",
+      "const": 99
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "Id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "source": "ProductName || 'Security Hub'",
+      "default": "Security Hub"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "source": "CompanyName || 'AWS'",
+      "default": "AWS"
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "securityhub"
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "AwsAccountId",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "Region",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "Resources[].{type: Type, uid: Id, region: Region}",
+      "when": {
+        "exists": "Resources[0]"
+      }
+    },
+    {
+      "target": "normalized.remediation.desc",
+      "source": "Remediation.Recommendation.Text",
+      "when": {
+        "exists": "Remediation.Recommendation.Text"
+      }
+    },
+    {
+      "target": "normalized.remediation.references",
+      "source": "[Remediation.Recommendation.Url]",
+      "when": {
+        "exists": "Remediation.Recommendation.Url"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_compliance_status",
+      "source": "Compliance.Status",
+      "when": {
+        "exists": "Compliance.Status"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_product_arn",
+      "source": "ProductArn",
+      "when": {
+        "exists": "ProductArn"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_record_state",
+      "source": "RecordState",
+      "when": {
+        "exists": "RecordState"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "cloud.account.uid",
+          "type": "Resource UID",
+          "type_id": 10,
+          "source": "AwsAccountId",
+          "skip_null": true
+        },
+        {
+          "name": "resources.uid",
+          "type": "Resource UID",
+          "type_id": 10,
+          "source": "Resources[0].Id",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ]
+}

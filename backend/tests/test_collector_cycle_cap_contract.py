@@ -264,6 +264,27 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
         "prefix": "AWSLogs/1/CloudTrail/us-east-1/2026/07/24/",
         "start_after": "chave.json.gz",
     },
+    # WAF no S3 (motor do CloudTrail). No CloudWatch o cursor é o do
+    # ``aws_cloudwatch`` — ``watermark_at`` escolhe pela chave presente.
+    ("aws_waf", "events"): {
+        "last_modified": "2026-07-24T10:00:00+00:00",
+        "prefix": "AWSLogs/1/WAFLogs/us-east-1/acl/2026/07/24/",
+        "start_after": "chave.log.gz",
+        "bases": ["AWSLogs/1/WAFLogs/us-east-1/acl/"],
+    },
+    # Achados AWS: cursor por região; o watermark é a região MAIS atrasada.
+    ("aws_securityhub", "findings"): {"regions": {"us-east-1": {
+        "updated_at": "2026-07-24T10:00:00.000Z",
+        "window_start": "2026-07-24T09:45:00.000Z",
+        "window_end": "2026-07-24T11:00:00.000Z",
+        "next_token": "tok",
+    }}},
+    ("aws_guardduty", "findings"): {"regions": {"us-east-1": {
+        "updated_at": "2026-07-24T10:00:00.000Z",
+        "window_start": "2026-07-24T09:45:00.000Z",
+        "window_end": "2026-07-24T11:00:00.000Z",
+        "next_token": "tok",
+    }}},
     # Epoch em MILISSEGUNDOS — o único da frota que não é string.
     ("aws_cloudwatch", "events"): {
         "start_time_ms": _EPOCH_MS,

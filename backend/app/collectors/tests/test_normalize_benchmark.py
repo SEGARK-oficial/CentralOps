@@ -206,6 +206,40 @@ _FIXTURES = {
         "awsAccountId": "888",
         "eventTime": "2026-06-21T10:00:00.000Z",
     },
+    # AWS WAF: registro da web ACL como o coletor emite (S3 ou CloudWatch), com o
+    # bloco ``centralops`` de origem.
+    ("aws_waf", "aws_waf.event"): {
+        "timestamp": 1782036000000,
+        "formatVersion": 1,
+        "webaclId": "arn:aws:wafv2:us-east-1:888:regional/webacl/site/abc",
+        "terminatingRuleId": "AWS-AWSManagedRulesSQLiRuleSet",
+        "terminatingRuleType": "MANAGED_RULE_GROUP",
+        "action": "BLOCK",
+        "terminatingRuleMatchDetails": [
+            {"conditionType": "SQL_INJECTION", "location": "QUERY_STRING", "matchedData": ["1", "OR", "1"]}
+        ],
+        "httpSourceName": "ALB",
+        "httpSourceId": "888-app/site/50dc6c495c0c9188",
+        "ruleGroupList": [
+            {"ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+             "terminatingRule": {"ruleId": "SQLi_QUERYARGUMENTS", "action": "BLOCK"}}
+        ],
+        "rateBasedRuleList": [],
+        "nonTerminatingMatchingRules": [],
+        "httpRequest": {
+            "clientIp": "192.0.2.10", "country": "BR",
+            "headers": [{"name": "Host", "value": "site.exemplo.com"},
+                        {"name": "User-Agent", "value": "sqlmap/1.7"}],
+            "uri": "/login", "args": "id=1%20OR%201=1", "httpVersion": "HTTP/1.1",
+            "httpMethod": "GET", "requestId": "1-6510d2f1-3c5e2a1b4d6f7e8a9b0c1d2e",
+        },
+        "labels": [{"name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments"}],
+        "ja4Fingerprint": "t13d1516h2_8daaf6152771_02713d6af862",
+        "centralops": {"source": "s3", "region": "us-east-1", "accountId": "888"},
+    },
+    # Achados AWS (Security Hub em ASFF; GuardDuty nativo) — como o coletor emite.
+    ("aws_securityhub", "aws_securityhub.finding"): {'SchemaVersion': '2018-10-08', 'Id': 'arn:aws:guardduty:us-east-1:111122223333:detector/abc/finding/def', 'ProductArn': 'arn:aws:securityhub:us-east-1::product/aws/guardduty', 'ProductName': 'GuardDuty', 'CompanyName': 'Amazon', 'Region': 'us-east-1', 'GeneratorId': 'arn:aws:guardduty:us-east-1:111122223333:detector/abc', 'AwsAccountId': '111122223333', 'Types': ['TTPs/Initial Access/UnauthorizedAccess:EC2-SSHBruteForce'], 'FirstObservedAt': '2026-11-09T09:00:00.000Z', 'LastObservedAt': '2026-11-09T10:00:00.000Z', 'CreatedAt': '2026-11-09T09:05:00.000Z', 'UpdatedAt': '2026-11-09T10:05:00.000Z', 'Severity': {'Label': 'HIGH', 'Normalized': 70}, 'Title': 'SSH brute force contra i-0abc', 'Description': '198.51.100.7 tenta SSH em i-0abc.', 'Resources': [{'Type': 'AwsEc2Instance', 'Id': 'arn:aws:ec2:us-east-1:111122223333:instance/i-0abc', 'Region': 'us-east-1'}], 'Workflow': {'Status': 'NEW'}, 'RecordState': 'ACTIVE', 'Remediation': {'Recommendation': {'Text': 'Restrinja a porta 22.', 'Url': 'https://docs.aws.amazon.com/guardduty/'}}},
+    ("aws_guardduty", "aws_guardduty.finding"): {'AccountId': '111122223333', 'Arn': 'arn:aws:guardduty:us-east-1:111122223333:detector/abc/finding/def', 'CreatedAt': '2026-11-09T09:05:00.000Z', 'Description': 'A API ListBuckets foi chamada de um IP de saída Tor.', 'Id': 'def', 'Partition': 'aws', 'Region': 'us-east-1', 'Resource': {'ResourceType': 'AccessKey', 'AccessKeyDetails': {'AccessKeyId': 'ASIAEXAMPLE', 'PrincipalId': 'AROAEXAMPLE', 'UserName': 'deploy-bot', 'UserType': 'AssumedRole'}}, 'SchemaVersion': '2.0', 'Service': {'Action': {'ActionType': 'AWS_API_CALL', 'AwsApiCallAction': {'Api': 'ListBuckets', 'ServiceName': 's3.amazonaws.com', 'CallerType': 'Remote IP', 'RemoteIpDetails': {'IpAddressV4': '198.51.100.7', 'Country': {'CountryCode': 'NL'}}}}, 'Archived': False, 'Count': 3, 'DetectorId': 'abc', 'EventFirstSeen': '2026-11-09T09:00:00.000Z', 'EventLastSeen': '2026-11-09T10:00:00.000Z', 'ServiceName': 'guardduty'}, 'Severity': 8, 'Title': 'Chamada de API a partir de nó Tor', 'Type': 'UnauthorizedAccess:IAMUser/TorIPCaller', 'UpdatedAt': '2026-11-09T10:05:00.000Z'},
     # Google Cloud via Pub/Sub — o LogEntry já decodificado (é o que o coletor emite).
     ("gcp_pubsub", "gcp.audit"): _gcp.SET_IAM_POLICY,
     ("gcp_pubsub", "gcp.gke_audit"): _gcp.GKE_EXEC,

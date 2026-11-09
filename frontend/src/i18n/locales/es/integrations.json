@@ -313,7 +313,30 @@
       "wazuhManagerPasswordRequired": "Ingrese la contraseña de la Manager API.",
       "testConnectionFailed": "Error al probar la conexión."
     },
-    "enterpriseBadge": "Enterprise"
+    "enterpriseBadge": "Enterprise",
+    "awsRole": {
+      "title": "Acceso por rol de AWS (recomendado)",
+      "intro": "En lugar de una clave de acceso fija, CentralOps asume un rol de solo lectura en la cuenta de AWS del cliente, con credenciales temporales.",
+      "selectOrganization": "Seleccione la organización para ver su External ID.",
+      "loading": "Cargando datos del rol…",
+      "loadFailed": "No se pudieron cargar los datos del rol de AWS.",
+      "externalId": "External ID",
+      "externalIdHelp": "Generado por CentralOps para esta organización y no cambia. La política de confianza del rol debe exigir exactamente este valor.",
+      "principal": "Principal de CentralOps",
+      "principalHelp": "La identidad de AWS de CentralOps en la que el rol debe confiar.",
+      "principalMissingTitle": "No se encontró la identidad de AWS de CentralOps",
+      "principalMissing": "El servidor no tiene credenciales de AWS propias para asumir roles. Configúrelas en el entorno del servidor (o AWS_TRUST_PRINCIPAL_ARN) antes de usar el modo rol.",
+      "step1": "En la cuenta de AWS del cliente, cree la stack con la <strong>plantilla de CloudFormation</strong> (External ID y principal ya vienen completos):",
+      "downloadTemplate": "Descargar plantilla",
+      "cliLabel": "Copiar comando de AWS CLI",
+      "step2": "Copie la salida <strong>RoleArn</strong> de la stack y péguela en el campo <strong>ARN del rol o Access Key ID</strong> abajo (formato <code>arn:aws:iam::&lt;cuenta&gt;:role/CentralOpsReadOnly</code>).",
+      "step3": "Haga clic en Probar conexión: CentralOps asume el rol de verdad y verifica la lectura.",
+      "manualSummary": "¿Prefiere crear el rol a mano? Ver la política de confianza",
+      "manualHelp": "Use esta política de confianza en el rol y adjunte permisos de solo lectura para las fuentes que va a recolectar.",
+      "legacyNote": "Access Key ID + Secret Access Key de un usuario IAM siguen aceptados, pero son credenciales de larga duración: prefiera el rol.",
+      "orgNoticeBody": " al guardar, CentralOps lista las cuentas de la AWS Organization. Cada cuenta aprobada se convierte en una integración en ESTA organización, con el rol del mismo nombre en esa cuenta (o, en CloudTrail, el rol y el bucket del trail central).",
+      "orgEnterpriseNote": "Crear las integraciones de las cuentas requiere Enterprise. En Community puede crear el padre, pero no se importa ninguna cuenta."
+    }
   },
   "ingest": {
     "title": "Ingesta push",

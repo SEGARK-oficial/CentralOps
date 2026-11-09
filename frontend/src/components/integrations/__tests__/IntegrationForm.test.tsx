@@ -743,3 +743,131 @@ describe("IntegrationForm — edição de plataforma dinâmica", () => {
     expect(payload).not.toHaveProperty("indexer_url")
   })
 })
+
+describe("IntegrationForm — AWS com papel cross-account", () => {
+  const AWS: ProviderPlatformRead = {
+    platform: "aws_cloudtrail",
+    display_name: "AWS CloudTrail",
+    category: "Cloud-audit",
+    description: "CloudTrail via S3.",
+    icon_id: "aws",
+    docs_url: null,
+    auth_fields: [
+      { key: "client_id", label: "ARN do papel ou Access Key ID", type: "string", required: true },
+      { key: "secret_access_key", label: "Secret Access Key", type: "secret", required: false },
+      { key: "base_url", label: "Bucket S3", type: "string", required: true },
+    ],
+    streams: [],
+    supports_test: true,
+    auth_setup: "aws_assume_role",
+  }
+  const SETUP = {
+    organization_id: 10,
+    external_id: "centralops-1111-2222",
+    trust_principal_arn: "arn:aws:iam::111122223333:role/centralops-broker",
+    principal_error: null,
+    template: { AWSTemplateFormatVersion: "2010-09-09" },
+    template_filename: "centralops-readonly-role.json",
+  }
+
+  beforeEach(() => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([...CATALOG, AWS])
+    mockedApi.getAwsRoleSetup.mockResolvedValue(SETUP)
+  })
+
+  it("só busca o External ID depois de escolher a organização, e mostra o da org", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-aws_cloudtrail"))
+    const panel = await screen.findByTestId("aws-role-setup")
+    expect(within(panel).getByText(/Selecione a organização/)).toBeInTheDocument()
+    expect(mockedApi.getAwsRoleSetup).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    expect(await within(panel).findByText("centralops-1111-2222")).toBeInTheDocument()
+    expect(mockedApi.getAwsRoleSetup).toHaveBeenCalledWith(10)
+    expect(within(panel).getByText(SETUP.trust_principal_arn)).toBeInTheDocument()
+  })
+
+  it("sem identidade AWS no servidor, avisa em vez de mostrar principal vazio", async () => {
+    mockedApi.getAwsRoleSetup.mockResolvedValue({
+      ...SETUP,
+      trust_principal_arn: null,
+      principal_error: "GetCallerIdentity: credenciais AWS ausentes (NoCredentialsError).",
+    })
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-aws_cloudtrail"))
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    expect(await screen.findByText(/Identidade AWS do CentralOps não encontrada/)).toBeInTheDocument()
+    expect(screen.getByText(/NoCredentialsError/)).toBeInTheDocument()
+  })
+
+  it("o teste de conexão leva a organização (o backend usa o External ID dela)", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-aws_cloudtrail"))
+    fireEvent.change(screen.getByLabelText(/Organização/), { target: { value: "10" } })
+    fireEvent.change(screen.getByLabelText(/ARN do papel/), {
+      target: { value: "arn:aws:iam::123456789012:role/CentralOpsReadOnly" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Testar conexão/i }))
+    await waitFor(() => expect(mockedApi.testProviderConnection).toHaveBeenCalledTimes(1))
+    const [platform, config] = mockedApi.testProviderConnection.mock.calls[0]
+    expect(platform).toBe("aws_cloudtrail")
+    expect(config).toMatchObject({
+      client_id: "arn:aws:iam::123456789012:role/CentralOpsReadOnly",
+      organization_id: 10,
+    })
+    // O External ID nunca sai do navegador para o backend: o servidor o resolve.
+    expect(config).not.toHaveProperty("external_id")
+  })
+
+  it("plataforma sem auth_setup não mostra o painel", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-azure"))
+    expect(screen.queryByTestId("aws-role-setup")).not.toBeInTheDocument()
+  })
+})
+
+describe("IntegrationForm — AWS Organization (pai com filhas Enterprise)", () => {
+  const AWS_ORG: ProviderPlatformRead = {
+    platform: "aws_guardduty_org",
+    display_name: "Amazon GuardDuty — AWS Organization",
+    category: "Cloud-audit",
+    description: "Uma integração por conta.",
+    icon_id: "aws",
+    docs_url: null,
+    auth_fields: [
+      { key: "client_id", label: "ARN do papel (conta de gerenciamento)", type: "string", required: true },
+    ],
+    streams: [],
+    supports_test: true,
+    auth_setup: "aws_assume_role",
+    variant: "organization",
+  }
+
+  beforeEach(() => {
+    mockedApi.getProviderPlatforms.mockResolvedValue([...CATALOG, AWS_ORG])
+    mockedApi.getAwsRoleSetup.mockResolvedValue({
+      organization_id: 10,
+      external_id: "centralops-x",
+      trust_principal_arn: "arn:aws:iam::111122223333:role/broker",
+      principal_error: null,
+      template: {},
+      template_filename: "t.json",
+    })
+  })
+
+  it("Community: o card do pai ganha o badge Enterprise pelo variant do catálogo", async () => {
+    renderForm()
+    const tile = await screen.findByTestId("tile-card-aws_guardduty_org")
+    expect(within(tile).getByText("Enterprise")).toBeInTheDocument()
+  })
+
+  it("explica que as contas viram integrações nesta organização e que exige Enterprise", async () => {
+    renderForm()
+    fireEvent.click(await screen.findByTestId("tile-card-aws_guardduty_org"))
+    expect(screen.getByText(/lista as contas da AWS Organization/)).toBeInTheDocument()
+    expect(screen.getByText(/Criar as integrações das contas exige Enterprise/)).toBeInTheDocument()
+    // O aviso do Sophos (Organization por tenant) não se aplica aqui.
+    expect(screen.queryByText(/cada tenant desta credencial/i)).not.toBeInTheDocument()
+  })
+})

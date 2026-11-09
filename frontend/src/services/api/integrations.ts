@@ -1,6 +1,7 @@
 import { ADMIN_REDIRECT_PATH, V1_ACCEPT_HEADER, apiRequest } from "./_core"
 import type {
   AutoApprovePolicyResponse,
+  AwsRoleSetup,
   CreateIntegrationRequest,
   DiscoveredTenant,
   HealthResponse,
@@ -231,6 +232,13 @@ export async function getIntegrationHealthV2(id: number) {
 
 export async function getProviderPlatforms() {
   return apiRequest<ProviderPlatformRead[]>("/providers/platforms")
+}
+
+/** External ID da org + principal do CentralOps + template do papel AWS cross-account. */
+export async function getAwsRoleSetup(organizationId: number) {
+  return apiRequest<AwsRoleSetup>(
+    `/providers/aws/role-setup?organization_id=${encodeURIComponent(organizationId)}`,
+  )
 }
 
 /** Testa credenciais CRUAS (pré-save) de uma plataforma — stateless, não persiste. */

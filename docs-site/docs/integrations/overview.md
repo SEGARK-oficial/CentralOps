@@ -54,6 +54,8 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração Microsoft 365](./microsoft-365.md)
 - [Integração AWS CloudTrail](./aws-cloudtrail.md)
 - [Integração AWS CloudWatch Logs](./aws-cloudwatch.md)
+- [Integração AWS WAF](./aws-waf.md)
+- [AWS Security Hub e GuardDuty](./aws-findings.md)
 - [Integração Microsoft Entra ID](./microsoft-entra-id.md)
 - [Integração Okta](./okta.md)
 - [Integração NinjaOne](./ninjaone.md)

@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ..auth.aws import AwsAuth
 from ..base import CollectorContext
 from ..normalize import engine as E
 from ..normalize.defaults import load_default_rules
@@ -20,8 +21,7 @@ from ..vendors import aws_cloudwatch as cw
 from ..vendors.aws_cloudwatch import AWSCloudWatchCollector
 
 _CONN = {
-    "access_key_id": "AKIA_TEST",
-    "secret": "secret-test",
+    "auth": AwsAuth.access_key("AKIA_TEST", "secret-test"),
     "log_group": "/aws/lambda/minha-funcao",
     "region": "us-east-1",
     "account_id": "888",

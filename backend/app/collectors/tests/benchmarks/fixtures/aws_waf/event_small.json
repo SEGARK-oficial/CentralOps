@@ -1,0 +1,38 @@
+{
+  "timestamp": 1782036000000,
+  "formatVersion": 1,
+  "webaclId": "arn:aws:wafv2:us-east-1:888:regional/webacl/site/abc",
+  "terminatingRuleId": "Default_Action",
+  "terminatingRuleType": "REGULAR",
+  "action": "ALLOW",
+  "terminatingRuleMatchDetails": [],
+  "httpSourceName": "ALB",
+  "httpSourceId": "888-app/site/50dc6c495c0c9188",
+  "ruleGroupList": [],
+  "rateBasedRuleList": [],
+  "nonTerminatingMatchingRules": [],
+  "httpRequest": {
+    "clientIp": "192.0.2.10",
+    "country": "BR",
+    "headers": [
+      {
+        "name": "Host",
+        "value": "site.exemplo.com"
+      },
+      {
+        "name": "User-Agent",
+        "value": "Mozilla/5.0"
+      }
+    ],
+    "uri": "/",
+    "args": "",
+    "httpVersion": "HTTP/1.1",
+    "httpMethod": "GET",
+    "requestId": "1-6510d2f1-small"
+  },
+  "centralops": {
+    "source": "s3",
+    "region": "us-east-1",
+    "accountId": "888"
+  }
+}

@@ -473,6 +473,21 @@ export interface ProviderPlatformRead {
   supports_test?: boolean
   /** "pull" (poll de API, default) | "push" (fonte empurra p/ /api/ingest). */
   transport?: string
+  /** Painel de onboarding de credencial (ex.: "aws_assume_role"). Vazio = só os campos. */
+  auth_setup?: string
+  /** "" | "partner" | "organization": card que cria um pai com filhas descobertas (Enterprise). */
+  variant?: string
+}
+
+/** GET /providers/aws/role-setup — o que o cliente precisa para criar o papel. */
+export interface AwsRoleSetup {
+  organization_id: number
+  /** Gerado pelo servidor, único por organização e imutável. */
+  external_id: string
+  trust_principal_arn: string | null
+  principal_error: string | null
+  template: Record<string, unknown>
+  template_filename: string
 }
 
 export interface TestConnectionResponse {
