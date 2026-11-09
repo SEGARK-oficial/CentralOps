@@ -31,9 +31,13 @@ def _reset_global_state():
     """
     from backend.app.db import database as db_module
     from backend.app.core import rate_limiter as rl_module
+    from backend.app.collectors import audit_buffer
 
     original_session_local = db_module.SessionLocal
+    # Janela de amostragem do ring de auditoria (por organização, no processo).
+    audit_buffer.reset_sampling()
     yield
+    audit_buffer.reset_sampling()
     db_module.SessionLocal = original_session_local
 
     # Clear in-memory rate limiter windows (Redis state is not used in tests

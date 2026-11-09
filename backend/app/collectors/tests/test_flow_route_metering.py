@@ -29,10 +29,8 @@ from backend.app.collectors import (
     observability_store as obs,
     pipeline,
     routing,
-    tasks,
     tracing,
 )
-from backend.app.core.config import settings
 
 
 def _result(per_route, sub_batches, *, sampled_per_route=None):
@@ -52,19 +50,14 @@ def _result(per_route, sub_batches, *, sampled_per_route=None):
 
 
 def _patch(monkeypatch, result):
-    """Isola ``_enqueue_routed``: sem DB, sem Kafka, com Redis fake para a store."""
+    """Isola ``_enqueue_routed``: sem DB, sem Kafka (``produce_delivery`` vira um
+    gravador), com Redis fake para a store."""
     monkeypatch.setattr(pipeline, "_load_destination_residency", lambda ids: {})
     monkeypatch.setattr(pipeline, "_load_wazuh_loop_destination_ids", lambda ids: frozenset())
     monkeypatch.setattr(pipeline, "_load_fallback_destination_id", lambda org: None)
     monkeypatch.setattr(routing, "route_batch", lambda *a, **k: result)
     monkeypatch.setattr(tracing, "carrier", lambda: {})
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "celery")
-    monkeypatch.setattr(tasks, "dispatch_to_destination", MagicMock())
-
-    def _no_kafka(*_a, **_k):
-        raise AssertionError("caminho celery não deveria produzir ao Kafka")
-
-    monkeypatch.setattr(dataplane, "produce_delivery", _no_kafka)
+    monkeypatch.setattr(dataplane, "produce_delivery", MagicMock())
     r = fakeredis.FakeStrictRedis(decode_responses=True)
     monkeypatch.setattr(obs, "_redis", lambda: r)
     return r

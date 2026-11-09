@@ -384,8 +384,8 @@ def test_reprocess_success_dispatches_via_enqueue(client_factory) -> None:
 
     O reprocess não enfileira mais ``dispatch_to_wazuh``
     diretamente. Roteia por ``_enqueue_reprocess_dispatch`` →
-    ``pipeline._enqueue_dispatch``, que faz fan-out via
-    ``dispatch_to_destination`` (incl. ``wazuh-default`` como destino normal).
+    ``pipeline._enqueue_dispatch``, que faz fan-out via ``produce_delivery``
+    no tópico ``deliver`` (incl. ``wazuh-default`` como destino normal).
     """
     factory, Session = client_factory
     client = factory()

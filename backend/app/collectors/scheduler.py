@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 
 from ..db import database, models
-from .registry import all_registrations, iter_for_platform
+from .registry import all_registrations, is_push_platform, iter_for_platform
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +141,16 @@ def _register_integration_in_beat_unsafe(integration_id: int) -> None:
         return
 
     platform = integration.platform
+    if is_push_platform(platform):
+        # Fonte push não tem ciclo (ADR-0018 Onda 5): o ingest e o receptor
+        # syslog gravam direto no raw. Apaga a entrada que sobrou de quando o
+        # ciclo drenava a lista Redis do push.
+        logger.info(
+            "scheduler: platform=%r é push — sem entry de coleta (integration_id=%s)",
+            platform, integration_id,
+        )
+        _deregister_integration_from_beat_unsafe(integration_id)
+        return
     registered_count = 0
 
     key_prefix = celery_app.conf.redbeat_key_prefix

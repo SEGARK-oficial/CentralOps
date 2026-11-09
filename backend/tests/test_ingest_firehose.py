@@ -11,7 +11,6 @@ import base64
 import gzip
 import json
 
-import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -50,16 +49,6 @@ def setup(monkeypatch):
             db.close()
 
     app.dependency_overrides[get_session] = override_get_session
-    server = fakeredis.aioredis.FakeRedis(decode_responses=True)
-
-    async def fake_redis_client():
-        return server
-
-    async def _noop_aclose(*a, **k):
-        return None
-
-    server.aclose = _noop_aclose
-    monkeypatch.setattr(ingest_router, "_redis_client", fake_redis_client)
 
     with TestingSession() as db:
         org = models.Organization(name="ACME", slug="acme")
@@ -85,12 +74,10 @@ def setup(monkeypatch):
 
 @pytest.fixture()
 def produced(monkeypatch):
-    from backend.app.core.config import settings
-
+    """Tópico raw em memória: o que o endpoint gravou, na ordem."""
     out: list = []
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
 
-    async def _produce(iid, stream, events):
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
         out.extend(events)
         return len(events)
 
@@ -212,10 +199,7 @@ def test_too_large_is_never_413(setup, produced, monkeypatch):
 
 
 def test_dataplane_down_is_retryable_503(setup, monkeypatch):
-    from backend.app.core.config import settings
-
     client, token, _ = setup
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
 
     async def _down(*a, **k):
         raise ConnectionError("broker fora")

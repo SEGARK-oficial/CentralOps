@@ -101,7 +101,17 @@ rota. Veja [Roteamento](../outputs/routing.md).
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `REDIS_MAXMEMORY` | `512mb` | Teto da instância de cache/deduplicação. Dimensione pela fórmula `chaves ≈ eventos/s × TTL_em_segundos` e `memória ≈ chaves × 115 bytes`. Ver [Redis cheio](../runbooks/redis-capacity.md). |
+| `REDIS_MAXMEMORY` | `512mb` | Teto da instância de cache. O Redis guarda só estado de controle (cursores, travas, tokens, disjuntor) e não cresce com o volume de eventos. Ver [Redis cheio](../runbooks/redis-capacity.md). |
+
+## Data-plane: dedupe e estacionamento
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `RAW_DEDUPE_WINDOW_SECONDS` | `3600` | Por quanto tempo o processador lembra um evento para descartar a cópia repetida. |
+| `RAW_DEDUPE_WINDOW_MAX_IDS` | `200000` | Quantos eventos ele lembra por partição do tópico `raw` (~100 bytes cada). |
+| `KAFKA_PARKED_RETENTION_MS` | `604800000` (7 dias) | Quanto tempo um lote espera no estacionamento por um destino fora do ar. Passado o prazo, o lote é apagado. |
+| `KAFKA_PARKED_HOLD_SECONDS` | `30` | Intervalo entre tentativas de entregar um lote estacionado enquanto o destino segue fora. |
+| `KAFKA_PARKED_MAX_INFLIGHT` | `8` | Quantas partições do estacionamento drenam ao mesmo tempo. Um destino lento não segura a volta dos outros enquanto houver vaga. |
 
 ## Boas práticas
 

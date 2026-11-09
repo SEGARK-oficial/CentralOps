@@ -231,7 +231,6 @@ spec:
         - { protocol: TCP, port: 5432 }
         - { protocol: TCP, port: 6379 }
 {{- end }}
-{{- if eq .Values.dataPlane.eventDataplane "kafka" }}
 ---
 # — egress dos workloads CentralOps p/ o broker Kafka (9092). Sem isto,
 # o default-deny bloqueia produtores + kafka-dispatcher → data-plane inalcançável.
@@ -287,6 +286,5 @@ spec:
               app.kubernetes.io/part-of: centralops
       ports:
         - { protocol: TCP, port: 9092 }
-{{- end }}
 {{- end }}
 {{- end }}

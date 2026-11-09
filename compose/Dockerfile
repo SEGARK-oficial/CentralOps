@@ -96,9 +96,28 @@ COPY backend/requirements-build.txt /tmp/requirements-build.txt
 COPY --from=backend-deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir -r /tmp/requirements-build.txt
+# ccache ANTES do COPY do código: camada estável, nunca re-executa por PR.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ccache \
+ && rm -rf /var/lib/apt/lists/*
 COPY backend/ ./backend/
 COPY compose/cython-build.sh /usr/local/bin/cython-build.sh
-RUN chmod +x /usr/local/bin/cython-build.sh && BUILD_ROOT=/build/backend /usr/local/bin/cython-build.sh
+# Compilação INCREMENTAL. Qualquer arquivo de backend/ que mude invalida esta
+# camada inteira — antes isso recompilava os ~240 módulos do zero (8-10 min por
+# PR). Dois caches por CONTEÚDO, montados fora da imagem (não entram em camada
+# nenhuma, então não mudam o artefato):
+#   - Cython ``cache=``: o ``.c`` de um ``.py`` inalterado sai do cache;
+#   - ccache: o ``.o`` de um ``.c`` inalterado sai do cache.
+# Só módulo de fato alterado paga gcc. Os caches vivem no estado do builder
+# BuildKit, que o CI mantém entre jobs (``keep-state`` no runner persistente);
+# num builder novo eles começam vazios e o resultado é IDÊNTICO, só mais lento.
+RUN --mount=type=cache,id=centralops-ccache,target=/root/.ccache \
+    --mount=type=cache,id=centralops-cython,target=/root/.cython-cache \
+    chmod +x /usr/local/bin/cython-build.sh \
+ && CC="ccache gcc" CCACHE_DIR=/root/.ccache CCACHE_MAXSIZE=3G \
+    CYTHON_CACHE_DIR=/root/.cython-cache \
+    BUILD_ROOT=/build/backend /usr/local/bin/cython-build.sh \
+ && ccache --show-stats --verbose 2>/dev/null | grep -Ei "hit|miss" || true
 
 # ── Stage 5: Compiled-image test sweep ───────────────────────────────────────
 # Runs the 127-file pytest suite against the .so tree. Build fails on any
@@ -109,6 +128,9 @@ FROM python:3.11-slim AS backend-test
 WORKDIR /build
 COPY --from=backend-deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+# pytest-xdist SÓ neste estágio (o ``final`` copia o venv de ``backend-deps``,
+# não daqui). Camada estável: vem antes do código.
+RUN pip install --no-cache-dir "pytest-xdist==3.8.0"
 COPY --from=backend-compile /build/backend ./backend
 # Top-level scripts/ contains reencrypt_secrets.py (a one-shot CLI), and
 # backend/tests/test_reencrypt_secrets_script.py imports it as a bare

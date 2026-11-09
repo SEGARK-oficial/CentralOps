@@ -21,7 +21,6 @@ function info(platform: string, streams: string[]): api.IngestInfo {
     streams,
     has_token: false,
     endpoint_base: "/api/ingest",
-    buffer_depth: 0,
     icon_id: "aws",
   }
 }

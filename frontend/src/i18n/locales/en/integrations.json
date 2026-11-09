@@ -340,7 +340,7 @@
   },
   "ingest": {
     "title": "Push ingestion",
-    "bufferDepth": "This source pushes events via an edge-collector. Current buffer: {{count}} event(s).",
+    "pushIntro": "This source pushes events via an edge-collector.",
     "endpointLabel": "Ingestion endpoint",
     "copy": "Copy",
     "copied": "Copied",

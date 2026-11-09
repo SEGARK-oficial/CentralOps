@@ -137,6 +137,7 @@ TARGETS_FILE="$(mktemp)"
 printf '%s\n' "${TARGETS[@]}" > "${TARGETS_FILE}"
 
 python <<PY
+import os
 import sys
 from pathlib import Path
 from Cython.Build import cythonize
@@ -162,6 +163,9 @@ setup(
         exts,
         language_level="3str",
         nthreads=${NUM_PROC},
+        # Cache por CONTEÚDO dos .c gerados (Cython >= 3.1): módulo inalterado não
+        # é re-traduzido. Sem CYTHON_CACHE_DIR, comportamento de antes (sem cache).
+        cache=(os.environ.get("CYTHON_CACHE_DIR") or None),
         compiler_directives={
             "embedsignature": False,
             "emit_code_comments": False,

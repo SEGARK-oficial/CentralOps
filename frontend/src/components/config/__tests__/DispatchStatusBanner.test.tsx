@@ -82,7 +82,6 @@ function makeConfig(overrides: Partial<CollectorConfig> = {}): CollectorConfig {
     collector_jsonl_dir: "/var/log/centralops/collectors",
     collector_batch_size: 200,
     collector_batch_flush_seconds: 5,
-    dedupe_ttl_days: 7,
     domain_concurrency_limits: {},
     rate_limits_by_vendor: {},
     ...overrides,
@@ -123,10 +122,10 @@ async function renderCollectorTab(config: CollectorConfig) {
 describe("CollectorConfigForm - campos globais", () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it("seção 'Buffer & Dedupe' permanece visível", async () => {
+  it("seção 'Lotes' permanece visível", async () => {
     await renderCollectorTab(makeConfig())
 
-    expect(screen.getByText("Buffer & Dedupe")).toBeInTheDocument()
+    expect(screen.getByText("Lotes")).toBeInTheDocument()
   })
 
   it("campos de batch size e flush seconds são renderizados", async () => {

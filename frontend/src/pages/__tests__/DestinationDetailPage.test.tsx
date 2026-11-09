@@ -73,7 +73,7 @@ const METRICS: DestinationMetrics = {
     rejected: [[1700000000000, 3], [1700000060000, 1]],
     latency_avg: [[1700000000000, 0.05], [1700000060000, 0.04]],
   },
-  gauges: { queue_depth: null, backpressure_state: null },
+  parked: { batches: 0, events: 0, since: null },
   dlq_total: 5,
   dlq_24h: 2,
   by_error_kind: {},
@@ -240,6 +240,40 @@ describe("DestinationDetailPage — aba Saúde: eps e bytes_per_min", () => {
       expect(screen.getByText("eventos/min")).toBeInTheDocument()
       expect(screen.getByText("rejeitados/min")).toBeInTheDocument()
     })
+  })
+})
+
+describe("DestinationDetailPage — estacionamento (destino fora do ar)", () => {
+  it("sem nada estacionado, não mostra o aviso", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("tab", { name: /Saúde/i }))
+    await waitFor(() => expect(screen.getByText("eventos/min")).toBeInTheDocument())
+    expect(screen.queryByTestId("destination-parked")).not.toBeInTheDocument()
+  })
+
+  it("com lotes estacionados, diz quantos e que saem sozinhos", async () => {
+    mockedApi.getDestinationMetrics.mockResolvedValue({
+      ...METRICS,
+      parked: { batches: 3, events: 600, since: 1_700_000_000 },
+    })
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("tab", { name: /Saúde/i }))
+
+    const notice = await screen.findByTestId("destination-parked")
+    expect(notice).toHaveTextContent("Esperando o destino voltar")
+    expect(notice).toHaveTextContent("3 lote(s), 600 evento(s)")
+    expect(notice).toHaveTextContent("Nada foi perdido")
+  })
+
+  it("a aba DLQ explica que destino fora do ar não manda nada para lá", async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText("Splunk HEC Prod")).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("tab", { name: /DLQ/i }))
+    expect(
+      await screen.findByText(/Destino fora do ar não manda nada para cá/),
+    ).toBeInTheDocument()
   })
 })
 

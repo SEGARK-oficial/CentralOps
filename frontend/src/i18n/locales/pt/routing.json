@@ -191,8 +191,8 @@
       "rejectedPerMin": "rejeitados/min",
       "avgLatency": "latência média (s)",
       "noRecentTraffic": "Sem tráfego recente neste destino.",
-      "queueDepth": "fila: {{value}}",
-      "backpressure": "backpressure: {{value}}"
+      "parkedTitle": "Esperando o destino voltar",
+      "parkedBody": "{{batches}} lote(s), {{events}} evento(s), estacionados desde {{since}}. O destino está fora do ar ou recusando; os lotes saem sozinhos, na ordem, quando ele voltar. Nada foi perdido."
     },
     "statusLabels": {
       "healthy": "Saudável",
@@ -219,7 +219,8 @@
       "reprocessAllDescriptionEmpty": "Reprocessar eventos da DLQ deste destino.",
       "reprocessEntryTitle": "Reprocessar evento",
       "reprocessEntryDescription": "Reprocessar somente o evento {{eventId}}? Ele será reenfileirado para entrega.",
-      "noPayload": "(sem payload)"
+      "noPayload": "(sem payload)",
+      "onlyRejections": "Aqui ficam só os eventos que o destino recusou de vez (formato, tamanho, permissão). Destino fora do ar não manda nada para cá: os lotes esperam no estacionamento e saem sozinhos quando ele volta."
     },
     "tap": {
       "title": "Data-tap ao vivo (eventos recentes, redigido)",

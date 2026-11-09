@@ -8,7 +8,6 @@ o pipeline resolve o mapping v1 da definição recém-criada.
 
 from __future__ import annotations
 
-import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -137,16 +136,15 @@ def setup(monkeypatch):
     monkeypatch.setattr(_db_module, "SessionLocal", TestingSession)
     monkeypatch.setattr(_db_module, "engine", engine)
 
-    server = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    # O ingest grava no tópico raw (ADR-0018); aqui o produce vira uma lista.
+    server: dict = {}
 
-    async def fake_redis_client():
-        return server
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
+        server.setdefault((integration_id, stream), []).extend(events)
+        return len(events)
 
-    async def _noop_aclose(*a, **k):
-        return None
-
-    server.aclose = _noop_aclose
-    monkeypatch.setattr(ingest_router, "_redis_client", fake_redis_client)
+    # O router importa ``produce_raw_async`` pelo nome: troca-se lá.
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
 
     rescheduled: list = []
     monkeypatch.setattr(scheduler_mod, "register_integration_in_beat", lambda iid: rescheduled.append(iid))
@@ -206,7 +204,8 @@ def test_fluxo_criar_stream_ingerir_e_resolver_mapping(setup):
     assert r.status_code == 200, r.text
     assert r.json()["accepted"] == 2
     info = client.get(f"/api/ingest/integrations/{integ_id}").json()
-    assert "http-fw" in info["streams"] and info["buffer_depth"] == 2
+    assert "http-fw" in info["streams"]
+    assert [e["srcip"] for e in server[(integ_id, "http-fw")]] == ["10.0.0.1", "10.0.0.2"]
 
     # O pipeline resolve o mapping v1 pelo (platform, event_type) do collector.
     reg = registry.get("custom_json", "http-fw")

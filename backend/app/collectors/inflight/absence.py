@@ -115,6 +115,14 @@ def stream_pinned_by(clauses: Any) -> Optional[str]:
 # ── metade 1: presença, no flush ─────────────────────────────────────────
 
 
+def _as_ts(value: Any) -> int:
+    """Valor de ``HMGET`` (bytes/str/int) como epoch; ilegível vale 0."""
+    try:
+        return int(value.decode() if isinstance(value, bytes) else value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def apply_absence_presence(
     acc: "InflightAccumulator", organization_id: int, *, now: Optional[float] = None
 ) -> int:
@@ -137,6 +145,8 @@ def apply_absence_presence(
     motor, e não alerta falso.
     """
     ts = int(time.time() if now is None else now)
+    # Backfill grava presença, nunca batimento (``InflightAccumulator.heartbeat``).
+    heartbeat = bool(getattr(acc, "heartbeat", True))
 
     seen_now: dict[int, dict[str, int]] = {}
     rules: dict[int, Any] = dict(getattr(acc, "absence_rules", {}) or {})
@@ -150,7 +160,13 @@ def apply_absence_presence(
             token = key.rsplit(":", 1)[-1]
         rid = int(rule.rule_id)
         rules.setdefault(rid, rule)
-        seen_now.setdefault(rid, {})[str(token)] = ts
+        # Horário do evento mais novo da chave (ADR-0018 Onda 3d), nunca depois
+        # do batimento. Item sem ``seen_at`` (chamador antigo) vale o batimento.
+        seen_at = item.get("seen_at")
+        seen_ts = ts if seen_at is None else min(int(seen_at), ts)
+        tok = str(token)
+        bucket = seen_now.setdefault(rid, {})
+        bucket[tok] = max(bucket.get(tok, seen_ts), seen_ts)
         del acc.pending[key]
 
     if not rules:
@@ -185,11 +201,22 @@ def apply_absence_presence(
             mapping: dict[str, int] = {}
             budget = max(0, cap - hlen)
             over = 0
+            seen = seen_now.get(rid, {})
+            # Chave NOVA vista só em evento mais velho que o esquecimento: o tique
+            # a esqueceria no ato. Não entra na vigília nem gasta vaga do teto.
+            forget = int(getattr(rule, "forget_seconds", 0) or 0) or 3 * int(
+                getattr(rule, "window_seconds", 0) or 0
+            )
             for token, present in zip(tokens, existing):
+                seen_ts = seen.get(token, ts)
                 if present is not None:
-                    mapping[token] = ts
+                    # Nunca recua: um evento antigo (backfill, processor atrasado)
+                    # não pode fazer a chave parecer calada há mais tempo.
+                    mapping[token] = max(_as_ts(present), seen_ts)
+                elif forget and ts - seen_ts > forget:
+                    continue
                 elif budget > 0:
-                    mapping[token] = ts
+                    mapping[token] = seen_ts
                     budget -= 1
                 else:
                     over += 1
@@ -206,9 +233,10 @@ def apply_absence_presence(
             ttl = int(getattr(rule, "forget_seconds", 0) or 0) + _STATE_TTL_SLACK
             if mapping:
                 pipe.hset(seen_key(organization_id, rid), mapping=mapping)
-            pipe.hset(meta_key(organization_id, rid), "last_cycle", ts)
+            if heartbeat:
+                pipe.hset(meta_key(organization_id, rid), "last_cycle", ts)
+                pipe.expire(meta_key(organization_id, rid), ttl)
             pipe.expire(seen_key(organization_id, rid), ttl)
-            pipe.expire(meta_key(organization_id, rid), ttl)
         pipe.execute()
     except Exception:  # noqa: BLE001 — Redis fora: a coleta nunca cai (R3)
         for rid in rules:

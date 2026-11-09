@@ -21,7 +21,9 @@ em single-host**.
 ## Pré-requisitos
 
 - **Docker** 24+ e o plugin **Docker Compose** v2 (`docker compose version`).
-- ~2 vCPU / 4 GB de RAM para começar.
+- ~2 vCPU / 4 GB de RAM para começar. O compose sobe um Redpanda local, que é o
+  caminho de todo evento (coleta → processamento → entrega); para volume, veja
+  **[Dimensionamento](./kubernetes.md#dimensionamento)**.
 - Portas livres no host: **3000** (HTTP) e **3443** (HTTPS).
 
 ## Passo a passo

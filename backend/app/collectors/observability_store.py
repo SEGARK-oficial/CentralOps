@@ -19,7 +19,7 @@ latency_sum, latency_count, routed, dropped, matched, ...}. Cardinality is bound
 (1 key per active destination/route × metric); event_id is NEVER part of a key.
 
 ALL writes are best-effort (never raise into the hot path). The client is a
-fork-safe cached SYNC redis (mirrors load_shedder) so producer (sync) and worker
+fork-safe cached SYNC redis so producer (sync) and worker
 (async, via asyncio.to_thread) and the API (async, via to_thread) share one path.
 """
 

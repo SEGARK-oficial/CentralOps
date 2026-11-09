@@ -339,7 +339,7 @@ export const IngestSourcePanel: React.FC<IngestSourcePanelProps> = ({ integratio
             <RadioTowerIcon size={15} className="text-primary-600" /> {t("ingest.title")}
           </h3>
           <p className="text-xs text-text-secondary">
-            {t("ingest.bufferDepth", { count: info.buffer_depth })}
+            {t("ingest.pushIntro")}
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">

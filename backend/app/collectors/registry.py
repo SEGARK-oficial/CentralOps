@@ -254,11 +254,10 @@ class PlatformRegistration:
     # "pull"  → o framework agenda ``run_collection_once`` e o collector PUXA do
     #           vendor via API (Sophos/Wazuh/Okta/…). É o default histórico.
     # "push"  → a fonte EMPURRA eventos (syslog/WEC/agente) para o endpoint
-    #           ``POST /api/ingest/...``, que os bufferiza no Redis; um collector
-    #           virtual (``PushBufferCollector``) drena o buffer no mesmo
-    #           ``run_collection_once`` (reaproveita normalize→dedupe→dispatch). A
-    #           UI renderiza token de ingestão + endpoint + snippet de edge-collector
-    #           em vez de credenciais de poll.
+    #           ``POST /api/ingest/...`` (ou o receptor syslog), que os grava no
+    #           tópico raw; o ``processor`` faz o resto. Sem ciclo agendado (ver
+    #           ``is_push_platform``). A UI renderiza token de ingestão + endpoint
+    #           + snippet de edge-collector em vez de credenciais de poll.
     transport: str = "pull"
     # ── Assistente de onboarding de credencial ──────────────────────────
     # Chave de um fluxo de configuração que a UI mostra junto dos auth_fields
@@ -377,6 +376,13 @@ def register_platform(reg: PlatformRegistration) -> None:
 
 def get_platform(platform: str) -> Optional[PlatformRegistration]:
     return _PLATFORM_REGISTRY.get(platform)
+
+
+def is_push_platform(platform: str) -> bool:
+    """True quando a plataforma EMPURRA eventos (``transport="push"``): não tem
+    ciclo de coleta agendado — o ingest e o receptor syslog gravam direto no raw."""
+    reg = _PLATFORM_REGISTRY.get(platform)
+    return reg is not None and reg.transport == "push"
 
 
 def all_platforms() -> List[PlatformRegistration]:

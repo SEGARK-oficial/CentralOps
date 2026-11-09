@@ -130,7 +130,7 @@ O CentralOps só responde 200 depois que os eventos estão gravados no data-plan
 | Lote gravado | 200 | conta como entregue |
 | Token errado ou revogado | 401 | re-tenta e depois grava no backup |
 | Stream que a integração não tem | 404 | re-tenta e depois grava no backup |
-| Data-plane fora do ar ou buffer cheio | 503 | re-tenta até o data-plane voltar |
+| Data-plane (tópico raw) fora do ar | 503 | re-tenta até o data-plane voltar |
 | Lote grande demais (corpo acima de 16 MiB, mais de 64 MiB descompactado, ou mais de 50.000 eventos) | 500 com a instrução de baixar o buffer | re-tenta e depois grava no backup |
 
 O CentralOps **nunca responde 413** ao Firehose. Para o Firehose, 413 é falha permanente e o lote **não** vai para o backup. Se a mensagem "lote grande demais" aparecer nos logs de erro do stream, baixe o **buffer size**.
@@ -153,5 +153,5 @@ Sem id nativo, a chave é o hash do conteúdo do evento.
 ## Limitações
 
 - **Security Hub novo (OCSF).** Só entra o formato ASFF ("Security Hub Findings - Imported"). Os achados que o Security Hub novo já entrega em OCSF não casam com o mapping e vão para a quarentena.
-- **Sem teste de conexão.** A integração não tem credencial para testar. Ela está funcionando quando os eventos chegam, e a profundidade do buffer aparece no painel de ingestão.
+- **Sem teste de conexão.** A integração não tem credencial para testar. Ela está funcionando quando os eventos chegam. No Firehose, as métricas de entrega do stream e os logs de erro do destino mostram cada recusa com a mensagem do CentralOps.
 - **Região dos log events do CloudWatch.** A região é a do stream do Firehose, porque o envelope do CloudWatch Logs não a informa.

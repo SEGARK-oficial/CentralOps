@@ -27,8 +27,11 @@ def test_result_backend_still_configured_for_opt_in() -> None:
 
 
 def test_dispatch_tasks_do_not_opt_into_storing_results() -> None:
-    """Tasks de despacho herdam o default do app (não gravam result próprio)."""
-    for name in ("collectors.dispatch_to_destination", "collectors.dispatch_to_dlq"):
+    """Tasks de despacho herdam o default do app (não gravam result próprio).
+
+    ``dispatch_to_destination``/``dispatch_to_dlq`` saíram com a lane Celery
+    (ADR-0018 Onda 5); a única task de despacho que sobra é o reenvio da DLQ."""
+    for name in ("collectors.drain_destination_dlq",):
         task = celery_app.tasks.get(name)
         assert task is not None, f"task {name} deve estar registrada"
         # ignore_result no nível da task: None => herda o conf (True). Garantimos

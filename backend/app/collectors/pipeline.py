@@ -26,6 +26,7 @@ import ssl
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
@@ -36,7 +37,7 @@ from sqlalchemy.orm import selectinload
 from ..core.config import settings
 from ..db import database, models
 
-from . import quarantine
+from . import config_snapshot, quarantine
 from .auth.oauth_cache import get_or_refresh_token, invalidate as invalidate_token
 from .base import CollectorContext
 # Import no TOPO, não dentro da função: ``likely_no_session`` é chamado POR EVENTO
@@ -71,14 +72,9 @@ from .normalize.engine import (
 from .normalize.envelope import EnvelopeContext, build_envelope, has_customer_id
 from .rate_limit_redis import RedisRateLimiter
 from .registry import get as registry_get, has as registry_has
+from .registry import is_push_platform as registry_is_push
 from .state.cursor import CursorStore
-from .state.dedupe import (
-    claim,
-    compute_message_id,
-    pending_set_key,
-    recover_orphan_claims,
-    settle_pending,
-)
+from .state.dedupe import compute_message_id
 
 logger = logging.getLogger(__name__)
 
@@ -847,10 +843,8 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
     perda de dado — o cursor continua sendo a fonte da verdade e a dedupe
     absorve a borda re-buscada.
 
-    Abre o span RAIZ ``collect.cycle`` do trace distribuído. Os
-    ``_enqueue_dispatch`` rodam DENTRO deste escopo, então ``tracing.carrier()``
-    captura este contexto e a task de dispatch vira filha do ciclo (cross-process).
-    No-op quando OTEL_ENABLED off.
+    Abre o span RAIZ ``collect.cycle`` do trace distribuído; o produce no tópico
+    raw roda dentro dele. No-op quando OTEL_ENABLED off.
     """
     import uuid as _uuid
 
@@ -920,197 +914,334 @@ async def run_collection_once(integration_id: int, stream: str) -> None:
                 pass
 
 
-#: Escopo extra do conjunto de claims pendentes. O ``processor`` do tópico raw
-#: (ADR-0018 Onda 2) roda ciclos SEM a trava do stream — vários processadores podem
-#: tratar o mesmo (integração, stream) em partições diferentes — e define o escopo
-#: como a partição: cada partição tem um único consumidor por vez, então a
-#: recuperação de claims órfãs no início do ciclo só toca claims daquela partição.
-PENDING_SCOPE: "ContextVar[str]" = ContextVar("collect_pending_scope", default="")
+@dataclass
+class _CycleIntegration:
+    """O que os dois estágios leem da integração, carregado 1× por ciclo/lote."""
+
+    integration: Any  # ORM expurgado da sessão (só leitura)
+    platform: str
+    organization_id: Optional[int]
+    organization_name: Optional[str]
+    organization_slug: Optional[str]
+    data_geography: Optional[str]
 
 
-async def _run_collection_once(integration_id: int, stream: str) -> None:
-    # Cada task cria e fecha seu próprio cliente Redis efêmero.
-    # Pool compartilhado foi revertido: ConnectionPool async
-    # vincula coroutines ao loop de criação; tasks Celery prefork abrem
-    # um loop por task via asyncio.run() → "Event loop is closed".
-    from .celery_app import get_worker_redis
+def _load_cycle_integration(integration_id: int, stream: str) -> Optional[_CycleIntegration]:
+    """Carrega a integração ATIVA e coletável, ou None (o motivo vai ao log).
 
-    redis = get_worker_redis()
-    redis_owns = True  # sempre efêmero — fechar no finally é obrigatório
-
-    # ADR-0018 Onda 0 — claims ÓRFÃS de um ciclo morto. Este ciclo roda com a
-    # trava do stream, então nenhum outro está reivindicando: o que sobrou no
-    # conjunto de pendentes é de um ciclo que levou SIGKILL/OOM/hard-timeout sem
-    # passar pelo ``finally``. Soltar ANTES de coletar faz os eventos re-buscados
-    # (o cursor não avançou) serem processados em vez de descartados como
-    # duplicados. Best-effort: Redis fora → a coleta falha adiante de todo jeito.
-    _scope = PENDING_SCOPE.get()
-    _pending_set = pending_set_key(integration_id, f"{stream}:{_scope}" if _scope else stream)
-    try:
-        _orphans = await recover_orphan_claims(redis, integration_id, _pending_set)
-        if _orphans:
+    Session efêmera, fechada antes de qualquer I/O de coleta."""
+    with database.SessionLocal() as db:
+        integration = db.scalar(
+            select(models.Integration)
+            .where(models.Integration.id == integration_id)
+            .options(selectinload(models.Integration.organization))
+        )
+        if not integration or not integration.is_active:
             logger.warning(
-                "dedupe: %d claim(s) órfã(s) de um ciclo interrompido soltas "
-                "(integration=%s stream=%s) — eventos serão reprocessados",
-                _orphans, integration_id, stream,
+                "integration inativa ou inexistente",
                 extra={
-                    "event": "dedupe.orphan_claims_recovered",
+                    "event": "collection.skip_inactive",
                     "integration_id": integration_id,
-                    "stream": stream,
-                    "recovered": _orphans,
                 },
             )
-    except Exception:  # noqa: BLE001 — nunca bloqueia a coleta
-        logger.warning(
-            "dedupe: recuperação de claims órfãs falhou (integration=%s stream=%s)",
-            integration_id, stream, exc_info=True,
-        )
-
-    cursor_store = CursorStore(redis)
-    cursor_before: Optional[Dict[str, Any]] = None
-    events_count = 0
-    # Hardening data-plane: no modo kafka a claim de dedupe (Redis) e o hand-off
-    # durável (produce no Kafka) são sistemas SEPARADOS. Se o run falhar, as
-    # claims tomadas são SOLTAS no except final para o retry re-reclamar —
-    # senão um produce que falhou deixaria o evento reclamado-mas-não-entregue
-    # e o reprocesso o descartaria como "duplicado" (perda silenciosa).
-    # Definidos AQUI (antes do try): o except final os referencia — exceção nos
-    # passos 1–3 (antes do loop de coleta) virava UnboundLocalError e mascarava
-    # o erro original (incidente jul/2026).
-    # ADR-0015 Fase 2 — compensação de claim de dedupe, agora INCONDICIONAL.
-    # Antes era gated por ``EVENT_DATAPLANE == "kafka"``, o que deixava o
-    # data-plane DEFAULT sem nenhuma compensação: um run que falhasse vazava
-    # TODAS as claims tomadas até o TTL, e o retry re-via os eventos, ``claim``
-    # devolvia False e eles eram descartados como "duplicados" — PERDA
-    # SILENCIOSA de log de segurança. A claim é um risco do PIPELINE, não do
-    # transporte.
-    #
-    # Guarda apenas o NÃO-LIQUIDADO: cada id sai do conjunto assim que
-    # ``_enqueue_dispatch`` retorna (hand-off durável feito). Num run
-    # bem-sucedido o conjunto termina VAZIO e o release é no-op. Memória
-    # limitada a ~``collector_batch_size``.
-    unsettled_claims: set[str] = set()
-    batch_msg_ids: list[str] = []
-    # Buffer PARALELO ao ``batch``, para os desfechos de coleta (received/deduped).
-    # Não pode ser o próprio ``batch``: o dedupe faz ``continue`` antes dele, e um
-    # evento deduplicado nunca chega lá. Instanciado ANTES do try (mesmo padrão de
-    # ``unsettled_claims``) para o ``finally`` conseguir dar o flush final.
-    capture_buf: list = []
-    # Contexto do flush, resolvido só depois de carregar a integração. Existe
-    # desde AQUI porque o ``finally`` roda mesmo quando a falha é anterior a
-    # isso (ex.: banco fora do ar) — ler ``organization_id`` direto ali daria
-    # UnboundLocalError e MASCARARIA o erro original, que é exatamente o que
-    # ``test_early_db_failure_reraises_original_error`` existe para impedir.
-    capture_ctx: Dict[str, Any] = {"org_id": None, "vendor": None}
-    # metering IN batched (ADR-0011): acumula (eventos, bytes) por
-    # (org, integração) e faz flush a cada 500 eventos/15s — o record_in
-    # por-evento fazia 4 pipelines Redis SÍNCRONOS por evento e bloqueava o
-    # event loop (~0,8ms/evento). Instanciado ANTES do try (padrão
-    # unsettled_claims): o finally faz o flush FINAL best-effort mesmo em
-    # exceção/soft-timeout, sem mascarar o erro original.
-    _metering_in = metering.InVolumeAccumulator()
-    # ADR-0015 Fase 1 — MESMO padrão e MESMO motivo de ``unsettled_claims`` acima:
-    # o ``finally`` referencia estes nomes, e uma exceção nos passos 1-3 (antes
-    # da carga das regras) os deixaria unbound, transformando o flush num
-    # ``UnboundLocalError`` que MASCARARIA o erro original. Foi exatamente essa
-    # a forma do incidente de jul/2026 registrado no comentário acima.
-    _inflight_rules = _EMPTY_RULESET
-    _inflight_acc = None
-    _inflight_logged = False
-    _inflight_org_id: Optional[int] = None
-    from .inflight.runtime import flush_inflight
-
-    # ADR-LOCAL-0002 — MESMA razão, uma linha acima, e verificada da pior forma:
-    # inicializar estes nomes DEPOIS da resolução da org (dentro do try) fez
-    # ``test_pipeline_early_failure_reraise`` e ``test_cost_metering_batching``
-    # falharem com ``UnboundLocalError: _enrich_stats``, que é precisamente o
-    # mascaramento do erro original descrito acima. O comentário existia; o bug
-    # foi reintroduzido assim mesmo. Por isso o guard de posição em
-    # ``tests/test_adr_local_0002_enrich.py`` compara ÍNDICES, não só presença.
-    _enrich_policy = None
-    _enrich_local_res = None
-    _enrich_stats = None
-    _enrich_runtime = None
-    _enrich_apply = None
-    _emit_enrich_stats = None
-    # Contabilidade dos bytes ACRESCENTADOS (ADR-LOCAL-0002, Fase 0). Instanciado
-    # incondicionalmente e ANTES do try, como ``_metering_in``: o ``finally`` o
-    # flusha. Sem esta contabilidade o enriquecimento derruba ``reduction_pct``
-    # sem nenhum termo que explique a piora — que é precisamente o motivo de a
-    # Fase 0 ter vindo antes da Fase 1 no ADR.
-    _metering_added = metering.AddedVolumeAccumulator()
-    # Fim de ciclo (ack/nack de fonte de fila): o ``except`` chama
-    # ``on_cycle_aborted`` no coletor, e a falha pode vir ANTES de ele existir
-    # (token, mapping). Mesmo racional dos nomes acima: sem este None antes do
-    # try, o ``except`` levantaria ``UnboundLocalError`` e mascararia o erro.
-    collector: Optional[Any] = None
-
-    try:
-        # ── 1. Carrega Integration (session efêmera) ──────────────────
-        with database.SessionLocal() as db:
-            integration = db.scalar(
-                select(models.Integration)
-                .where(models.Integration.id == integration_id)
-                .options(selectinload(models.Integration.organization))
+            return None
+        # Partner/Organization são agregadores — não possuem streams
+        # tenant-scoped (alerts/cases/detections). Defesa-em-profundidade:
+        # mesmo que um caller upstream falhe em checar kind, esta guarda
+        # impede coleta acidental de dados cruzados.
+        if integration.kind in ("partner", "organization"):
+            logger.info(
+                "collection: pulando partner/org integration_id=%s kind=%s stream=%s",
+                integration_id,
+                integration.kind,
+                stream,
+                extra={
+                    "event": "collection.skip_partner_org",
+                    "integration_id": integration_id,
+                    "stream": stream,
+                },
             )
-            if not integration or not integration.is_active:
-                logger.warning(
-                    "integration inativa ou inexistente",
-                    extra={
-                        "event": "collection.skip_inactive",
-                        "integration_id": integration_id,
-                    },
-                )
-                return
-            # Partner/Organization são agregadores — não possuem streams
-            # tenant-scoped (alerts/cases/detections). Defesa-em-profundidade:
-            # mesmo que um caller upstream falhe em checar kind, esta guarda
-            # impede coleta acidental de dados cruzados.
-            if integration.kind in ("partner", "organization"):
-                logger.info(
-                    "collection: pulando partner/org integration_id=%s kind=%s stream=%s",
-                    integration_id,
-                    integration.kind,
-                    stream,
-                    extra={
-                        "event": "collection.skip_partner_org",
-                        "integration_id": integration_id,
-                        "stream": stream,
-                    },
-                )
-                return
-            platform = integration.platform
-            organization_id = integration.organization_id
-            capture_ctx["org_id"] = organization_id
-            capture_ctx["vendor"] = platform
-            organization_name: Optional[str] = (
-                integration.organization.name
-                if integration.organization is not None
-                else None
-            )
+            return None
+        org = integration.organization
+        view = _CycleIntegration(
+            integration=integration,
+            platform=integration.platform,
+            organization_id=integration.organization_id,
+            organization_name=org.name if org is not None else None,
             # Slug, não nome, é o que serve de RÓTULO estável no destino.
             # ``name`` é editável pelo operador e um rename mudaria o rótulo de
             # todo evento novo, partindo o histórico do lado do consumidor sem
             # aviso. O slug é único, indexado e não muda por renomeação de
             # fachada. Ver ``row_fields_from`` em ``output/payload_shape.py``.
-            organization_slug: Optional[str] = (
-                integration.organization.slug
-                if integration.organization is not None
-                else None
-            )
+            organization_slug=org.slug if org is not None else None,
             # data_geography da integração (Sophos dataRegion ou
             # campo manual). Propagada no envelope para enforcement de residência.
-            integration_data_geography: Optional[str] = getattr(
-                integration, "data_geography", None
-            )
-            # ``customer_id`` do envelope é o ``Organization.id``
-            # INTERNO — a entrega de eventos NÃO depende mais da identidade do
-            # IRIS. O mapeamento Organization → customer id externo (IRIS/SOAR)
-            # vive em ``destination_customer_mappings`` e é resolvido só na borda
-            # do connector daquele destino. Sem org → None → quarentena legítima
-            # (evento sem tenant), não mais "missing IRIS id".
-            envelope_customer_id: Optional[int] = organization_id
-            db.expunge(integration)
+            data_geography=getattr(integration, "data_geography", None),
+        )
+        db.expunge(integration)
+    return view
+
+
+def _registration_for(platform: str, stream: str) -> Optional[Any]:
+    if not registry_has(platform, stream):
+        logger.error(
+            "collector não registrado",
+            extra={
+                "event": "collection.unregistered_collector",
+                "platform": platform,
+                "stream": stream,
+            },
+        )
+        return None
+    return registry_get(platform, stream)
+
+
+def _resolve_message_id(collector: Any, raw_event: Dict[str, Any]) -> str:
+    """Id de dedupe do evento: o nativo do vendor, ou o hash do conteúdo."""
+    return collector.extract_message_id(raw_event) or compute_message_id(raw_event)
+
+
+async def _raise_vendor_auth_error(
+    exc: "aiohttp.ClientResponseError", redis: Any, integration_id: int, stream: str, platform: str
+) -> None:
+    # Recovery de 401 in-flight: invalida cache OAuth e propaga
+    # como ``VendorAuthError`` para o retry do Celery pegar token
+    # fresco. Sem isso, um token velho fica no cache do Redis até
+    # expirar o TTL (~1h) e causa 401 contínuo.
+    if exc.status == 401:
+        logger.warning(
+            "vendor retornou 401; invalidando cache OAuth",
+            extra={
+                "event": "collection.vendor_auth_error",
+                "integration_id": integration_id,
+                "stream": stream,
+            },
+        )
+        try:
+            await invalidate_token(redis, integration_id)
+        except Exception:  # pragma: no cover
+            logger.exception("pipeline: falha ao invalidar cache oauth")
+        raise VendorAuthError(integration_id, platform) from exc
+    raise exc
+
+
+async def _commit_cycle(
+    cursor_store: CursorStore,
+    collector_cls: Any,
+    ctx: CollectorContext,
+    collector: Any,
+    integration_id: int,
+    stream: str,
+    events_count: int,
+) -> None:
+    """Fim de ciclo bem-sucedido: grava o cursor e só então confirma à fonte.
+
+    A série obs:source:{id}:ingested é gravada INCREMENTALMENTE, junto de
+    cada flush de lote, para cair no minuto em que o evento realmente fluiu —
+    não há gravação de total aqui, que era o que deslocava um ciclo inteiro
+    para o minuto de encerramento."""
+    # ── 5. Persiste cursor final (RF02) ───────────────────────────
+    # Atraso REAL do stream: até onde o cursor consumiu na linha do tempo do
+    # FORNECEDOR. Só o coletor sabe traduzir o cursor (que é opaco ao core);
+    # ``watermark_at`` devolve None quando o cursor não é temporal, e aí o
+    # indicador é omitido em vez de inventado.
+    _watermark = None
+    try:
+        _watermark = collector_cls.watermark_at(ctx.cursor)
+    except Exception:  # pragma: no cover — nunca derruba o ciclo por métrica
+        logger.warning(
+            "collect: watermark_at falhou (integration=%s stream=%s)",
+            integration_id, stream, exc_info=True,
+        )
+    await cursor_store.save(
+        integration_id,
+        stream,
+        ctx.cursor or {},
+        events_collected=events_count,
+        error=None,
+        watermark_at=_watermark,
+        last_run_capped=bool(ctx.hit_cycle_cap),
+    )
+    CURSOR_LAG.labels(
+        integration_id=str(integration_id), stream=stream
+    ).set(0.0)
+    if _watermark is not None:
+        WATERMARK_LAG.labels(
+            integration_id=str(integration_id), stream=stream
+        ).set(max((datetime.utcnow() - _watermark).total_seconds(), 0.0))
+    logger.info(
+        "collection ok",
+        extra={
+            "event": "collection.complete",
+            "integration_id": integration_id,
+            "stream": stream,
+            "events_count": events_count,
+        },
+    )
+    # Por último: só depois do cursor gravado a fonte pode esquecer o que
+    # entregou (ack). Antes disso, uma falha deixaria a fila sem o evento e o
+    # cursor sem a posição.
+    await _notify_cycle_committed(collector, integration_id, stream)
+
+
+async def _fail_cycle(
+    exc: BaseException,
+    cursor_store: CursorStore,
+    cursor_before: Optional[Dict[str, Any]],
+    collector: Optional[Any],
+    integration_id: int,
+    stream: str,
+) -> None:
+    """Ciclo com erro: o cursor NÃO avança (o retry re-busca) e a fonte de fila
+    é avisada para não confirmar. Best-effort: nada aqui mascara o erro original,
+    que o chamador re-lança."""
+    logger.exception(
+        "collection falhou",
+        extra={
+            "event": "collection.error",
+            "integration_id": integration_id,
+            "stream": stream,
+        },
+    )
+    try:
+        await cursor_store.save(
+            integration_id,
+            stream,
+            cursor_before or {},
+            events_collected=0,
+            error=str(exc)[:1000],
+        )
+    except Exception:  # pragma: no cover
+        logger.exception("collection: falha ao persistir cursor de erro")
+    await _notify_cycle_aborted(collector, integration_id, stream)
+
+
+class StreamProcessor:
+    """Estágio de PROCESSAMENTO de um (integração, stream) — ADR-0018 Onda 3.
+
+    Tudo o que vem depois da coleta: dedupe, normalização, validação OCSF,
+    supressão, enriquecimento, classificação em voo, roteamento e hand-off ao
+    data-plane. Antes vivia dentro de ``_run_collection_once``; agora o ciclo
+    inline e o papel ``processor`` (tópico raw) chamam o MESMO código, sem cópia.
+
+    Uso: ``open`` → ``load_mapping`` → ``process`` por evento → ``flush`` →
+    ``close`` num ``finally`` (sempre, inclusive em erro).
+
+    Todo estado por lote é atributo criado no ``__init__``, ANTES de qualquer I/O.
+    É a mesma invariante que o ciclo mantinha inicializando os nomes antes do
+    ``try``: o ``close`` os referencia mesmo quando a falha é anterior à carga
+    (banco fora do ar), e um nome inexistente ali MASCARARIA o erro original
+    (incidente jul/2026; ``test_early_db_failure_reraises_original_error``).
+    """
+
+    def __init__(
+        self,
+        integration_id: int,
+        stream: str,
+        redis: Any,
+        dedupe: Any,
+        historical: bool = False,
+    ) -> None:
+        self.integration_id = integration_id
+        self.stream = stream
+        self.redis = redis
+        # Backfill (ADR-0018 Onda 3d): o lote é PASSADO. A classificação em voo
+        # roda igual, mas o flush não grava o batimento da ausência — quem diz
+        # "estou olhando a fonte agora" é só o processamento ao vivo.
+        self._historical = historical
+        # Janela de dedupe em memória da partição do raw (ADR-0018 Onda 3c):
+        # claim, liquidação e devolução sem I/O. A chave Redis por evento com TTL
+        # de 24 h e o conjunto de pendentes saíram na Onda 5.
+        self._dedupe = dedupe
+        self.events_count = 0
+        # ADR-0015 Fase 2 — compensação de claim de dedupe. Guarda apenas o
+        # NÃO-LIQUIDADO: cada id sai do conjunto assim que ``_enqueue_dispatch``
+        # retorna (hand-off durável feito); o ``close`` devolve o resto à janela,
+        # senão a reentrega do Kafka o descartaria como "duplicado" — perda
+        # silenciosa. Memória limitada a ~``collector_batch_size``.
+        self.unsettled_claims: set[str] = set()
+        self.batch_msg_ids: list[str] = []
+        # Buffer PARALELO ao ``batch``, para os desfechos de coleta (received/deduped).
+        # Não pode ser o próprio ``batch``: o dedupe sai antes dele, e um evento
+        # deduplicado nunca chega lá.
+        self.capture_buf: list = []
+        # Contexto do flush, resolvido só depois de carregar a integração.
+        self.capture_ctx: Dict[str, Any] = {"org_id": None, "vendor": None}
+        # metering IN batched (ADR-0011): acumula (eventos, bytes) por
+        # (org, integração) e faz flush a cada 500 eventos/15s — o record_in
+        # por-evento fazia 4 pipelines Redis SÍNCRONOS por evento e bloqueava o
+        # event loop (~0,8ms/evento). O ``close`` faz o flush FINAL best-effort
+        # mesmo em exceção/soft-timeout, sem mascarar o erro original.
+        self._metering_in = metering.InVolumeAccumulator()
+        # ADR-0015 Fase 1 — classificação em voo.
+        self._inflight_rules = _EMPTY_RULESET
+        self._inflight_acc = None
+        self._inflight_logged = False
+        self._inflight_org_id: Optional[int] = None
+        # ADR-LOCAL-0002 — enriquecimento. O guard de posição em
+        # ``tests/test_adr_local_0002_enrich.py`` exige estes nomes no __init__.
+        self._enrich_policy = None
+        self._enrich_local_res = None
+        self._enrich_stats = None
+        self._enrich_runtime = None
+        self._enrich_apply = None
+        self._emit_enrich_stats = None
+        # Contabilidade dos bytes ACRESCENTADOS (ADR-LOCAL-0002, Fase 0). Sem ela
+        # o enriquecimento derruba ``reduction_pct`` sem nenhum termo que
+        # explique a piora.
+        self._metering_added = metering.AddedVolumeAccumulator()
+        # Efeitos colaterais por evento que viraram UMA gravação por lote
+        # (ADR-0018 Onda 3c): bytes evitados pelo trim, amostras do reservoir
+        # e amostras de drift.
+        self._metering_saved = metering.SavedVolumeAccumulator()
+        self._samples: list[Dict[str, Any]] = []
+        self._drift_buf: list[Dict[str, Any]] = []
+        self.organization_id: Optional[int] = None
+        self.platform: Optional[str] = None
+        self.integration: Optional[Any] = None
+        self.registration: Optional[Any] = None
+        self.collector_cls: Optional[Any] = None
+        self.event_type: Optional[str] = None
+        self.config: Optional[Any] = None
+        self.mapping_current: Optional[Any] = None
+        # ── Lote em montagem ──────────────────────────────────────────
+        self.batch: list[Dict[str, Any]] = []
+        # Veredito de supressão POR ROTA do lote corrente: event_id → rotas que
+        # o suprimiram. Viaja até o route_batch (ADR-0018 Onda 0).
+        self.batch_suppressed: Dict[str, "frozenset[str]"] = {}
+        self.last_flush = time.monotonic()
+
+    async def open(self) -> bool:
+        """Carrega a integração e as regras do lote (rotas, OCSF, supressão,
+        classificação em voo, enriquecimento). False = nada a processar:
+        integração inativa/agregadora ou coletor não registrado."""
+        integration_id, stream, redis = self.integration_id, self.stream, self.redis
+        # ── 1. Carrega Integration (session efêmera) ──────────────────
+        # No processor, cada leitura de configuração deste método passa pelo
+        # snapshot com last-known-good (``config_snapshot``, ADR-0018 Onda 3b):
+        # servida da memória dentro do TTL e, com o banco fora, a última versão
+        # boa. Sem snapshot ativo (ciclo inline) é a leitura direta de sempre.
+        view = config_snapshot.read(
+            "integration", (integration_id, stream),
+            lambda: _load_cycle_integration(integration_id, stream),
+        )
+        if view is None:
+            return False
+        self.integration = view.integration
+        platform = self.platform = view.platform
+        organization_id = self.organization_id = view.organization_id
+        self.capture_ctx["org_id"] = organization_id
+        self.capture_ctx["vendor"] = platform
+        self.organization_name = view.organization_name
+        self.organization_slug = view.organization_slug
+        self.integration_data_geography = view.data_geography
+        # ``customer_id`` do envelope é o ``Organization.id``
+        # INTERNO — a entrega de eventos NÃO depende mais da identidade do
+        # IRIS. O mapeamento Organization → customer id externo (IRIS/SOAR)
+        # vive em ``destination_customer_mappings`` e é resolvido só na borda
+        # do connector daquele destino. Sem org → None → quarentena legítima
+        # (evento sem tenant), não mais "missing IRIS id".
+        self.envelope_customer_id: Optional[int] = organization_id
 
         # resolve as rotas UMA vez por ciclo OFF do event
         # loop (a query sync nunca bloqueia a coleta). O ciclo é mono-tenant
@@ -1120,15 +1251,19 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # AQUI, antes de reivindicar qualquer evento — o ciclo falha visível e
         # re-tenta, nada sai sem as regras (ADR-0018 Onda 0).
         dispatch_routes: list[Any] = await asyncio.to_thread(
-            _load_routes_for_org, organization_id
+            config_snapshot.read, "routes", organization_id,
+            lambda: _load_routes_for_org(organization_id),
         )
+        self.dispatch_routes = dispatch_routes
 
         # resolve a política de enforcement OCSF UMA vez por ciclo
         # (o ciclo é mono-tenant → org fixa; espelha _load_routes_for_org). No-op quando
         # a validação está OFF. Fail-safe interno → default global (tag_and_pass).
-        _ocsf_enforcement: Optional[str] = (
+        self._ocsf_enforcement: Optional[str] = (
             await asyncio.to_thread(
-                ocsf_policy.resolve_enforcement_mode, organization_id
+                config_snapshot.read, "ocsf_enforcement", organization_id,
+                lambda: ocsf_policy.resolve_enforcement_mode(organization_id, strict=True),
+                lambda: ocsf_policy.resolve_enforcement_mode(organization_id),
             )
             if settings.OCSF_VALIDATION_ENABLED
             else None
@@ -1147,7 +1282,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # ``missing_mapping`` não pode consumir o orçamento e esconder o único
         # ``map`` do ciclo — cada razão mantém representação diagnóstica. O total
         # fica limitado a (nº de razões × teto), que é bounded e pequeno.
-        _quarantine_budget_ok = _make_quarantine_budget(integration_id, platform)
+        self._quarantine_budget_ok = _make_quarantine_budget(integration_id, platform)
 
         # pré-filtra as rotas com supressão CONFIGURADA (uma vez por
         # ciclo). Gated pelas flags: sem elas, lista vazia → o check por-evento é pulado
@@ -1161,7 +1296,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # evento em silêncio. A UI desabilita os campos quando a proteção está ligada,
         # o que dava falsa segurança — qualquer rota com ``suppress_allow`` já gravado
         # e protegida depois (ou editada via API/MCP/seed) continuava suprimindo.
-        _suppress_routes = (
+        self._suppress_routes = (
             [
                 r for r in dispatch_routes
                 if getattr(r, "suppress_key", None)
@@ -1178,48 +1313,46 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         # nunca pode impedir a COLETA, que é o produto que se vende.
         #
         # NB: estes imports são de função, mas NÃO são condicionais — o módulo é
-        # resolvido em todo ciclo, com ou sem regras. (``flush_inflight`` é
-        # importado ANTES do try, porque o ``finally`` o referencia.) O custo é
-        # um lookup em ``sys.modules``; o que a ausência de regras economiza é a
-        # avaliação por evento, não o import.
+        # resolvido em todo ciclo, com ou sem regras. O custo é um lookup em
+        # ``sys.modules``; o que a ausência de regras economiza é a avaliação por
+        # evento, não o import.
+        from .inflight import runtime as _inflight_runtime
         from .inflight.matcher import evaluate_ruleset
-        from .inflight.runtime import InflightAccumulator, load_inflight_rules_for_org
+        from .inflight.runtime import InflightAccumulator
 
-        _inflight_org_id = organization_id
-        _inflight_rules = await asyncio.to_thread(
-            load_inflight_rules_for_org, organization_id
+        self._evaluate_ruleset = evaluate_ruleset
+        self._inflight_org_id = organization_id
+        self._inflight_rules = await asyncio.to_thread(
+            config_snapshot.read, "inflight_rules", organization_id,
+            lambda: _inflight_runtime.load_inflight_rules_for_org(organization_id, strict=True),
+            lambda: _inflight_runtime.load_inflight_rules_for_org(organization_id),
         )
         # Instanciado SÓ quando há regra: com a tupla vazia o hot path fica
         # byte-idêntico ao anterior (R2) e o flush é curto-circuitado.
-        _inflight_acc = InflightAccumulator() if _inflight_rules.rules else None
+        self._inflight_acc = InflightAccumulator() if self._inflight_rules.rules else None
+        if self._inflight_acc is not None and self._historical:
+            self._inflight_acc.heartbeat = False
         # Ausência (ADR-0016): o flush precisa saber quais regras de ausência
         # foram CARREGADAS, e não só quais casaram — o batimento do observador
         # (``meta.last_cycle``) sai mesmo num ciclo com zero matches.
-        if _inflight_acc is not None:
-            _inflight_acc.note_rules(_inflight_rules.rules)
+        if self._inflight_acc is not None:
+            self._inflight_acc.note_rules(self._inflight_rules.rules)
 
         # ── Enriquecimento em stream (ADR-LOCAL-0002) ───────────────────────
         # Mesma disciplina dos três irmãos acima: carga 1x por ciclo, OFF do
         # event loop, fail-safe para None.
         #
-        # CUSTO COM A FEATURE DESLIGADA. Antes de a configuração ir para o banco
-        # este comentário dizia "UM lookup em sys.modules por ciclo", e deixou de
-        # ser verdade: agora há também a resolução do snapshot, que é um lookup
-        # em dicionário enquanto o memo do processo está quente (5 s) e um GET no
-        # Redis quando não está. O que continua exato — e é o que importa — é que
-        # o LAÇO POR EVENTO fica byte-idêntico: nenhum objeto instanciado,
-        # nenhuma chamada nova, e os call-sites seguem guardados por
-        # ``is not None``. Nenhuma sessão de banco é aberta com a flag off.
+        # CUSTO COM A FEATURE DESLIGADA. O LAÇO POR EVENTO fica byte-idêntico:
+        # nenhum objeto instanciado, nenhuma chamada nova, e os call-sites seguem
+        # guardados por ``is not None``. Nenhuma sessão de banco é aberta com a
+        # flag off — a resolução do snapshot é um lookup em dicionário enquanto o
+        # memo do processo está quente (5 s) e um GET no Redis quando não está.
         #
-        # Os nomes já foram inicializados ANTES do ``try`` (ver o bloco junto de
-        # ``_inflight_*``): o ``finally`` e os dois flushes os referenciam, e uma
-        # falha nos passos 1-3 os deixaria unbound.
+        # Os nomes já foram inicializados no ``__init__``: o ``close`` e os
+        # flushes os referenciam, e uma falha antes daqui os deixaria ausentes.
         _enrich_tables: dict = {}
         # A flag e os tetos vêm do snapshot (``enrichment_config``, editável no
-        # console), com o ``.env`` como seed e fallback. Resolver aqui, uma vez
-        # por ciclo, é o que mantém o gate barato: o memo de processo do loader
-        # responde em comparação de relógio na maioria dos ciclos, e o subsistema
-        # desligado segue sem abrir sessão de banco nenhuma.
+        # console), com o ``.env`` como seed e fallback.
         # Import tardio, como todo o resto do enriquecimento neste arquivo: com o
         # módulo já carregado é um lookup em ``sys.modules``, e mantém o pacote
         # fora do import-time do pipeline.
@@ -1238,77 +1371,805 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 load_policy_for_org as _load_enrich_policy,
             )
 
-            _enrich_policy = await asyncio.to_thread(
-                _load_enrich_policy, organization_id, enabled=True
+            self._enrich_apply = _enrich_apply
+            self._emit_enrich_stats = _emit_enrich_stats
+            self._enrich_policy = await asyncio.to_thread(
+                config_snapshot.read, "enrichment_policy", organization_id,
+                lambda: _load_enrich_policy(organization_id, enabled=True, strict=True),
+                lambda: _load_enrich_policy(organization_id, enabled=True),
             )
-            if _enrich_policy is not None and _enrich_policy.rules:
-                _enrich_runtime = _EnrichRuntime(
+            if self._enrich_policy is not None and self._enrich_policy.rules:
+                self._enrich_runtime = _EnrichRuntime(
                     max_table_bytes=_enrich_cfg.max_table_bytes,
                     lru_bytes=_enrich_cfg.lru_bytes,
                     config=_enrich_cfg,
                 )
-                # Mecaniza a invariante mono-tenant de :885 — toda a conta de
-                # memória do enriquecimento local depende dela, e até aqui ela
-                # era só um comentário.
-                _enrich_runtime.begin_cycle(organization_id)
+                # Mecaniza a invariante mono-tenant — toda a conta de memória do
+                # enriquecimento local depende dela.
+                self._enrich_runtime.begin_cycle(organization_id)
                 _enrich_ctx = _EnrichContext(
                     organization_id=organization_id,
                     integration_id=integration_id,
                 )
-                _enrich_tables = await _enrich_runtime.load_tables(
-                    _enrich_policy, _enrich_ctx
+                _enrich_tables = await self._enrich_runtime.load_tables(
+                    self._enrich_policy, _enrich_ctx
                 )
-                _enrich_local_res = _TableResolution(_enrich_tables)
-                _enrich_stats = _ApplyStats()
+                self._enrich_local_res = _TableResolution(_enrich_tables)
+                self._enrich_stats = _ApplyStats()
             else:
-                _enrich_policy = None
+                self._enrich_policy = None
 
-        if not registry_has(platform, stream):
-            logger.error(
-                "collector não registrado",
+        registration = _registration_for(platform, stream)
+        if registration is None:
+            return False
+        self.registration = registration
+        self.collector_cls = registration.collector_cls
+        self.event_type = self.collector_cls.event_type
+        return True
+
+    async def load_mapping(self) -> None:
+        """── 3. Carrega config + mapping atual ──"""
+        self.config = await get_collector_config(self.redis)
+        platform, event_type = self.platform, self.event_type
+        self.mapping_current = await asyncio.to_thread(
+            config_snapshot.read, "mapping", (platform, event_type),
+            lambda: _load_current_mapping(platform, event_type),
+        )
+
+    async def process(self, raw_event: Dict[str, Any], msg_id: str) -> None:
+        """Um evento: dedupe → normalização → OCSF → supressão → enriquecimento →
+        classificação → lote. Lote cheio (tamanho ou tempo) sai no ``flush``."""
+        # Nomes locais, iguais aos do ciclo de onde este corpo veio: o texto por
+        # evento fica idêntico e o custo é uma leitura de atributo por nome.
+        redis = self.redis
+        integration_id = self.integration_id
+        stream = self.stream
+        platform = self.platform
+        organization_id = self.organization_id
+        organization_name = self.organization_name
+        organization_slug = self.organization_slug
+        integration_data_geography = self.integration_data_geography
+        envelope_customer_id = self.envelope_customer_id
+        event_type = self.event_type
+        config = self.config
+        mapping_current = self.mapping_current
+        capture_buf = self.capture_buf
+        unsettled_claims = self.unsettled_claims
+        _quarantine_budget_ok = self._quarantine_budget_ok
+        _ocsf_enforcement = self._ocsf_enforcement
+        _suppress_routes = self._suppress_routes
+        batch_suppressed = self.batch_suppressed
+        _metering_in = self._metering_in
+        _enrich_local_res = self._enrich_local_res
+        _enrich_apply = self._enrich_apply
+        _enrich_policy = self._enrich_policy
+        _enrich_stats = self._enrich_stats
+        _inflight_acc = self._inflight_acc
+        _inflight_rules = self._inflight_rules
+        evaluate_ruleset = self._evaluate_ruleset
+        # RNF07 — idempotência. Aplicada SOBRE o raw, antes
+        # da normalização, para evitar reprocessar evento
+        # já visto mesmo que o mapping tenha mudado. Janela da partição.
+        if not self._dedupe.claim(integration_id, msg_id):
+            DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
+            # TAP DE DEDUPE. Antes disto o evento sumia SEM registro
+            # nenhum: o ``continue`` acontece antes de qualquer tap e
+            # antes do envelope existir. É a causa nº1 de "meu evento
+            # não apareceu" e era estruturalmente invisível.
+            if not likely_no_session(organization_id):
+                capture_buf.append(
+                    (msg_id, raw_event, capture_session.OUTCOME_DEDUPED)
+                )
+                if len(capture_buf) >= CAPTURE_BUF_MAX:
+                    _flush_capture_buf(
+                        capture_buf, organization_id, platform,
+                        integration_id, stream,
+                    )
+            return
+        unsettled_claims.add(msg_id)
+
+        # RF3.7 — sample reservoir alimenta dry-run da UI. Acumulado no lote e
+        # gravado num pipeline só no ``flush`` (ADR-0018 Onda 3c): antes era
+        # um pipeline Redis por evento, agendado com ensure_future.
+        self._samples.append(raw_event)
+        if len(self._samples) > 2 * sample_reservoir.DEFAULT_CAPACITY:
+            # Só os mais novos chegam ao ring buffer; o resto nem é guardado.
+            del self._samples[: -sample_reservoir.DEFAULT_CAPACITY]
+
+        # metering de volume IN (eventos/bytes que
+        # entraram, pós-dedupe), BATCHED: acumula localmente e grava
+        # no Redis 1×/500 eventos ou 15s (flush final no finally do
+        # ciclo). No-op imediato quando COST_METERING_ENABLED off —
+        # sem serialização extra; nunca dropa nem afeta a coleta.
+        _metering_in.add(organization_id, integration_id, raw_event)
+
+        # ── Normalização ──────────────────────────────────
+        if mapping_current is None:
+            # Mapping ainda não configurado para este event_type.
+            # Vai pra quarentena com kind explícito.
+            # Métrica SEMPRE (fidelidade); escrita sob orçamento.
+            QUARANTINE_TOTAL.labels(
+                vendor=platform,
+                event_type=event_type,
+                error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
+            ).inc()
+            if _quarantine_budget_ok(
+                quarantine.ERROR_KIND_MISSING_MAPPING,
+                settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+            ):
+                await _quarantine_async(
+                    capture_org_id=organization_id,
+                    integration_id=integration_id,
+                    vendor=platform,
+                    event_type=event_type,
+                    raw=raw_event,
+                    error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
+                    error_detail="no current MappingVersion configured",
+                )
+            return
+
+        mapping_version_id, rules, dsl_version = mapping_current
+        normalize_started = time.monotonic()
+        try:
+            applied = default_engine.apply(
+                mapping_version_id, rules, raw_event,
+                dsl_version=dsl_version,
+                # timestamp_t do OCSF é em MILISSEGUNDOS.
+                ingest_time_epoch=int(time.time() * 1000),
+            )
+        except MappingRequiredFieldError as exc:
+            # Métrica SEMPRE (fidelidade); escrita sob orçamento.
+            QUARANTINE_TOTAL.labels(
+                vendor=platform,
+                event_type=event_type,
+                error_kind=quarantine.ERROR_KIND_MAP,
+            ).inc()
+            if _quarantine_budget_ok(
+                quarantine.ERROR_KIND_MAP,
+                settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+            ):
+                await _quarantine_async(
+                    capture_org_id=organization_id,
+                    integration_id=integration_id,
+                    vendor=platform,
+                    event_type=event_type,
+                    raw=raw_event,
+                    error_kind=quarantine.ERROR_KIND_MAP,
+                    error_detail=str(exc),
+                    mapping_version_id=mapping_version_id,
+                )
+            return
+        except MappingError as exc:
+            logger.warning(
+                "mapping error não-fatal",
                 extra={
-                    "event": "collection.unregistered_collector",
-                    "platform": platform,
-                    "stream": stream,
+                    "event": "collection.mapping_error",
+                    "vendor": platform,
+                    "event_type": event_type,
+                    "error_detail": str(exc),
                 },
             )
+            # Métrica SEMPRE (fidelidade); escrita sob orçamento.
+            QUARANTINE_TOTAL.labels(
+                vendor=platform,
+                event_type=event_type,
+                error_kind=quarantine.ERROR_KIND_MAP,
+            ).inc()
+            if _quarantine_budget_ok(
+                quarantine.ERROR_KIND_MAP,
+                settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+            ):
+                await _quarantine_async(
+                    capture_org_id=organization_id,
+                    integration_id=integration_id,
+                    vendor=platform,
+                    event_type=event_type,
+                    raw=raw_event,
+                    error_kind=quarantine.ERROR_KIND_MAP,
+                    error_detail=str(exc),
+                    mapping_version_id=mapping_version_id,
+                )
             return
-        registration = registry_get(platform, stream)
-        collector_cls = registration.collector_cls
-        event_type = collector_cls.event_type
 
-        # ── 2. Token OAuth com cache Redis + lock distribuído (RF08) ──
+        envelope_ctx = EnvelopeContext(
+            vendor=platform,
+            integration_id=integration_id,
+            # = Organization.id interno (resolvido acima).
+            customer_id=envelope_customer_id,
+            customer_name=organization_name,
+            organization_slug=organization_slug,
+            stream=stream,
+            event_type=event_type,
+            mapping_version_id=mapping_version_id,
+            # id interno do tenant para roteamento +
+            # isolamento event-level (auditoria/lineage por org).
+            organization_id=organization_id,
+            # data_geography para enforcement de residência.
+            data_geography=integration_data_geography,
+        )
+        # Despacha o raw reduzido (raw_reduction do mapping) quando
+        # houver — cabe no limite do destino (ex.: Wazuh ~64 KiB).
+        # O event_id permanece estável (vendor_msg_id no full raw).
+        envelope = build_envelope(
+            applied.reduced_raw or raw_event,
+            applied.output,
+            envelope_ctx,
+            vendor_msg_id=msg_id,
+        )
+        # TAP `received` — o "como era ANTES da normalização". Guarda
+        # a REFERÊNCIA ao raw ORIGINAL (não ``applied.reduced_raw``):
+        # é o payload pré-``raw_reduction``, que é o mais próximo do
+        # vendor que existe neste processo.
+        #
+        # ``msg_id`` é a chave de junção CORRETA: ``build_envelope``
+        # acabou de recebê-lo como ``vendor_msg_id``, e
+        # ``compute_event_id`` devolve esse valor quando ele é truthy
+        # — logo ``envelope["_centralops"]["event_id"] == msg_id``
+        # incondicionalmente aqui. NUNCA recomputar sobre o raw: com
+        # ``raw_reduction`` ativo o envelope foi construído sobre o
+        # raw REDUZIDO, e o id divergiria em silêncio.
+        if not likely_no_session(organization_id):
+            capture_buf.append(
+                (msg_id, raw_event, capture_session.OUTCOME_RECEIVED)
+            )
+            if len(capture_buf) >= CAPTURE_BUF_MAX:
+                _flush_capture_buf(
+                    capture_buf, organization_id, platform,
+                    integration_id, stream,
+                )
+        # contabiliza os bytes evitados pelo trimming
+        # (raw_reduction). No-op (zero serialização) quando as flags
+        # REDUCTION_TRIM_ENABLED/COST_METERING_ENABLED estão off. Acumulado e
+        # gravado no flush (ADR-0018 Onda 3c), não um pipeline Redis por evento.
+        self._metering_saved.add_trim(
+            organization_id, raw_event, applied.reduced_raw
+        )
+        # Proveniência: campos preenchidos pelo fallback de ingestão
+        # (timestamp aproximado) ficam marcados para o analista.
+        if applied.ingest_fallback_targets:
+            envelope["_centralops"]["degraded_fields"] = list(
+                applied.ingest_fallback_targets
+            )
+        NORMALIZE_LATENCY.labels(
+            vendor=platform, event_type=event_type
+        ).observe(time.monotonic() - normalize_started)
+
+        # RF3.6 — drift detection com sampling + janela de aprendizado. A
+        # janela força 100% nos 1ºs eventos de uma fonte NOVA (auto-discovery
+        # à la Cribl/Axoflow) p/ syslog recém-apontado aparecer no Drift
+        # Explorer de imediato; depois cai na amostragem estacionária. A
+        # amostra é acumulada e gravada num upsert só, no ``flush`` (ADR-0018
+        # Onda 3c): antes era um upsert no Postgres por evento amostrado.
+        if drift.should_capture(
+            platform,
+            event_type,
+            organization_id,
+            settings.DRIFT_SAMPLE_RATE,
+            learning_events=settings.DRIFT_LEARNING_EVENTS,
+        ):
+            self._drift_buf.append(
+                {
+                    "vendor": platform,
+                    "event_type": event_type,
+                    "raw": raw_event,
+                    "consumed_paths": applied.consumed_paths,
+                    # isolamento de inferência por tenant.
+                    "organization_id": organization_id,
+                }
+            )
+
+        # validação OCSF (structural gate + política por-org).
+        # No-op de custo zero com a flag OFF (fail-open, comportamento atual).
+        # Com ON: valida ``normalized`` contra o manifest OCSF vendorado (~µs,
+        # puro-Python), emite métricas de conformidade e ETIQUETA
+        # ``_centralops.ocsf_valid``. A AÇÃO em inválido segue a política da org
+        # (``_ocsf_enforcement``, resolvida 1×/ciclo): tag_and_pass só etiqueta e
+        # despacha (NUNCA descarta); quarantine → ERROR_KIND_VALIDATE (não
+        # despacha, recuperável); fail_closed → descarta sem quarentena.
+        # out_of_scope (classe OCSF-válida não-vendorada) SEMPRE passa (graceful).
+        # O counter de inválidos é SEM amostragem; só a ESCRITA de
+        # quarentena tem teto por ciclo. NB: ``_centralops`` NÃO é
+        # stripado no dispatch — sinks de envelope-inteiro (syslog/
+        # Splunk/Elastic/...) recebem a etiqueta no wire (e alguns a
+        # usam de propósito, ex. elastic indexa organization_id);
+        # só os sinks normalized-only (Datadog/Chronicle/Security
+        # Lake) a omitem. Auditoria jul/2026 corrigiu este comentário
+        # que afirmava o strip.
+        if settings.OCSF_VALIDATION_ENABLED:
+            _ocsf_reg = ocsf_validator.get_registry(
+                settings.OCSF_VALIDATION_VERSION
+            )
+            _ocsf_t0 = time.monotonic()
+            _ocsf = ocsf_validator.structural_gate(
+                envelope["normalized"], _ocsf_reg
+            )
+            OCSF_VALIDATE_LATENCY.labels(vendor=platform).observe(
+                time.monotonic() - _ocsf_t0
+            )
+            _cc = envelope["_centralops"]
+            if _ocsf.valid:
+                OCSF_VALID.labels(
+                    vendor=platform, event_type=event_type
+                ).inc()
+                _cc["ocsf_valid"] = True
+            else:
+                # Counter SEMPRE (fidelidade), inclusive out_of_scope.
+                OCSF_INVALID.labels(
+                    vendor=platform,
+                    event_type=event_type,
+                    reason=_ocsf.reason,
+                ).inc()
+                _action = ocsf_policy.decide(
+                    valid=_ocsf.valid,
+                    in_scope=_ocsf.in_scope,
+                    mode=_ocsf_enforcement,
+                )
+                if _action == ocsf_policy.ACTION_QUARANTINE:
+                    # Métrica SEMPRE, FORA do teto. ``config.py`` já
+                    # documentava que "o counter de métrica segue SEM
+                    # amostragem (fidelidade)", mas o ``.inc()`` estava
+                    # DENTRO do if do teto — acima do teto a métrica
+                    # parava de contar, e a enxurrada ficava invisível
+                    # exatamente na situação em que se quer vê-la
+                    # (ADR-0015, Fase 0: doc e código agora concordam).
+                    QUARANTINE_TOTAL.labels(
+                        vendor=platform,
+                        event_type=event_type,
+                        error_kind=quarantine.ERROR_KIND_VALIDATE,
+                    ).inc()
+                    if _quarantine_budget_ok(
+                        quarantine.ERROR_KIND_VALIDATE,
+                        settings.OCSF_QUARANTINE_MAX_PER_RUN,
+                    ):
+                        await _quarantine_async(
+                            capture_org_id=organization_id,
+                            capture_event_id=msg_id,
+                            integration_id=integration_id,
+                            vendor=platform,
+                            event_type=event_type,
+                            raw=raw_event,
+                            # reason é enum FECHADO → sem PII no detail.
+                            error_kind=quarantine.ERROR_KIND_VALIDATE,
+                            error_detail=f"ocsf invalid: {_ocsf.reason}",
+                            mapping_version_id=mapping_version_id,
+                            organization_id=organization_id,
+                        )
+                    # Acima do teto: evento segue NÃO despachado (honra o
+                    # modo quarantine/fail_closed); só a escrita é pulada.
+                    return
+                if _action == ocsf_policy.ACTION_DROP:
+                    return
+                # ACTION_PASS (tag_and_pass ou out_of_scope): etiqueta e segue.
+                _cc["ocsf_valid"] = False if _ocsf.in_scope else None
+                _cc["ocsf_reason"] = _ocsf.reason
+
+        # RF4.2 — customer_id obrigatório.
+        if not has_customer_id(envelope):
+            # Métrica SEMPRE (fidelidade); escrita sob orçamento.
+            QUARANTINE_TOTAL.labels(
+                vendor=platform,
+                event_type=event_type,
+                error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
+            ).inc()
+            if _quarantine_budget_ok(
+                quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
+                settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
+            ):
+                await _quarantine_async(
+                    capture_org_id=organization_id,
+                    capture_event_id=msg_id,
+                    integration_id=integration_id,
+                    vendor=platform,
+                    event_type=event_type,
+                    raw=raw_event,
+                    error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
+                    error_detail="customer_id resolved to empty",
+                    mapping_version_id=mapping_version_id,
+                )
+            return
+
+        # suppression por assinatura (rate-limit Number-to-Allow),
+        # POR ROTA (ADR-0018 Onda 0): acima do limite na janela o evento
+        # deixa de ir aos destinos DAQUELA rota e segue para as outras
+        # (lago, rotas protegidas). O veredito viaja com o lote até o
+        # ``route_batch``. A 1ª ocorrência sempre passa (preserva detecção).
+        # Fail-OPEN em erro Redis.
+        if _suppress_routes:
+            _suppressed_by = await _suppression_verdicts(
+                redis, envelope, _suppress_routes
+            )
+            if _suppressed_by:
+                from .metrics import SUPPRESSED
+                from . import observability_store as _obs_sup
+                from .reduction import metering as _metering_sup
+                from .capture_session import OUTCOME_SUPPRESSED
+
+                for _sup_rid in sorted(_suppressed_by):
+                    SUPPRESSED.labels(route_id=_sup_rid).inc()
+                    _obs_sup.record_counter("route", _sup_rid, "suppressed", 1.0)
+                    # volume evitado pela supressão → bytes_saved{reason=suppress}
+                    # (Evitado/Redução). Best-effort; o helper é gated
+                    # (REDUCTION_SUPPRESS + COST_METERING) e fail-closed em org.
+                    _metering_sup.record_suppress_saving(
+                        (envelope.get("_centralops") or {}).get("organization_id"),
+                        envelope,
+                    )
+                # tap de ciclo de vida: registra QUAIS rotas suprimiram. O
+                # evento continua — as outras rotas o entregam normalmente.
+                await _capture_outcome(
+                    [envelope],
+                    organization_id,
+                    OUTCOME_SUPPRESSED,
+                    detail="route=" + ",".join(sorted(_suppressed_by)),
+                    # Supressão é decidida ANTES do fan-out por destino,
+                    # logo o envelope ainda é o roteado — sem redação
+                    # de PII por rota aplicada.
+                    stage=capture_session.STAGE_ROUTED,
+                    pii_redacted=False,
+                )
+                _sup_eid = str(
+                    (envelope.get("_centralops") or {}).get("event_id") or ""
+                )
+                if _sup_eid:
+                    batch_suppressed[_sup_eid] = _suppressed_by
+
+        # ── Enriquecimento LOCAL, por evento (ADR-LOCAL-0002) ─
+        # Posição deliberada, e cada vizinho explica um porquê:
+        #   • DEPOIS do dedupe (:1026) → não gasta lookup em evento
+        #     duplicado;
+        #   • DEPOIS da supressão → o veredito já está registrado
+        #     (a supressão é por rota; o evento segue enriquecido
+        #     para as rotas que não o suprimiram);
+        #   • ANTES da classificação em voo (logo abaixo) → o campo
+        #     enriquecido ALIMENTA a detecção. Esta é a razão de o
+        #     enriquecimento local existir como estágio separado do
+        #     remoto: o remoto resolve só no flush e chegaria tarde;
+        #   • ANTES do fan-out (routing/engine.py) → 1 lookup por
+        #     evento, não N (até 16 destinos).
+        #
+        # PURO por contrato: ``apply`` não faz I/O (guard de CI em
+        # tests/test_adr_local_0002_enrich.py). Escreve SÓ sob
+        # ``_centralops.enrichment*`` — o corpo ``normalized`` já
+        # passou pelo gate OCSF em :1255 e mutá-lo faria
+        # ``ocsf_valid`` descrever um payload que não é o entregue.
+        #
+        # Mesmo fail-open do detector: envolvido em try, sem
+        # `continue`/`return`. Enriquecimento é observador, nunca
+        # porteiro — um enricher quebrado custa um log, não o evento.
+        if _enrich_local_res is not None:
+            try:
+                # A contabilidade de bytes NÃO acontece aqui: ela roda
+                # no flush, sobre o envelope final, para não somar duas
+                # vezes o que o seam remoto também escreve.
+                _enrich_apply(
+                    envelope,
+                    _enrich_policy.local_rules(),
+                    _enrich_local_res,
+                    _enrich_stats,
+                )
+            except Exception:  # noqa: BLE001
+                logger.debug(
+                    "enrich: falha aplicando regras locais",
+                    extra={"event": "enrich.apply_failed"},
+                    exc_info=True,
+                )
+
+        # ── Classificação em voo ─────────────────────────────
+        # Posição deliberada: DEPOIS da supressão (que preserva a 1ª
+        # ocorrência por assinatura — pipeline.py, comentário do
+        # bloco de suppress — logo um evento suprimido é repetição
+        # de um já classificado) e ANTES do roteamento, que é onde
+        # vive a ação `drop`. Classificar depois do drop seria
+        # falso-negativo silencioso; classificar antes da supressão
+        # produziria Detection sobre evento que nunca chega ao SIEM.
+        #
+        # R3 — FAIL-OPEN NA ENTREGA: nada aqui tem `continue` nem
+        # `return`. Uma regra que explode custa um log e o evento
+        # segue no batch. O detector é observador, nunca porteiro.
+        #
+        # A PROMESSA SOBRE O ENVELOPE MUDOU, e é mais estreita do
+        # que "não muta": este bloco ACRESCENTA um único metadado do
+        # PRODUTO em `_centralops` e nada mais. Jamais dado do
+        # cliente, jamais remoção, jamais `raw`/`normalized` — que
+        # já passaram pelo gate OCSF (:1255) e cujo conteúdo é o que
+        # o destino recebe. Guard de comportamento em
+        # tests/test_deteccao_como_condicao_de_rota.py, por
+        # igualdade PROFUNDA dos dois blocos antes e depois.
+        #
+        # POR QUE ESCREVER: sem a marca, o pipeline detecta ANTES de
+        # rotear e joga o resultado fora na hora de decidir para
+        # onde manda. Com ela, "casou uma regra" vira condição de
+        # rota (routing.engine.DETECTION_MATCHED_FIELD) e dá para
+        # detectar sobre o dado que vai ser descartado e mandar só o
+        # que interessa ao SIEM caro.
+        #
+        # R1 — CUSTO NO CAMINHO SEM MATCH: a marca é por evento
+        # CASADO, não por evento. `evaluate_ruleset` já devolve uma
+        # tupla materializada, então o `if` abaixo troca o
+        # GET_ITER/FOR_ITER de uma tupla vazia por um teste de
+        # verdade — quem não casa não paga escrita, nem `try`, nem
+        # dict store. Medido antes/depois: sem diferença fora do
+        # ruído.
+        if _inflight_acc is not None:
+            try:
+                _matched_rules = evaluate_ruleset(envelope, _inflight_rules)
+                if _matched_rules:
+                    # `try` PRÓPRIO, e não o de fora, por dois
+                    # motivos: (a) uma falha ao marcar não pode
+                    # custar a Detection — `acc.add` roda logo
+                    # abaixo de qualquer jeito; (b) contá-la como
+                    # `errors["matcher"]` mentiria sobre QUAL peça
+                    # quebrou, e o operador debugaria a regra errada.
+                    # Só pode levantar com envelope malformado
+                    # (`_centralops` ausente ou não-dict), o que em
+                    # produção não ocorre — `build_envelope` sempre
+                    # o popula.
+                    try:
+                        envelope["_centralops"][
+                            _DETECTION_MATCHED_FIELD
+                        ] = True
+                    except Exception:  # noqa: BLE001
+                        _inflight_acc.errors["mark_failed"] = (
+                            _inflight_acc.errors.get("mark_failed", 0)
+                            + 1
+                        )
+                    for _rule in _matched_rules:
+                        _inflight_acc.add(
+                            _rule, envelope, organization_id, integration_id
+                        )
+            except Exception:  # noqa: BLE001
+                # Rate-limit de log por ciclo: sem isso, uma regra
+                # ruim trocaria degradação de detecção por
+                # amplificação de escrita no log — a mesma classe de
+                # dano que o teto de quarentena existe para evitar.
+                if not self._inflight_logged:
+                    self._inflight_logged = True
+                    logger.exception(
+                        "inflight: matcher falhou (o evento segue "
+                        "no batch; avaliação abortada neste evento)"
+                    )
+                _inflight_acc.errors["matcher"] = (
+                    _inflight_acc.errors.get("matcher", 0) + 1
+                )
+
+        self.batch.append(envelope)
+        # Paralelo 1:1 com ``batch``: permite liquidar as claims
+        # exatamente dos eventos que foram entregues, sem mutar o
+        # envelope (que é serializado para o data-plane).
+        self.batch_msg_ids.append(msg_id)
+        self.events_count += 1
+
+        if (
+            len(self.batch) >= config.collector_batch_size
+            or (time.monotonic() - self.last_flush)
+            >= config.collector_batch_flush_seconds
+        ):
+            await self.flush()
+
+    async def flush(self) -> None:
+        """Entrega o lote corrente ao data-plane e liquida as claims dele.
+
+        Chamado no gatilho de tamanho/tempo e, no fim, como flush TERMINAL — o
+        esquecido clássico: uma página que encerra a coleta nunca atinge
+        ``collector_batch_size`` nem o timeout, então um estágio ligado só no
+        flush condicional deixaria de rodar justamente no último lote."""
+        batch = self.batch
+        if not batch:
+            # Lote vazio (tudo deduplicado ou em quarentena) ainda grava as
+            # amostras: mapping ausente é justamente quando o dry-run da UI
+            # precisa delas.
+            await self._flush_side_effects()
+            return
+        organization_id, integration_id = self.organization_id, self.integration_id
+        platform, stream = self.platform, self.stream
+        await _enrich_remote_batch(
+            self._enrich_runtime, self._enrich_policy, batch,
+            organization_id, integration_id,
+            self._enrich_apply, self._enrich_stats, self._metering_added,
+        )
+        _enqueue_dispatch(
+            batch, self.dispatch_routes,
+            enrich_skip_reason=(
+                None if self._enrich_policy is not None else "no_policy"
+            ),
+            suppressed=self.batch_suppressed,
+        )
+        _flush_capture_buf(
+            self.capture_buf, organization_id, platform,
+            integration_id, stream,
+        )
+        # Volume de source NO MINUTO EM QUE O EVENTO REALMENTE
+        # FLUIU. Antes esta série era gravada UMA vez, no fim do
+        # ciclo, com o total — atribuindo um ciclo de vários
+        # minutos ao minuto final. Como os contadores de ROTA são
+        # escritos por lote (continuamente), as duas séries ficavam
+        # incomparáveis na mesma janela de 5 min: o /flow chegou a
+        # mostrar a rota de drop descartando 9.051 ev/min contra
+        # 5.999 ev/min de ingestão das fontes wazuh — 1,5× mais do
+        # que existia.
+        _record_source_ingested(integration_id, len(batch))
+        EVENTS_TOTAL.labels(
+            vendor=platform,
+            tenant=str(organization_id),
+            stream=stream,
+        ).inc(len(batch))
+        # LIQUIDAÇÃO — só DEPOIS do hand-off durável. Liquidar
+        # antes converteria uma falha de enqueue em perda
+        # silenciosa: a claim ficaria de pé e o retry
+        # descartaria o evento como duplicado.
+        batch_msg_ids = self.batch_msg_ids
+        self.unsettled_claims.difference_update(batch_msg_ids)
+        self._dedupe.settle(integration_id, batch_msg_ids)
+        self.batch_msg_ids = []
+        self.batch = []
+        self.batch_suppressed = {}
+        self.last_flush = time.monotonic()
+        await self._flush_side_effects()
+
+    async def _flush_side_effects(self) -> None:
+        """Gravações best-effort do lote, UMA de cada (ADR-0018 Onda 3c). Rodam
+        depois do hand-off: nenhuma delas pode atrasar nem derrubar a entrega."""
+        samples, self._samples = self._samples, []
+        drift_buf, self._drift_buf = self._drift_buf, []
+        if samples and self.organization_id is not None:
+            try:
+                await sample_reservoir.push_many(
+                    self.redis, self.organization_id, self.platform, self.event_type, samples
+                )
+            except Exception:  # noqa: BLE001 — reservoir é melhor-esforço (UI)
+                logger.debug("sample_reservoir: falha no lote", exc_info=True)
+        if drift_buf:
+            try:
+                await asyncio.to_thread(drift.record_unknown_fields_many, drift_buf)
+            except Exception:  # noqa: BLE001 — drift é observação, nunca porteiro
+                logger.debug("drift: falha ao registrar o lote", exc_info=True)
+
+    async def close(self) -> None:
+        """Encerramento — SEMPRE, no ``finally`` de quem chamou, com ou sem erro.
+
+        Cada passo é best-effort e nenhum mascara a exceção em voo."""
+        from .inflight.runtime import flush_inflight
+
+        integration_id, stream, redis = self.integration_id, self.stream, self.redis
+        # flush FINAL do metering IN: grava o parcial acumulado mesmo quando o
+        # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
+        # internamente e NUNCA mascara o erro original em voo.
+        self._metering_in.flush()
+        # Idem para o acréscimo do enriquecimento: um ciclo que falhou no meio já
+        # entregou eventos enriquecidos, e não contabilizá-los faria a % de redução
+        # subir artificialmente justo no ciclo com problema.
+        self._metering_added.flush()
+        self._metering_saved.flush()
+        # Idem para o buffer de captura: um ciclo que termina com menos de
+        # CAPTURE_BUF_MAX eventos no buffer não pode perdê-los, e um ciclo que
+        # falhou é justamente quando o operador mais precisa do registro.
+        _flush_capture_buf(
+            self.capture_buf, self.capture_ctx["org_id"], self.capture_ctx["vendor"],
+            integration_id, stream,
+        )
+        # Métricas do enriquecimento pelo mesmo motivo dos irmãos: um ciclo que
+        # falhou é justamente quando o operador precisa saber quantos eventos
+        # foram enriquecidos antes de o erro acontecer. ``end_cycle`` limpa o
+        # estado por-ciclo (guard mono-tenant, enrichers desabilitados) para que
+        # o próximo ciclo neste MESMO processo comece limpo — o fork atende até
+        # 500 tasks (celery_app.py:239) e vê organizações sortidas.
+        if self._enrich_stats is not None and self._emit_enrich_stats is not None:
+            try:
+                self._emit_enrich_stats(self._enrich_stats, self.organization_id)
+            except Exception:  # noqa: BLE001 — métrica nunca mascara o erro em voo
+                logger.debug("enrich: falha ao emitir stats", exc_info=True)
+        if self._enrich_runtime is not None:
+            self._enrich_runtime.end_cycle()
+        # Flush ÚNICO da classificação em voo — cobre o caminho feliz E o de
+        # exceção. Obrigatório, não zelo: sem flush aqui os matches de um ciclo
+        # interrompido morreriam em memória, sem Detection, sem log e sem métrica.
+        # Envolto em try/except próprio para JAMAIS mascarar a exceção original.
+        try:
+            await flush_inflight(self._inflight_acc, self._inflight_org_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("inflight: flush falhou no encerramento do ciclo")
+        # Devolve à janela as claims NÃO LIQUIDADAS (ADR-0015 Fase 2): num lote
+        # bem-sucedido o conjunto está vazio; num lote que falhou, os eventos
+        # voltam a ser processados quando o Kafka reentregar o registro, em vez
+        # de descartados como duplicados.
+        self._dedupe.release(integration_id, self.unsettled_claims)
+        self.unsettled_claims.clear()
+
+
+class RawProducer:
+    """Estágio "coleta só coleta" (ADR-0018 Onda 3): mesma interface de
+    ``StreamProcessor`` (``process`` por evento, ``flush`` no fim), mas só junta
+    os eventos crus e os grava no tópico raw com ``acks=all``, em lotes por
+    tamanho ou tempo. Usado pelo ciclo de coleta e pelo backfill
+    (``historical=True``)."""
+
+    def __init__(
+        self, integration_id: int, stream: str, config: Any, *, historical: bool = False
+    ) -> None:
+        self.integration_id = integration_id
+        self.stream = stream
+        self.config = config
+        self.historical = historical
+        self.events_count = 0
+        self._pending: list[Dict[str, Any]] = []
+        self._ids: list[str] = []
+        self._last_flush = time.monotonic()
+
+    async def process(self, raw_event: Dict[str, Any], msg_id: str) -> None:
+        self._pending.append(raw_event)
+        # O id de dedupe sai daqui, do coletor de verdade, e viaja no registro:
+        # o ``processor`` não instancia coletor.
+        self._ids.append(msg_id)
+        self.events_count += 1
+        if (
+            len(self._pending) >= self.config.collector_batch_size
+            or (time.monotonic() - self._last_flush)
+            >= self.config.collector_batch_flush_seconds
+        ):
+            await self.flush()
+
+    async def flush(self) -> None:
+        if self._pending:
+            from .dataplane.raw import produce_raw_async
+
+            await produce_raw_async(
+                self.integration_id, self.stream, self._pending, ids=self._ids,
+                historical=self.historical,
+            )
+            self._pending, self._ids = [], []
+        self._last_flush = time.monotonic()
+
+
+async def _run_collection_once(integration_id: int, stream: str) -> None:
+    """Ciclo de coleta — "coleta só coleta" (ADR-0018): busca, grava no tópico
+    raw com ``acks=all`` e só então avança o cursor. Não deduplica, não normaliza
+    e não roteia — isso é do papel ``processor``. Desde a Onda 5 é o ÚNICO ciclo:
+    o processamento dentro da task de coleta saiu.
+
+    Um crash entre o produce e o cursor faz o próximo ciclo re-buscar e
+    re-gravar a borda; o dedupe do ``processor`` absorve (at-least-once). Falha
+    do broker derruba o ciclo ANTES do cursor: nada é confirmado à fonte."""
+    from .celery_app import get_worker_redis
+
+    redis = get_worker_redis()
+    cursor_store = CursorStore(redis)
+    cursor_before: Optional[Dict[str, Any]] = None
+    collector: Optional[Any] = None
+    events_count = 0
+    try:
+        view = _load_cycle_integration(integration_id, stream)
+        if view is None:
+            return
+        platform = view.platform
+        registration = _registration_for(platform, stream)
+        if registration is None:
+            return
+        if registry_is_push(platform):
+            # Fonte push não tem o que buscar: o ingest e o receptor syslog gravam
+            # direto no raw. A agenda não cria entrada para ela (scheduler); isto
+            # cobre uma entrada antiga ainda no RedBeat.
+            logger.debug(
+                "collection: stream push sem ciclo integration_id=%s stream=%s",
+                integration_id, stream,
+            )
+            return
         access_token = await get_or_refresh_token(
             redis,
             integration_id=integration_id,
             refresh_fn=registration.refresh_fn,
             vendor=platform,
         )
-        headers = _headers_for(platform, integration, access_token)
-
-        # ── 3. Carrega config + mapping atual ─────────────────────────
+        headers = _headers_for(platform, view.integration, access_token)
         config = await get_collector_config(redis)
-        mapping_current = await asyncio.to_thread(
-            _load_current_mapping, platform, event_type
-        )
-
         rate_limiter = RedisRateLimiter(redis, config.rate_limits_by_vendor)
         domain_limiter = DomainLimiter(redis, config.domain_concurrency_limits)
         cursor_before = await cursor_store.load(integration_id, stream)
 
-        # ── 4. Loop async de coleta ───────────────────────────────────
-        batch: list[Dict[str, Any]] = []
-        # Veredito de supressão POR ROTA do lote corrente: event_id → rotas que
-        # o suprimiram. Viaja até o route_batch (ADR-0018 Onda 0).
-        batch_suppressed: Dict[str, "frozenset[str]"] = {}
-        last_flush = time.monotonic()
-        # (unsettled_claims/batch_msg_ids são inicializados ANTES do try — o
-        # except final os referencia; ver comentário na inicialização.)
-
+        producer = RawProducer(integration_id, stream, config)
         async with _aiohttp_session() as session:
             ctx = CollectorContext(
                 integration_id=integration_id,
-                organization_id=organization_id,
+                organization_id=view.organization_id,
                 platform=platform,
                 headers=headers,
                 session=session,
@@ -1316,789 +2177,82 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 domain_limiter=domain_limiter,
                 rate_limiter=rate_limiter,
                 redis=redis,
-                filters=_load_collection_filters(integration, registration, stream),
+                filters=_load_collection_filters(view.integration, registration, stream),
             )
-            collector = collector_cls(ctx)
-
+            collector = registration.collector_cls(ctx)
             try:
                 async for raw_event in collector.collect():
-                    msg_id = collector.extract_message_id(raw_event)
-                    if not msg_id:
-                        msg_id = compute_message_id(raw_event)
-
-                    # RNF07 — idempotência. Aplicada SOBRE o raw, antes
-                    # da normalização, para evitar reprocessar evento
-                    # já visto mesmo que o mapping tenha mudado.
-                    if not await claim(
-                        redis,
-                        integration_id,
-                        msg_id,
-                        ttl_seconds=config.effective_dedupe_ttl_seconds,
-                        pending_set=_pending_set,
-                    ):
-                        DEDUPE_DROPS.labels(vendor=platform, stream=stream).inc()
-                        # TAP DE DEDUPE. Antes disto o evento sumia SEM registro
-                        # nenhum: o ``continue`` acontece antes de qualquer tap e
-                        # antes do envelope existir. É a causa nº1 de "meu evento
-                        # não apareceu" e era estruturalmente invisível.
-                        if not likely_no_session(organization_id):
-                            capture_buf.append(
-                                (msg_id, raw_event, capture_session.OUTCOME_DEDUPED)
-                            )
-                            if len(capture_buf) >= CAPTURE_BUF_MAX:
-                                _flush_capture_buf(
-                                    capture_buf, organization_id, platform,
-                                    integration_id, stream,
-                                )
-                        continue
-                    unsettled_claims.add(msg_id)
-
-                    # RF3.7 — sample reservoir alimenta dry-run da UI.
-                    # fire-and-forget — best-effort não pode bloquear
-                    # o hot path de coleta. asyncio.ensure_future agenda a
-                    # coroutine sem await imediato; falhas são silenciosas
-                    # (intencionais para este path).
-                    asyncio.ensure_future(
-                        sample_reservoir.push(
-                            redis, organization_id, platform, event_type, raw_event
-                        )
-                    )
-
-                    # metering de volume IN (eventos/bytes que
-                    # entraram, pós-dedupe), BATCHED: acumula localmente e grava
-                    # no Redis 1×/500 eventos ou 15s (flush final no finally do
-                    # ciclo). No-op imediato quando COST_METERING_ENABLED off —
-                    # sem serialização extra; nunca dropa nem afeta a coleta.
-                    _metering_in.add(organization_id, integration_id, raw_event)
-
-                    # ── Normalização ──────────────────────────────────
-                    if mapping_current is None:
-                        # Mapping ainda não configurado para este event_type.
-                        # Vai pra quarentena com kind explícito.
-                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
-                        ).inc()
-                        if _quarantine_budget_ok(
-                            quarantine.ERROR_KIND_MISSING_MAPPING,
-                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
-                        ):
-                            await _quarantine_async(
-                                capture_org_id=organization_id,
-                                integration_id=integration_id,
-                                vendor=platform,
-                                event_type=event_type,
-                                raw=raw_event,
-                                error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
-                                error_detail="no current MappingVersion configured",
-                            )
-                        continue
-
-                    mapping_version_id, rules, dsl_version = mapping_current
-                    normalize_started = time.monotonic()
-                    try:
-                        applied = default_engine.apply(
-                            mapping_version_id, rules, raw_event,
-                            dsl_version=dsl_version,
-                            # timestamp_t do OCSF é em MILISSEGUNDOS.
-                            ingest_time_epoch=int(time.time() * 1000),
-                        )
-                    except MappingRequiredFieldError as exc:
-                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                        ).inc()
-                        if _quarantine_budget_ok(
-                            quarantine.ERROR_KIND_MAP,
-                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
-                        ):
-                            await _quarantine_async(
-                                capture_org_id=organization_id,
-                                integration_id=integration_id,
-                                vendor=platform,
-                                event_type=event_type,
-                                raw=raw_event,
-                                error_kind=quarantine.ERROR_KIND_MAP,
-                                error_detail=str(exc),
-                                mapping_version_id=mapping_version_id,
-                            )
-                        continue
-                    except MappingError as exc:
-                        logger.warning(
-                            "mapping error não-fatal",
-                            extra={
-                                "event": "collection.mapping_error",
-                                "vendor": platform,
-                                "event_type": event_type,
-                                "error_detail": str(exc),
-                            },
-                        )
-                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                        ).inc()
-                        if _quarantine_budget_ok(
-                            quarantine.ERROR_KIND_MAP,
-                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
-                        ):
-                            await _quarantine_async(
-                                capture_org_id=organization_id,
-                                integration_id=integration_id,
-                                vendor=platform,
-                                event_type=event_type,
-                                raw=raw_event,
-                                error_kind=quarantine.ERROR_KIND_MAP,
-                                error_detail=str(exc),
-                                mapping_version_id=mapping_version_id,
-                            )
-                        continue
-
-                    envelope_ctx = EnvelopeContext(
-                        vendor=platform,
-                        integration_id=integration_id,
-                        # = Organization.id interno (resolvido acima).
-                        customer_id=envelope_customer_id,
-                        customer_name=organization_name,
-                        organization_slug=organization_slug,
-                        stream=stream,
-                        event_type=event_type,
-                        mapping_version_id=mapping_version_id,
-                        # id interno do tenant para roteamento +
-                        # isolamento event-level (auditoria/lineage por org).
-                        organization_id=organization_id,
-                        # data_geography para enforcement de residência.
-                        data_geography=integration_data_geography,
-                    )
-                    # Despacha o raw reduzido (raw_reduction do mapping) quando
-                    # houver — cabe no limite do destino (ex.: Wazuh ~64 KiB).
-                    # O event_id permanece estável (vendor_msg_id no full raw).
-                    envelope = build_envelope(
-                        applied.reduced_raw or raw_event,
-                        applied.output,
-                        envelope_ctx,
-                        vendor_msg_id=msg_id,
-                    )
-                    # TAP `received` — o "como era ANTES da normalização". Guarda
-                    # a REFERÊNCIA ao raw ORIGINAL (não ``applied.reduced_raw``):
-                    # é o payload pré-``raw_reduction``, que é o mais próximo do
-                    # vendor que existe neste processo.
-                    #
-                    # ``msg_id`` é a chave de junção CORRETA: ``build_envelope``
-                    # acabou de recebê-lo como ``vendor_msg_id``, e
-                    # ``compute_event_id`` devolve esse valor quando ele é truthy
-                    # — logo ``envelope["_centralops"]["event_id"] == msg_id``
-                    # incondicionalmente aqui. NUNCA recomputar sobre o raw: com
-                    # ``raw_reduction`` ativo o envelope foi construído sobre o
-                    # raw REDUZIDO, e o id divergiria em silêncio.
-                    if not likely_no_session(organization_id):
-                        capture_buf.append(
-                            (msg_id, raw_event, capture_session.OUTCOME_RECEIVED)
-                        )
-                        if len(capture_buf) >= CAPTURE_BUF_MAX:
-                            _flush_capture_buf(
-                                capture_buf, organization_id, platform,
-                                integration_id, stream,
-                            )
-                    # contabiliza os bytes evitados pelo trimming
-                    # (raw_reduction). No-op (zero serialização) quando as flags
-                    # REDUCTION_TRIM_ENABLED/COST_METERING_ENABLED estão off.
-                    metering.record_trim_saving(
-                        organization_id, raw_event, applied.reduced_raw
-                    )
-                    # Proveniência: campos preenchidos pelo fallback de ingestão
-                    # (timestamp aproximado) ficam marcados para o analista.
-                    if applied.ingest_fallback_targets:
-                        envelope["_centralops"]["degraded_fields"] = list(
-                            applied.ingest_fallback_targets
-                        )
-                    NORMALIZE_LATENCY.labels(
-                        vendor=platform, event_type=event_type
-                    ).observe(time.monotonic() - normalize_started)
-
-                    # RF3.6 — drift detection com sampling + janela de aprendizado.
-                    # Best-effort, rodado em thread auxiliar para não bloquear I/O. A
-                    # janela força 100% nos 1ºs eventos de uma fonte NOVA (auto-discovery
-                    # à la Cribl/Axoflow) p/ syslog recém-apontado aparecer no Drift
-                    # Explorer de imediato; depois cai na amostragem estacionária.
-                    if drift.should_capture(
-                        platform,
-                        event_type,
-                        organization_id,
-                        settings.DRIFT_SAMPLE_RATE,
-                        learning_events=settings.DRIFT_LEARNING_EVENTS,
-                    ):
-                        await asyncio.to_thread(
-                            drift.record_unknown_fields,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            consumed_paths=applied.consumed_paths,
-                            # isolamento de inferência por tenant.
-                            organization_id=organization_id,
-                        )
-
-                    # validação OCSF (structural gate + política por-org).
-                    # No-op de custo zero com a flag OFF (fail-open, comportamento atual).
-                    # Com ON: valida ``normalized`` contra o manifest OCSF vendorado (~µs,
-                    # puro-Python), emite métricas de conformidade e ETIQUETA
-                    # ``_centralops.ocsf_valid``. A AÇÃO em inválido segue a política da org
-                    # (``_ocsf_enforcement``, resolvida 1×/ciclo): tag_and_pass só etiqueta e
-                    # despacha (NUNCA descarta); quarantine → ERROR_KIND_VALIDATE (não
-                    # despacha, recuperável); fail_closed → descarta sem quarentena.
-                    # out_of_scope (classe OCSF-válida não-vendorada) SEMPRE passa (graceful).
-                    # O counter de inválidos é SEM amostragem; só a ESCRITA de
-                    # quarentena tem teto por ciclo. NB: ``_centralops`` NÃO é
-                    # stripado no dispatch — sinks de envelope-inteiro (syslog/
-                    # Splunk/Elastic/...) recebem a etiqueta no wire (e alguns a
-                    # usam de propósito, ex. elastic indexa organization_id);
-                    # só os sinks normalized-only (Datadog/Chronicle/Security
-                    # Lake) a omitem. Auditoria jul/2026 corrigiu este comentário
-                    # que afirmava o strip.
-                    if settings.OCSF_VALIDATION_ENABLED:
-                        _ocsf_reg = ocsf_validator.get_registry(
-                            settings.OCSF_VALIDATION_VERSION
-                        )
-                        _ocsf_t0 = time.monotonic()
-                        _ocsf = ocsf_validator.structural_gate(
-                            envelope["normalized"], _ocsf_reg
-                        )
-                        OCSF_VALIDATE_LATENCY.labels(vendor=platform).observe(
-                            time.monotonic() - _ocsf_t0
-                        )
-                        _cc = envelope["_centralops"]
-                        if _ocsf.valid:
-                            OCSF_VALID.labels(
-                                vendor=platform, event_type=event_type
-                            ).inc()
-                            _cc["ocsf_valid"] = True
-                        else:
-                            # Counter SEMPRE (fidelidade), inclusive out_of_scope.
-                            OCSF_INVALID.labels(
-                                vendor=platform,
-                                event_type=event_type,
-                                reason=_ocsf.reason,
-                            ).inc()
-                            _action = ocsf_policy.decide(
-                                valid=_ocsf.valid,
-                                in_scope=_ocsf.in_scope,
-                                mode=_ocsf_enforcement,
-                            )
-                            if _action == ocsf_policy.ACTION_QUARANTINE:
-                                # Métrica SEMPRE, FORA do teto. ``config.py`` já
-                                # documentava que "o counter de métrica segue SEM
-                                # amostragem (fidelidade)", mas o ``.inc()`` estava
-                                # DENTRO do if do teto — acima do teto a métrica
-                                # parava de contar, e a enxurrada ficava invisível
-                                # exatamente na situação em que se quer vê-la
-                                # (ADR-0015, Fase 0: doc e código agora concordam).
-                                QUARANTINE_TOTAL.labels(
-                                    vendor=platform,
-                                    event_type=event_type,
-                                    error_kind=quarantine.ERROR_KIND_VALIDATE,
-                                ).inc()
-                                if _quarantine_budget_ok(
-                                    quarantine.ERROR_KIND_VALIDATE,
-                                    settings.OCSF_QUARANTINE_MAX_PER_RUN,
-                                ):
-                                    await _quarantine_async(
-                                        capture_org_id=organization_id,
-                                        capture_event_id=msg_id,
-                                        integration_id=integration_id,
-                                        vendor=platform,
-                                        event_type=event_type,
-                                        raw=raw_event,
-                                        # reason é enum FECHADO → sem PII no detail.
-                                        error_kind=quarantine.ERROR_KIND_VALIDATE,
-                                        error_detail=f"ocsf invalid: {_ocsf.reason}",
-                                        mapping_version_id=mapping_version_id,
-                                        organization_id=organization_id,
-                                    )
-                                # Acima do teto: evento segue NÃO despachado (honra o
-                                # modo quarantine/fail_closed); só a escrita é pulada.
-                                continue
-                            if _action == ocsf_policy.ACTION_DROP:
-                                continue
-                            # ACTION_PASS (tag_and_pass ou out_of_scope): etiqueta e segue.
-                            _cc["ocsf_valid"] = False if _ocsf.in_scope else None
-                            _cc["ocsf_reason"] = _ocsf.reason
-
-                    # RF4.2 — customer_id obrigatório.
-                    if not has_customer_id(envelope):
-                        # Métrica SEMPRE (fidelidade); escrita sob orçamento.
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                        ).inc()
-                        if _quarantine_budget_ok(
-                            quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                            settings.QUARANTINE_MAX_PER_KIND_PER_RUN,
-                        ):
-                            await _quarantine_async(
-                                capture_org_id=organization_id,
-                                capture_event_id=msg_id,
-                                integration_id=integration_id,
-                                vendor=platform,
-                                event_type=event_type,
-                                raw=raw_event,
-                                error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                                error_detail="customer_id resolved to empty",
-                                mapping_version_id=mapping_version_id,
-                            )
-                        continue
-
-                    # suppression por assinatura (rate-limit Number-to-Allow),
-                    # POR ROTA (ADR-0018 Onda 0): acima do limite na janela o evento
-                    # deixa de ir aos destinos DAQUELA rota e segue para as outras
-                    # (lago, rotas protegidas). O veredito viaja com o lote até o
-                    # ``route_batch``. A 1ª ocorrência sempre passa (preserva detecção).
-                    # Fail-OPEN em erro Redis.
-                    if _suppress_routes:
-                        _suppressed_by = await _suppression_verdicts(
-                            redis, envelope, _suppress_routes
-                        )
-                        if _suppressed_by:
-                            from .metrics import SUPPRESSED
-                            from . import observability_store as _obs_sup
-                            from .reduction import metering as _metering_sup
-                            from .capture_session import OUTCOME_SUPPRESSED
-
-                            for _sup_rid in sorted(_suppressed_by):
-                                SUPPRESSED.labels(route_id=_sup_rid).inc()
-                                _obs_sup.record_counter("route", _sup_rid, "suppressed", 1.0)
-                                # volume evitado pela supressão → bytes_saved{reason=suppress}
-                                # (Evitado/Redução). Best-effort; o helper é gated
-                                # (REDUCTION_SUPPRESS + COST_METERING) e fail-closed em org.
-                                _metering_sup.record_suppress_saving(
-                                    (envelope.get("_centralops") or {}).get("organization_id"),
-                                    envelope,
-                                )
-                            # tap de ciclo de vida: registra QUAIS rotas suprimiram. O
-                            # evento continua — as outras rotas o entregam normalmente.
-                            await _capture_outcome(
-                                [envelope],
-                                organization_id,
-                                OUTCOME_SUPPRESSED,
-                                detail="route=" + ",".join(sorted(_suppressed_by)),
-                                # Supressão é decidida ANTES do fan-out por destino,
-                                # logo o envelope ainda é o roteado — sem redação
-                                # de PII por rota aplicada.
-                                stage=capture_session.STAGE_ROUTED,
-                                pii_redacted=False,
-                            )
-                            _sup_eid = str(
-                                (envelope.get("_centralops") or {}).get("event_id") or ""
-                            )
-                            if _sup_eid:
-                                batch_suppressed[_sup_eid] = _suppressed_by
-
-                    # ── Enriquecimento LOCAL, por evento (ADR-LOCAL-0002) ─
-                    # Posição deliberada, e cada vizinho explica um porquê:
-                    #   • DEPOIS do dedupe (:1026) → não gasta lookup em evento
-                    #     duplicado;
-                    #   • DEPOIS da supressão → o veredito já está registrado
-                    #     (a supressão é por rota; o evento segue enriquecido
-                    #     para as rotas que não o suprimiram);
-                    #   • ANTES da classificação em voo (logo abaixo) → o campo
-                    #     enriquecido ALIMENTA a detecção. Esta é a razão de o
-                    #     enriquecimento local existir como estágio separado do
-                    #     remoto: o remoto resolve só no flush e chegaria tarde;
-                    #   • ANTES do fan-out (routing/engine.py) → 1 lookup por
-                    #     evento, não N (até 16 destinos).
-                    #
-                    # PURO por contrato: ``apply`` não faz I/O (guard de CI em
-                    # tests/test_adr_local_0002_enrich.py). Escreve SÓ sob
-                    # ``_centralops.enrichment*`` — o corpo ``normalized`` já
-                    # passou pelo gate OCSF em :1255 e mutá-lo faria
-                    # ``ocsf_valid`` descrever um payload que não é o entregue.
-                    #
-                    # Mesmo fail-open do detector: envolvido em try, sem
-                    # `continue`/`return`. Enriquecimento é observador, nunca
-                    # porteiro — um enricher quebrado custa um log, não o evento.
-                    if _enrich_local_res is not None:
-                        try:
-                            # A contabilidade de bytes NÃO acontece aqui: ela roda
-                            # no flush, sobre o envelope final, para não somar duas
-                            # vezes o que o seam remoto também escreve.
-                            _enrich_apply(
-                                envelope,
-                                _enrich_policy.local_rules(),
-                                _enrich_local_res,
-                                _enrich_stats,
-                            )
-                        except Exception:  # noqa: BLE001
-                            logger.debug(
-                                "enrich: falha aplicando regras locais",
-                                extra={"event": "enrich.apply_failed"},
-                                exc_info=True,
-                            )
-
-                    # ── Classificação em voo ─────────────────────────────
-                    # Posição deliberada: DEPOIS da supressão (que preserva a 1ª
-                    # ocorrência por assinatura — pipeline.py, comentário do
-                    # bloco de suppress — logo um evento suprimido é repetição
-                    # de um já classificado) e ANTES do roteamento, que é onde
-                    # vive a ação `drop`. Classificar depois do drop seria
-                    # falso-negativo silencioso; classificar antes da supressão
-                    # produziria Detection sobre evento que nunca chega ao SIEM.
-                    #
-                    # R3 — FAIL-OPEN NA ENTREGA: nada aqui tem `continue` nem
-                    # `return`. Uma regra que explode custa um log e o evento
-                    # segue no batch. O detector é observador, nunca porteiro.
-                    #
-                    # A PROMESSA SOBRE O ENVELOPE MUDOU, e é mais estreita do
-                    # que "não muta": este bloco ACRESCENTA um único metadado do
-                    # PRODUTO em `_centralops` e nada mais. Jamais dado do
-                    # cliente, jamais remoção, jamais `raw`/`normalized` — que
-                    # já passaram pelo gate OCSF (:1255) e cujo conteúdo é o que
-                    # o destino recebe. Guard de comportamento em
-                    # tests/test_deteccao_como_condicao_de_rota.py, por
-                    # igualdade PROFUNDA dos dois blocos antes e depois.
-                    #
-                    # POR QUE ESCREVER: sem a marca, o pipeline detecta ANTES de
-                    # rotear e joga o resultado fora na hora de decidir para
-                    # onde manda. Com ela, "casou uma regra" vira condição de
-                    # rota (routing.engine.DETECTION_MATCHED_FIELD) e dá para
-                    # detectar sobre o dado que vai ser descartado e mandar só o
-                    # que interessa ao SIEM caro.
-                    #
-                    # R1 — CUSTO NO CAMINHO SEM MATCH: a marca é por evento
-                    # CASADO, não por evento. `evaluate_ruleset` já devolve uma
-                    # tupla materializada, então o `if` abaixo troca o
-                    # GET_ITER/FOR_ITER de uma tupla vazia por um teste de
-                    # verdade — quem não casa não paga escrita, nem `try`, nem
-                    # dict store. Medido antes/depois: sem diferença fora do
-                    # ruído.
-                    if _inflight_acc is not None:
-                        try:
-                            _matched_rules = evaluate_ruleset(envelope, _inflight_rules)
-                            if _matched_rules:
-                                # `try` PRÓPRIO, e não o de fora, por dois
-                                # motivos: (a) uma falha ao marcar não pode
-                                # custar a Detection — `acc.add` roda logo
-                                # abaixo de qualquer jeito; (b) contá-la como
-                                # `errors["matcher"]` mentiria sobre QUAL peça
-                                # quebrou, e o operador debugaria a regra errada.
-                                # Só pode levantar com envelope malformado
-                                # (`_centralops` ausente ou não-dict), o que em
-                                # produção não ocorre — `build_envelope` sempre
-                                # o popula.
-                                try:
-                                    envelope["_centralops"][
-                                        _DETECTION_MATCHED_FIELD
-                                    ] = True
-                                except Exception:  # noqa: BLE001
-                                    _inflight_acc.errors["mark_failed"] = (
-                                        _inflight_acc.errors.get("mark_failed", 0)
-                                        + 1
-                                    )
-                                for _rule in _matched_rules:
-                                    _inflight_acc.add(
-                                        _rule, envelope, organization_id, integration_id
-                                    )
-                        except Exception:  # noqa: BLE001
-                            # Rate-limit de log por ciclo: sem isso, uma regra
-                            # ruim trocaria degradação de detecção por
-                            # amplificação de escrita no log — a mesma classe de
-                            # dano que o teto de quarentena existe para evitar.
-                            if not _inflight_logged:
-                                _inflight_logged = True
-                                logger.exception(
-                                    "inflight: matcher falhou (o evento segue "
-                                    "no batch; avaliação abortada neste evento)"
-                                )
-                            _inflight_acc.errors["matcher"] = (
-                                _inflight_acc.errors.get("matcher", 0) + 1
-                            )
-
-                    batch.append(envelope)
-                    # Paralelo 1:1 com ``batch``: permite liquidar as claims
-                    # exatamente dos eventos que foram entregues, sem mutar o
-                    # envelope (que é serializado para o data-plane).
-                    batch_msg_ids.append(msg_id)
-                    events_count += 1
-
-                    if (
-                        len(batch) >= config.collector_batch_size
-                        or (time.monotonic() - last_flush)
-                        >= config.collector_batch_flush_seconds
-                    ):
-                        await _enrich_remote_batch(
-                            _enrich_runtime, _enrich_policy, batch,
-                            organization_id, integration_id,
-                            _enrich_apply, _enrich_stats, _metering_added,
-                        )
-                        _enqueue_dispatch(
-                            batch, dispatch_routes,
-                            enrich_skip_reason=(
-                                None if _enrich_policy is not None else "no_policy"
-                            ),
-                            suppressed=batch_suppressed,
-                        )
-                        _flush_capture_buf(
-                            capture_buf, organization_id, platform,
-                            integration_id, stream,
-                        )
-                        # Volume de source NO MINUTO EM QUE O EVENTO REALMENTE
-                        # FLUIU. Antes esta série era gravada UMA vez, no fim do
-                        # ciclo, com o total — atribuindo um ciclo de vários
-                        # minutos ao minuto final. Como os contadores de ROTA são
-                        # escritos por lote (continuamente), as duas séries ficavam
-                        # incomparáveis na mesma janela de 5 min: o /flow chegou a
-                        # mostrar a rota de drop descartando 9.051 ev/min contra
-                        # 5.999 ev/min de ingestão das fontes wazuh — 1,5× mais do
-                        # que existia. Mesmo cuidado já adotado pelo
-                        # InVolumeAccumulator do metering ("um ciclo bulk de 12min
-                        # não pode atribuir tudo ao minuto final").
-                        _record_source_ingested(integration_id, len(batch))
-                        EVENTS_TOTAL.labels(
-                            vendor=platform,
-                            tenant=str(organization_id),
-                            stream=stream,
-                        ).inc(len(batch))
-                        # LIQUIDAÇÃO — só DEPOIS do hand-off durável. Liquidar
-                        # antes converteria uma falha de enqueue em perda
-                        # silenciosa: a claim ficaria de pé e o retry
-                        # descartaria o evento como duplicado.
-                        unsettled_claims.difference_update(batch_msg_ids)
-                        await _settle_pending_claims(redis, _pending_set, batch_msg_ids)
-                        batch_msg_ids = []
-                        batch = []
-                        batch_suppressed = {}
-                        last_flush = time.monotonic()
+                    await producer.process(raw_event, _resolve_message_id(collector, raw_event))
             except aiohttp.ClientResponseError as exc:
-                # Recovery de 401 in-flight: invalida cache OAuth e propaga
-                # como ``VendorAuthError`` para o retry do Celery pegar token
-                # fresco. Sem isso, um token velho fica no cache do Redis até
-                # expirar o TTL (~1h) e causa 401 contínuo.
-                if exc.status == 401:
-                    logger.warning(
-                        "vendor retornou 401; invalidando cache OAuth",
-                        extra={
-                            "event": "collection.vendor_auth_error",
-                            "integration_id": integration_id,
-                            "stream": stream,
-                        },
-                    )
-                    try:
-                        await invalidate_token(redis, integration_id)
-                    except Exception:  # pragma: no cover
-                        logger.exception("pipeline: falha ao invalidar cache oauth")
-                    raise VendorAuthError(integration_id, platform) from exc
-                raise
+                await _raise_vendor_auth_error(exc, redis, integration_id, stream, platform)
+            await producer.flush()
+            events_count = producer.events_count
 
-            if batch:
-                # Flush TERMINAL. É o esquecido clássico: uma página que encerra a
-                # coleta nunca atinge ``collector_batch_size`` nem o timeout, então
-                # um estágio ligado só no flush condicional acima deixaria de rodar
-                # justamente no último lote de todo ciclo.
-                await _enrich_remote_batch(
-                    _enrich_runtime, _enrich_policy, batch,
-                    organization_id, integration_id,
-                    _enrich_apply, _enrich_stats, _metering_added,
-                )
-                _enqueue_dispatch(
-                    batch, dispatch_routes,
-                    enrich_skip_reason=(
-                        None if _enrich_policy is not None else "no_policy"
-                    ),
-                    suppressed=batch_suppressed,
-                )
-                _record_source_ingested(integration_id, len(batch))
-                _flush_capture_buf(
-                    capture_buf, organization_id, platform, integration_id, stream,
-                )
-                EVENTS_TOTAL.labels(
-                    vendor=platform,
-                    tenant=str(organization_id),
-                    stream=stream,
-                ).inc(len(batch))
-                # Dreno TERMINAL: uma integração que devolve poucos eventos e
-                # encerra a página nunca atinge collector_batch_size nem o
-                # gatilho de tempo (avaliado DENTRO do corpo do laço). Sem
-                # liquidar aqui, as claims desses eventos seriam soltas pelo
-                # finally e o retry os reprocessaria — duplicata, não perda,
-                # mas ruído evitável.
-                unsettled_claims.difference_update(batch_msg_ids)
-                await _settle_pending_claims(redis, _pending_set, batch_msg_ids)
-                batch_msg_ids = []
-
-        # ── 5. Persiste cursor final (RF02) ───────────────────────────
-        # A série obs:source:{id}:ingested é gravada INCREMENTALMENTE, junto de
-        # cada flush de lote (ver _record_source_ingested no laço acima), para
-        # cair no minuto em que o evento realmente fluiu. O resíduo do último
-        # lote parcial é contabilizado no flush final logo abaixo — não há
-        # gravação de total aqui, que era o que deslocava um ciclo inteiro para
-        # o minuto de encerramento.
-
-        # Atraso REAL do stream: até onde o cursor consumiu na linha do tempo do
-        # FORNECEDOR. Só o coletor sabe traduzir o cursor (que é opaco ao core);
-        # ``watermark_at`` devolve None quando o cursor não é temporal, e aí o
-        # indicador é omitido em vez de inventado.
-        _watermark = None
-        try:
-            _watermark = collector_cls.watermark_at(ctx.cursor)
-        except Exception:  # pragma: no cover — nunca derruba o ciclo por métrica
-            logger.warning(
-                "collect: watermark_at falhou (integration=%s stream=%s)",
-                integration_id, stream, exc_info=True,
-            )
-        await cursor_store.save(
-            integration_id,
-            stream,
-            ctx.cursor or {},
-            events_collected=events_count,
-            error=None,
-            watermark_at=_watermark,
-            last_run_capped=bool(ctx.hit_cycle_cap),
+        await _commit_cycle(
+            cursor_store, registration.collector_cls, ctx, collector,
+            integration_id, stream, events_count,
         )
-        CURSOR_LAG.labels(
-            integration_id=str(integration_id), stream=stream
-        ).set(0.0)
-        if _watermark is not None:
-            WATERMARK_LAG.labels(
-                integration_id=str(integration_id), stream=stream
-            ).set(max((datetime.utcnow() - _watermark).total_seconds(), 0.0))
-        logger.info(
-            "collection ok",
-            extra={
-                "event": "collection.complete",
-                "integration_id": integration_id,
-                "stream": stream,
-                "events_count": events_count,
-            },
-        )
-        # Por último: só depois do cursor gravado a fonte pode esquecer o que
-        # entregou (ack). Antes disso, uma falha deixaria a fila sem o evento e o
-        # cursor sem a posição.
-        await _notify_cycle_committed(collector, integration_id, stream)
-
     except Exception as exc:
-        logger.exception(
-            "collection falhou",
-            extra={
-                "event": "collection.error",
-                "integration_id": integration_id,
-                "stream": stream,
-            },
-        )
-        # Hardening data-plane: só em kafka. O run falhou e o
-        # cursor NÃO avança (será reprocessado). Solta TODAS as claims tomadas
-        # neste run para que o retry re-reclame e re-produza — senão um produce
-        # que falhou deixaria o evento reclamado-mas-não-entregue, e o reprocesso
-        # o descartaria como "duplicado" (perda silenciosa). Eventos que já foram
-        # produzidos serão reentregues e o dedupe-no-destino (event_id) os absorve
-        # (at-least-once). Best-effort: erro de Redis aqui não mascara a original.
-        try:
-            await cursor_store.save(
-                integration_id,
-                stream,
-                cursor_before or {},
-                events_collected=0,
-                error=str(exc)[:1000],
-            )
-        except Exception:  # pragma: no cover
-            logger.exception("collection: falha ao persistir cursor de erro")
-        await _notify_cycle_aborted(collector, integration_id, stream)
+        await _fail_cycle(exc, cursor_store, cursor_before, collector, integration_id, stream)
         raise
     finally:
-        # flush FINAL do metering IN: grava o parcial acumulado mesmo quando o
-        # ciclo falhou (exceção/soft-timeout). Best-effort — flush() engole tudo
-        # internamente e NUNCA mascara o erro original em voo.
-        _metering_in.flush()
-        # Idem para o acréscimo do enriquecimento: um ciclo que falhou no meio já
-        # entregou eventos enriquecidos, e não contabilizá-los faria a % de redução
-        # subir artificialmente justo no ciclo com problema.
-        _metering_added.flush()
-        # Idem para o buffer de captura: um ciclo que termina com menos de
-        # CAPTURE_BUF_MAX eventos no buffer não pode perdê-los, e um ciclo que
-        # falhou é justamente quando o operador mais precisa do registro.
-        _flush_capture_buf(
-            capture_buf, capture_ctx["org_id"], capture_ctx["vendor"],
-            integration_id, stream,
-        )
-        # Métricas do enriquecimento no ``finally``, pelo mesmo motivo dos irmãos:
-        # um ciclo que falhou é justamente quando o operador precisa saber quantos
-        # eventos foram enriquecidos antes de o erro acontecer. ``end_cycle`` limpa
-        # o estado por-ciclo (guard mono-tenant, enrichers desabilitados) para que
-        # o próximo ciclo neste MESMO fork comece limpo — o fork atende até 500
-        # tasks (celery_app.py:239) e vê organizações sortidas.
-        if _enrich_stats is not None and _emit_enrich_stats is not None:
-            try:
-                _emit_enrich_stats(_enrich_stats, organization_id)
-            except Exception:  # noqa: BLE001 — métrica nunca mascara o erro em voo
-                logger.debug("enrich: falha ao emitir stats", exc_info=True)
-        if _enrich_runtime is not None:
-            _enrich_runtime.end_cycle()
-        # Flush ÚNICO da classificação em voo, no ``finally`` — cobre o caminho
-        # feliz E o de exceção. Isso é obrigatório, não zelo: no data-plane
-        # default uma exceção no meio do ciclo NÃO solta as claims de dedupe, o
-        # retry re-busca os eventos e ``claim`` os descarta como duplicados —
-        # eles nunca seriam reclassificados. Sem flush aqui os matches morreriam
-        # em memória, sem Detection, sem log e sem métrica.
-        # Envolto em try/except próprio para JAMAIS mascarar a exceção original.
-        try:
-            await flush_inflight(_inflight_acc, _inflight_org_id)
-        except Exception:  # noqa: BLE001
-            logger.exception("inflight: flush falhou no encerramento do ciclo")
-        # Solta as claims NÃO LIQUIDADAS (ADR-0015 Fase 2). Num run bem-sucedido
-        # o conjunto está vazio — todo id saiu no ``_enqueue_dispatch`` — então
-        # isto é no-op. No ``finally`` e não no ``except`` de propósito: cobre
-        # também ``WorkerShutdown``, que deriva de ``BaseException`` e escapa de
-        # ``except Exception``. Sem isto, um run interrompido deixava as claims
-        # de pé até o TTL e o retry descartava os eventos como duplicados —
-        # perda silenciosa. OBRIGATORIAMENTE antes do ``aclose`` abaixo: o DEL
-        # iria contra um cliente fechado.
-        _pending_clear = not unsettled_claims
-        if unsettled_claims:
-            try:
-                from .state.dedupe import release_many as _release_many
-
-                _n = await _release_many(redis, integration_id, unsettled_claims)
-                _pending_clear = True
-                logger.warning(
-                    "dedupe: %d claim(s) não liquidada(s) solta(s) p/ replay seguro "
-                    "(integration=%s stream=%s) — os eventos serão recoletados em vez "
-                    "de descartados como duplicados",
-                    _n, integration_id, stream,
-                    extra={
-                        "event": "dedupe.claims_released",
-                        "integration_id": integration_id,
-                        "stream": stream,
-                        "released": _n,
-                    },
-                )
-            except Exception:  # noqa: BLE001 — jamais mascara a exceção original
-                logger.exception("dedupe: falha ao soltar claims não liquidadas")
-        # Ciclo encerrado com toda claim liquidada ou solta: o conjunto de
-        # pendentes zera. Se o release falhou, o conjunto FICA — é ele que deixa
-        # o próximo ciclo soltar essas claims (ADR-0018 Onda 0).
-        if _pending_clear:
-            try:
-                await redis.delete(_pending_set)
-            except Exception:  # noqa: BLE001 — a recuperação do próximo ciclo cobre
-                logger.debug("dedupe: falha ao limpar o conjunto de pendentes", exc_info=True)
-        # Fecha conexão apenas se for efêmera (sem pool compartilhado do worker).
-        # Fechar client de pool com aclose() devolve conexões ao pool — ok,
-        # mas como sinal explícito de intenção: só faz aclose no cliente efêmero.
-        if redis_owns:
-            await redis.aclose()
+        await redis.aclose()
 
 
-async def _settle_pending_claims(redis: Any, pending_set: str, ids: list[str]) -> None:
-    """Tira as claims liquidadas do conjunto de pendentes. Best-effort: falhar
-    aqui só faz a recuperação soltar uma claim já liquidada (duplicata, nunca
-    perda)."""
+async def process_raw_events(
+    integration_id: int,
+    stream: str,
+    events: list[Dict[str, Any]],
+    *,
+    dedupe: Any,
+    ids: Optional[list[str]] = None,
+    historical: bool = False,
+) -> bool:
+    """Processa um lote lido do tópico raw, SEM ciclo de coleta (ADR-0018 Onda 3).
+
+    Sem token, sem cursor, sem coletor instanciado e sem sessão HTTP: só o
+    ``StreamProcessor``. ``ids`` são os ids de dedupe gravados pelo coletor pull;
+    ausentes (fonte push), saem do ``extract_message_id`` da classe registrada,
+    que não depende de estado da instância.
+
+    ``dedupe`` é a janela em memória da partição (Onda 3c). ``historical`` marca
+    o lote de um backfill: a classificação em voo roda igual, mas o batimento da
+    ausência não é gravado.
+
+    Devolve False quando nada foi processado (integração inativa ou coletor não
+    registrado) — o chamador manda o lote à DLQ em vez de commitar em silêncio.
+    Levanta quando o processamento falha (o chamador re-tenta)."""
+    from . import tracing
+    from .celery_app import get_worker_redis
+
+    redis = get_worker_redis()
+    processor = StreamProcessor(
+        integration_id, stream, redis, dedupe, historical=historical
+    )
     try:
-        await settle_pending(redis, pending_set, ids)
-    except Exception:  # noqa: BLE001
-        logger.debug("dedupe: falha ao liquidar pendentes em %s", pending_set, exc_info=True)
+        if not await processor.open():
+            return False
+        await processor.load_mapping()
+        # Instância SEM ``__init__`` só para ``extract_message_id`` (que nenhum
+        # coletor faz depender de ``self.ctx`` — ver test_adr0018_onda3).
+        id_source = object.__new__(processor.collector_cls)
+        with tracing.span(
+            "process.raw_batch",
+            **{
+                "centralops.integration_id": integration_id,
+                "centralops.stream": stream,
+            },
+        ):
+            for i, raw_event in enumerate(events):
+                msg_id = ids[i] if ids is not None and i < len(ids) and ids[i] else ""
+                await processor.process(
+                    raw_event, msg_id or _resolve_message_id(id_source, raw_event)
+                )
+            await processor.flush()
+        return True
+    finally:
+        await processor.close()
+        await redis.aclose()
 
 
 def _enqueue_dispatch(
@@ -2118,7 +2272,7 @@ def _enqueue_dispatch(
     avalia cada evento contra as rotas (first-match, ``is_final`` stop vs
     clone+continue fan-out, ``drop``) e enfileira sub-lotes por destino. TODOS
     os destinos (incl. wazuh-default) vão pela MESMA via —
-    ``dispatch_to_destination`` shardeado (ou Kafka quando EVENT_DATAPLANE=kafka).
+    o tópico ``deliver`` do data-plane Kafka.
     Vendor-neutro: evento sem rota casada vai ao destino ``is_default`` se houver,
     senão à DLQ (``unrouted``). Os produtores chamam este helper.
 
@@ -2336,11 +2490,14 @@ def _load_routes_for_org(org_id: Optional[int]) -> list[Any]:
     return compiled
 
 
-def _load_destination_residency(dest_ids: "set[str]") -> "dict[str, Optional[str]]":
+def _load_destination_residency(
+    dest_ids: "set[str]", *, strict: bool = False
+) -> "dict[str, Optional[str]]":
     """Carrega o mapa {destination_id → data_residency} para o conjunto de ids.
 
     Best-effort: falha silenciosa → retorna {} (sem enforcement, conservador
-    no sentido de nunca bloquear por erro de infraestrutura).
+    no sentido de nunca bloquear por erro de infraestrutura). ``strict=True``
+    relança: o snapshot do processor serve o último mapa bom (ADR-0018 Onda 3b).
     """
     if not dest_ids:
         return {}
@@ -2355,6 +2512,8 @@ def _load_destination_residency(dest_ids: "set[str]") -> "dict[str, Optional[str
             ).fetchall()
         return {str(r.id): (str(r.data_residency) if r.data_residency else None) for r in rows}
     except Exception:
+        if strict:
+            raise
         logger.warning("routing: falha ao carregar residency de destinos — enforcement desativado")
         return {}
 
@@ -2380,7 +2539,7 @@ def _bare_host(value: "Optional[str]") -> "Optional[str]":
     return v.lower() or None
 
 
-def _load_fallback_destination_id(org_id: Optional[int]) -> Optional[str]:
+def _load_fallback_destination_id(org_id: Optional[int], *, strict: bool = False) -> Optional[str]:
     """Vendor-neutro: id do Destination marcado ``is_default`` (catch-all).
 
     Resolução: o default da PRÓPRIA org tem precedência; senão um default GLOBAL
@@ -2406,11 +2565,15 @@ def _load_fallback_destination_id(org_id: Optional[int]) -> Optional[str]:
                 if row:
                     return str(row)
     except Exception:  # pragma: no cover — fail-safe: sem fallback inventado
+        if strict:
+            raise
         logger.debug("routing: falha ao resolver destino default (org=%s)", org_id, exc_info=True)
     return None
 
 
-def _load_wazuh_loop_destination_ids(dest_ids: "set[str]") -> "frozenset[str]":
+def _load_wazuh_loop_destination_ids(
+    dest_ids: "set[str]", *, strict: bool = False
+) -> "frozenset[str]":
     """Ids de destinos que entregam de VOLTA ao manager Wazuh.
 
     Qualquer syslog dest cujo host casa (exato, normalizado) o host de uma
@@ -2470,6 +2633,8 @@ def _load_wazuh_loop_destination_ids(dest_ids: "set[str]") -> "frozenset[str]":
             logger.info("routing: %d syslog dest(s) apontam ao manager Wazuh — anti-loop", len(loopy))
         return frozenset(loopy)
     except Exception:
+        if strict:
+            raise
         logger.warning("routing: falha ao computar destinos-loop Wazuh — só o sentinela wazuh-default")
         return frozenset()
 
@@ -2556,14 +2721,13 @@ def _enqueue_routed(
 ) -> None:
     """Split the batch per-event via the routing engine and
     enqueue one (sub-)batch per resolved destination. ALL destinations (incl. the
-    Wazuh syslog destination) go through the SAME path — Kafka data-plane when
-    ``EVENT_DATAPLANE=kafka``, else the sharded ``dispatch_to_destination``. There is
-    no longer a wazuh-default special-case (it is a normal syslog_rfc3164 dest)."""
+    Wazuh syslog destination) go through the SAME path: the Kafka ``deliver``
+    topic, consumed by the ``dispatcher`` role. There is no wazuh-default
+    special-case (it is a normal syslog_rfc3164 dest)."""
     from . import tracing
+    from .dataplane import produce_delivery
     from .metrics import ROUTE_EVENTS, ROUTING_DECISIONS
-    from .queues import dispatch_dest_shard_queue
     from .routing import route_batch
-    from .tasks import dispatch_to_destination
 
     # traceparent corrente; VAZIO ⇒ kwargs byte-idêntico (tracing off).
     tp = tracing.carrier()
@@ -2573,13 +2737,30 @@ def _enqueue_routed(
     _all_dest_ids: set[str] = set()
     for r in routes:
         _all_dest_ids.update(r.destination_ids)
-    _destination_residency = _load_destination_residency(_all_dest_ids)
+    # No processor estes três mapas vêm do snapshot com last-known-good
+    # (ADR-0018 Onda 3b): com o banco fora, a residência de dados e o anti-loop
+    # continuam valendo em vez de virarem vazio. Sem snapshot (ciclo inline), a
+    # leitura é a de sempre.
+    _dest_key = frozenset(_all_dest_ids)
+    _destination_residency = config_snapshot.read(
+        "destination_residency", _dest_key,
+        lambda: _load_destination_residency(_all_dest_ids, strict=True),
+        lambda: _load_destination_residency(_all_dest_ids),
+    )
     # destinos syslog que voltam ao manager Wazuh.
-    _wazuh_loop_ids = _load_wazuh_loop_destination_ids(_all_dest_ids)
+    _wazuh_loop_ids = config_snapshot.read(
+        "wazuh_loop_destinations", _dest_key,
+        lambda: _load_wazuh_loop_destination_ids(_all_dest_ids, strict=True),
+        lambda: _load_wazuh_loop_destination_ids(_all_dest_ids),
+    )
     # vendor-neutro: fallback = Destination marcado is_default p/ a org
     # (NÃO mais o wazuh-default hardcoded). None → não-roteados vão à DLQ/quarentena.
     _org_id = _batch_org_id(batch)
-    _fallback_id = _load_fallback_destination_id(_org_id)
+    _fallback_id = config_snapshot.read(
+        "fallback_destination", _org_id,
+        lambda: _load_fallback_destination_id(_org_id, strict=True),
+        lambda: _load_fallback_destination_id(_org_id),
+    )
 
     # sampling de redução resolvido das flags (não se reduz sem
     # medir: exige COST_METERING_ENABLED). Default OFF ⇒ route_batch byte-idêntico.
@@ -2708,42 +2889,13 @@ def _enqueue_routed(
         for _r_org, _r_bytes in _raw_dropped_bytes.items():
             _metering_raw.record_raw_drop_saving(_r_org, _r_bytes)
 
-    # backpressure (drop_newest): resolve o plano de entrega POR DESTINO só
-    # quando a feature está ON (sem custo de DB no default). Mapeia destination_id
-    # → item {shard_queue, queue_ceiling, backpressure} para a decisão de shed.
-    _shed_lookup: dict[str, Dict[str, Any]] = {}
-    if settings.BACKPRESSURE_E6_ENABLED:
-        from .delivery import resolve_dispatch_plan
-
-        _shed_lookup = {
-            p["destination_id"]: p
-            for p in resolve_dispatch_plan(_batch_org_id(batch))
-        }
-
     for dest_id, events in result.sub_batches.items():
         if not events:
             continue
-        # Vendor-neutro: TODOS os destinos fluem uniformemente
-        # pela MESMA via — wazuh-default não é mais special-case. Ele é um
-        # ``Destination`` syslog_rfc3164 normal, entregue por
-        # ``dispatch_batch_to_destination`` (mesmo wire RFC3164), com backpressure
-        # E6 e durabilidade Kafka como qualquer outro destino.
-        # descarta o sub-lote NOVO se a shard queue do destino passou do teto
-        # (drop_newest) — protege o broker de OOM.
-        _item = _shed_lookup.get(dest_id)
-        if _item is not None and _should_shed_dispatch(_item, len(events)):
-            continue
-        if settings.EVENT_DATAPLANE == "kafka":
-            # data-plane durável: sub-lote → tópico Kafka ``deliver`` (key=dest_id),
-            # consumido pelo role dispatcher.
-            from .dataplane import produce_delivery
-
-            produce_delivery(dest_id, events, tp or None)
-        else:
-            dispatch_to_destination.apply_async(
-                kwargs={"destination_id": dest_id, "batch": events, **tp},
-                queue=dispatch_dest_shard_queue(dest_id),
-            )
+        # Vendor-neutro: TODOS os destinos (wazuh-default incluso) seguem pela
+        # MESMA via — o tópico ``deliver``, consumido pelo papel dispatcher, que
+        # entrega, estaciona (destino fora) ou manda à DLQ (poison).
+        produce_delivery(dest_id, events, tp or None)
 
 
 def _record_dest_observability(
@@ -2835,63 +2987,6 @@ def _record_lineage_for_batch(
             destination_id,
             exc_info=True,
         )
-
-
-# Rate-limit do log de shed: 1 a cada N descartes por destino (evita spam).
-_SHED_LOG_EVERY = 100
-_shed_log_counter: Dict[str, int] = {}
-
-
-def _should_shed_dispatch(item: Dict[str, Any], batch_len: int) -> bool:
-    """E6: True se o lote deve ser DESCARTADO antes do enqueue (drop_newest).
-
-    Só descarta quando: a flag E6 está ON, a política do destino é
-    ``drop_newest``, há teto efetivo (>0) e a profundidade da shard queue passou
-    do teto. Fail-open (broker inacessível → não descarta). Publica a métrica de
-    profundidade observada sempre que conseguir lê-la.
-    """
-    if not settings.BACKPRESSURE_E6_ENABLED:
-        return False
-    if item.get("backpressure") != "drop_newest":
-        return False
-
-    ceiling = int(item.get("queue_ceiling") or 0) or settings.DISPATCH_QUEUE_CEILING
-    if ceiling <= 0:
-        return False
-
-    from . import load_shedder
-    from .metrics import DISPATCH_SHED_TOTAL, QUEUE_DEPTH
-
-    shed, depth = load_shedder.should_shed(item["shard_queue"], ceiling)
-    if depth is not None:
-        QUEUE_DEPTH.labels(queue=item["shard_queue"]).set(depth)
-        # native gauges for the UI (per destination) — queue depth +
-        # current backpressure state (ok vs shedding at the ceiling).
-        from . import observability_store as _obs
-
-        _obs.set_gauge("dest", item["destination_id"], "queue_depth", depth)
-        _obs.set_gauge(
-            "dest", item["destination_id"], "backpressure_state", "shedding" if shed else "ok"
-        )
-    if not shed:
-        return False
-
-    dest_id = item["destination_id"]
-    # DISPATCH_SHED_TOTAL is the AUTHORITATIVE shed counter. We deliberately do
-    # NOT touch EVENTS_REJECTED here: that series is DLQ-bound (every
-    # increment maps to a DestinationDeadLetter row) and a shed drop never writes
-    # the DLQ — conflating them would over-report DLQ rejections by shed volume.
-    DISPATCH_SHED_TOTAL.labels(destination_id=dest_id, reason="queue_ceiling").inc()
-
-    count = _shed_log_counter.get(dest_id, 0) + 1
-    _shed_log_counter[dest_id] = count
-    if count % _SHED_LOG_EVERY == 1:
-        logger.warning(
-            "E6 load-shedding: destino %s acima do teto (depth=%s ceiling=%s) — "
-            "descartando lote NOVO (drop_newest); %d descartes acumulados",
-            dest_id, depth, ceiling, count,
-        )
-    return True
 
 
 def _batch_org_id(batch: list[Dict[str, Any]]) -> Optional[int]:
@@ -3056,7 +3151,7 @@ async def _send_chunk_with_retry(
                 and (time.monotonic() - loop_start) >= max_elapsed_s
             ):
                 logger.warning(
-                    "dispatch_to_destination: max_elapsed_ms (%d) excedido dest=%s "
+                    "dispatch: max_elapsed_ms (%d) excedido dest=%s "
                     "no attempt=%d — interrompe retries (vai à DLQ/autoretry)",
                     retry_cfg.max_elapsed_ms,
                     dest_config.destination_id,
@@ -3066,7 +3161,7 @@ async def _send_chunk_with_retry(
             RETRIES.labels(**labels).inc()
             delay = backoff_delay_s(retry_cfg, attempt - 1)
             logger.info(
-                "dispatch_to_destination: retry attempt=%d/%d dest=%s — "
+                "dispatch: retry attempt=%d/%d dest=%s — "
                 "aguardando %.3fs (exponential backoff)",
                 attempt,
                 max_retries,
@@ -3076,7 +3171,7 @@ async def _send_chunk_with_retry(
             await asyncio.sleep(delay)
 
         # Check breaker before each retry (state may have changed).
-        await circuit_breaker.check_for_config(redis, dest_config)
+        await circuit_breaker.check_for_config(redis, dest_config, send_timeout_s=timeout_s)
 
         started = time.monotonic()
         try:
@@ -3089,7 +3184,7 @@ async def _send_chunk_with_retry(
             DELIVERY_LATENCY.labels(**labels).observe(elapsed)
             await circuit_breaker.record_failure_for_config(redis, dest_config)
             logger.warning(
-                "dispatch_to_destination: timeout (%.0f ms) dest=%s attempt=%d/%d",
+                "dispatch: timeout (%.0f ms) dest=%s attempt=%d/%d",
                 dcfg.timeout_ms,
                 dest_config.destination_id,
                 attempt,
@@ -3115,7 +3210,7 @@ async def _send_chunk_with_retry(
             if isinstance(exc, (OSError, aiohttp.ClientError)):
                 await circuit_breaker.record_failure_for_config(redis, dest_config)
             logger.warning(
-                "dispatch_to_destination: falha de envio %s dest=%s attempt=%d/%d",
+                "dispatch: falha de envio %s dest=%s attempt=%d/%d",
                 type(exc).__name__,
                 dest_config.destination_id,
                 attempt,
@@ -3151,7 +3246,7 @@ async def _send_chunk_with_retry(
             elif result.rejected:
                 # DLQ write failed — treat as transient so acks_late catches it.
                 logger.error(
-                    "dispatch_to_destination: DLQ persist FAILED destination_id=%s "
+                    "dispatch: DLQ persist FAILED destination_id=%s "
                     "(%d rejeitados) — re-tentando lote (E3 durability)",
                     dest_config.destination_id,
                     len(result.rejected),
@@ -3170,7 +3265,7 @@ async def _send_chunk_with_retry(
             # events, a whole-batch retry would DUPLICATE them.
             if result.accepted or result.rejected:
                 logger.error(
-                    "dispatch_to_destination: sender kind=%s returned retryable=True "
+                    "dispatch: sender kind=%s returned retryable=True "
                     "with accepted=%d rejected=%d — whole-batch retry would "
                     "DUPLICATE accepted events (E2). Needs per-item retry before "
                     "this sender is enabled.",
@@ -3225,6 +3320,12 @@ class DispatchOutcome:
         )
 
 
+#: Cliente Redis de PROCESSO para o despacho, publicado por quem tem loop de vida
+#: longa (o consumer do ``dispatcher``, ADR-0018 Onda 3f). Sem ele (tasks Celery,
+#: cujo loop morre a cada task) cada lote cria e fecha o seu.
+DISPATCH_REDIS: "ContextVar[Optional[Any]]" = ContextVar("dispatch_redis", default=None)
+
+
 async def dispatch_batch_to_destination(
     destination_id: str, batch: list[Dict[str, Any]]
 ) -> DispatchOutcome:
@@ -3274,7 +3375,7 @@ async def dispatch_batch_to_destination(
         from .metrics import DISPATCH_FAILURES
 
         logger.warning(
-            "dispatch_to_destination: destino %s ausente/desabilitado — "
+            "dispatch: destino %s ausente/desabilitado — "
             "persistindo lote na DLQ (error_kind=destination_missing, zero perda)",
             destination_id,
         )
@@ -3310,7 +3411,7 @@ async def dispatch_batch_to_destination(
         from .metrics import DISPATCH_FAILURES
 
         logger.error(
-            "dispatch_to_destination: CROSS-TENANT recusado dest=%s dest_org=%s batch_org=%s "
+            "dispatch: CROSS-TENANT recusado dest=%s dest_org=%s batch_org=%s "
             "— lote p/ DLQ (error_kind=cross_tenant_destination, fail-closed)",
             destination_id, dest_config.organization_id, _batch_org,
         )
@@ -3410,7 +3511,8 @@ async def dispatch_batch_to_destination(
         return DispatchOutcome(destination_kind=dest_config.kind, shadow=True)
 
     # circuit breaker guard + bulkhead + chunked send.
-    redis = get_worker_redis()
+    shared_redis = DISPATCH_REDIS.get()
+    redis = shared_redis if shared_redis is not None else get_worker_redis()
     try:
         # fatia o lote por max_items E max_bytes (o que fechar
         # primeiro), de modo que um sink com teto próprio de tamanho não rejeite
@@ -3643,8 +3745,8 @@ async def dispatch_batch_to_destination(
             )
 
     except circuit_breaker.BreakerOpen:
-        # terminal — propagate out to the except-all in
-        # dispatch_to_destination, which calls dispatch_to_dlq (no autoretry).
+        # terminal — propagate to the dispatcher, which parks the batch in
+        # ``deliver.parked`` until the destination is back (ADR-0018 Onda 4a).
         # Registra o desfecho ANTES de propagar (best-effort: não mascara o erro) —
         # sem isto, "o breaker abriu" é justamente o caso invisível na escuta.
         await _capture_delivery_failed(batch, destination_id, "circuit breaker aberto")
@@ -3656,12 +3758,13 @@ async def dispatch_batch_to_destination(
         raise
     finally:
         # Best-effort close: a dead Redis client must not turn a delivered batch
-        # into a task failure.
+        # into a task failure. O cliente de processo é de quem o publicou.
         try:
-            await redis.aclose()
+            if shared_redis is None:
+                await redis.aclose()
         except Exception:  # pragma: no cover - defensive
             logger.debug(
-                "dispatch_to_destination: redis.aclose() falhou (ignorado)",
+                "dispatch: redis.aclose() falhou (ignorado)",
                 exc_info=True,
             )
     # ``BYTES_SENT`` é incrementado em ``_send_chunk_with_retry`` com os

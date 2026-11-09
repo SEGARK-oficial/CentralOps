@@ -18,8 +18,9 @@ response specifications"):
   nenhuma recusa nossa sai como 413: lote grande demais vira 500 (retentável) com
   a instrução de baixar o buffer — esgotado o retry, o Firehose grava no backup.
 
-Cada registro é decodificado aqui, ANTES do buffer, para o coletor virtual só
-drenar (mesmo modelo do HEC e do OTLP no ``routers/ingest``):
+Cada registro é decodificado aqui, no recebimento, ANTES de ir para o tópico raw
+(mesmo modelo do HEC e do OTLP no ``routers/ingest``); o ``processor`` recebe o
+evento já na forma das integrações de pull:
 
 - base64 → bytes; gzip (assinatura ``1f 8b``) é descompactado — é como chegam os
   registros de uma assinatura do CloudWatch Logs;
@@ -47,7 +48,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .aws_waf import unwrap_cloudwatch_event, waf_message_id
-from .push_ingest import PushBufferCollector, _push_refresher
+from .push_ingest import PushSourceCollector, _push_refresher
 
 PLATFORM = "aws_firehose"
 
@@ -365,10 +366,10 @@ def decode_request(
     return batch
 
 
-# ── Coletores virtuais (drenam o buffer de ingestão) ─────────────────────
+# ── Coletores (só event_type e id de dedupe para o processor) ────────────
 
 
-class _FirehoseCollector(PushBufferCollector):
+class _FirehoseCollector(PushSourceCollector):
     platform = PLATFORM
 
     def _native_id(self, event: Dict[str, Any]) -> str:

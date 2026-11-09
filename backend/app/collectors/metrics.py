@@ -214,13 +214,9 @@ SHADOW_LATENCY = _instrument("collector_shadow_format_latency_seconds")
 # janela de cooldown, coleta preservada). Incrementa 1 POR ABERTURA, não por
 # falha — alertar em `increase() > 0` é o sinal de "estou perdendo captura".
 CAPTURE_TAP_DISABLED = _instrument("collector_capture_tap_disabled_total")
-DISPATCH_SHED_TOTAL = _instrument("collector_dispatch_shed_total")
-QUEUE_DEPTH = _instrument("collector_dispatch_queue_depth")
 BREAKER_STATE = _instrument("collector_destination_breaker_state")
 # Ingestão push.
 INGEST_ACCEPTED = _instrument("collector_ingest_accepted_total")
-INGEST_DROPPED = _instrument("collector_ingest_dropped_total")
-INGEST_BUFFER_DEPTH = _instrument("collector_ingest_buffer_depth")
 # Eventos rejeitados no parse (NDJSON malformado / não-objeto / acima do teto por-evento).
 INGEST_MALFORMED = _instrument("collector_ingest_malformed_total")
 SYSLOG_RECEIVED = _instrument("collector_syslog_received_total")
@@ -233,6 +229,14 @@ DATAPLANE_CONSUMER_LAG = _instrument("collector_dataplane_consumer_lag")
 # Tópico raw (ADR-0018 Onda 2).
 RAW_PROCESSED = _instrument("collector_raw_processed_total")
 RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
+# Store-and-forward por destino (ADR-0018 Onda 4a).
+PARKED = _instrument("collector_parked_total")
+PARKED_DRAINED = _instrument("collector_parked_drained_total")
+PARKED_LAG = _instrument("collector_parked_lag")
+# Idade (s) do lote mais antigo ainda esperando, por partição do estacionamento.
+PARKED_HEAD_AGE = _instrument("collector_parked_head_age_seconds")
+# Snapshot de config do processor servindo a última versão boa (banco fora).
+CONFIG_SNAPSHOT_STALE = _instrument("collector_config_snapshot_stale_total")
 
 # export OTLP do próprio processo (falhas por sinal) — ver otel_common.build_exporter
 OTEL_EXPORT_FAILURES = _instrument("collector_otel_export_failures_total")

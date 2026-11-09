@@ -3,9 +3,8 @@
 Separa o TRANSPORTE de evento (data-plane durável) do control-plane (Celery+Redis:
 scheduling, OAuth, breaker, rate-limit, observability — que PERMANECE no Celery). O
 fan-out de roteamento PRODUZ cada sub-lote (por destino) num tópico único
-``<prefix>.deliver`` (N partições, **key = destination_id** → mesma destinação na
-mesma partição: ordem + head-of-line-blocking limitado, espelhando o
-``DISPATCH_DEST_SHARDS`` do caminho Celery). Evita o anti-pattern "1 tópico por
+``<prefix>.deliver`` (N partições; cada destino num conjunto fixo de
+sub-shards, ver ``KAFKA_DELIVER_SHARDS_PER_DEST``). Evita o anti-pattern "1 tópico por
 destino" (cardinalidade explode com N tenants × M destinos). Um role ``dispatcher``
 CONSOME o tópico e chama o despacho existente (``dispatch_batch_to_destination`` —
 breaker/chunk/retry/DLQ reusados, sem reescrita).
@@ -31,7 +30,8 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Dict, Iterator, List, Mapping, Optional
+import zlib
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 from ...core.config import settings
 
@@ -60,6 +60,24 @@ def _touch_health(path: str) -> None:
 
 
 # ── Topic + client config ─────────────────────────────────────────────────────
+
+def deliver_spread(destination_id: str) -> Optional[Tuple[int, int]]:
+    """``(base, shard)`` do lote no tópico de entrega (ADR-0018 Onda 4c), ou None
+    com um shard só (partição pelo hash da chave, como antes).
+
+    Com a chave ``destination_id`` pura, cada destino tinha UMA partição e,
+    portanto, UM dispatcher: um destino grande não passava do que um processo
+    entrega. Com ``KAFKA_DELIVER_SHARDS_PER_DEST`` shards, o lote vai a uma das
+    partições consecutivas a partir da base do destino, e réplicas do
+    dispatcher dividem o destino. A ordem por destino já não era garantida desde
+    a entrega concorrente (Onda 4b)."""
+    shards = int(settings.KAFKA_DELIVER_SHARDS_PER_DEST or 1)
+    if shards <= 1:
+        return None
+    import random
+
+    return (zlib.crc32(str(destination_id).encode("utf-8")), random.randrange(shards))
+
 
 def deliver_topic() -> str:
     """Nome completo do tópico de entrega (``<prefix>.<deliver>``)."""
@@ -203,18 +221,22 @@ def encode_delivery(
     destination_id: str,
     batch: List[Dict[str, Any]],
     trace_context: Optional[Mapping[str, str]] = None,
+    *,
+    ordered: bool = False,
 ) -> bytes:
-    """Serializa ``{destination_id, batch, trace}`` para o valor da mensagem."""
-    return json.dumps(
-        {
-            "v": _ENVELOPE_VERSION,
-            "destination_id": destination_id,
-            "batch": batch,
-            "trace": dict(trace_context) if trace_context else {},
-        },
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
+    """Serializa ``{destination_id, batch, trace}`` para o valor da mensagem.
+
+    ``ordered`` marca o lote de destino com entrega em ordem (Onda 4e); sem ele o
+    envelope sai como antes."""
+    envelope: Dict[str, Any] = {
+        "v": _ENVELOPE_VERSION,
+        "destination_id": destination_id,
+        "batch": batch,
+        "trace": dict(trace_context) if trace_context else {},
+    }
+    if ordered:
+        envelope["ordered"] = True
+    return json.dumps(envelope, separators=(",", ":"), default=str).encode("utf-8")
 
 
 def decode_delivery(raw: bytes) -> Dict[str, Any]:
@@ -233,6 +255,7 @@ def _frames(
     batch: List[Dict[str, Any]],
     trace_context: Optional[Mapping[str, str]],
     limit: int,
+    ordered: bool = False,
 ) -> Iterator[tuple]:
     """``(sub_lote, valor)`` de cada registro de :func:`_frame_batch`.
 
@@ -242,13 +265,13 @@ def _frames(
     """
     if not batch:
         return
-    value = encode_delivery(destination_id, batch, trace_context)
+    value = encode_delivery(destination_id, batch, trace_context, ordered=ordered)
     if len(value) <= limit or len(batch) == 1:
         yield batch, value
         return
     mid = len(batch) // 2
-    yield from _frames(destination_id, batch[:mid], trace_context, limit)
-    yield from _frames(destination_id, batch[mid:], trace_context, limit)
+    yield from _frames(destination_id, batch[:mid], trace_context, limit, ordered)
+    yield from _frames(destination_id, batch[mid:], trace_context, limit, ordered)
 
 
 def _frame_batch(
@@ -396,13 +419,34 @@ class _ProducerThread:
         await producer.start()
         return producer
 
-    async def _bounded_send(self, value: bytes, key: bytes, topic: Optional[str] = None) -> Any:
+    async def _bounded_send(
+        self,
+        value: bytes,
+        key: bytes,
+        topic: Optional[str] = None,
+        spread: Optional[Tuple[int, int]] = None,
+    ) -> Any:
         """``send_and_wait`` com teto INTERNO (``asyncio.wait_for``) — garante que
-        o cancelamento propague p/ a corrotina mesmo no wait cross-thread."""
-        return await asyncio.wait_for(
-            self._producer.send_and_wait(topic or deliver_topic(), value=value, key=key),
-            timeout=settings.KAFKA_PRODUCE_WAIT_S,
-        )
+        o cancelamento propague p/ a corrotina mesmo no wait cross-thread.
+
+        ``spread=(base, shard)`` escolhe a partição EXPLICITAMENTE: a de índice
+        ``(base + shard) % partições`` (ADR-0018 Onda 3f). Pelo hash da chave, os
+        shards de um mesmo stream colidiam — 4 shards caíam em 3 de 8 partições,
+        uma delas com metade do tráfego, e o stream não escalava além de ~2
+        processors. Assim, shards distintos de um stream nunca dividem partição."""
+        target = topic or deliver_topic()
+
+        async def _send() -> Any:
+            if spread is None:
+                # Entrega (key=destination_id): partição pelo hash da chave, como sempre.
+                return await self._producer.send_and_wait(target, value=value, key=key)
+            parts = sorted(await self._producer.partitions_for(target))
+            base, shard = spread
+            return await self._producer.send_and_wait(
+                target, value=value, key=key, partition=parts[(base + shard) % len(parts)]
+            )
+
+        return await asyncio.wait_for(_send(), timeout=settings.KAFKA_PRODUCE_WAIT_S)
 
     def run_in_loop(self, coro: Any, timeout: float) -> Any:
         """Roda ``coro`` no loop do producer e espera o resultado (sobe o producer
@@ -486,7 +530,21 @@ class _ProducerThread:
         # KAFKA_MAX_REQUEST_BYTES (== limite do broker).
         limit = max(1, int(settings.KAFKA_MAX_REQUEST_BYTES * 0.9))
         oversized: List[Dict[str, Any]] = []
-        self._produce_framed(destination_id, batch, trace_context, key, limit, oversized)
+        # Destino com entrega em ordem (Onda 4e): uma partição só, a primeira
+        # da faixa dele, e o envelope marcado para o dispatcher encadear.
+        from .ordered import is_ordered
+
+        ordered = is_ordered(destination_id)
+        if ordered:
+            spread: Optional[Tuple[int, int]] = (
+                zlib.crc32(destination_id.encode("utf-8")), 0
+            )
+        else:
+            spread = deliver_spread(destination_id)
+        self._produce_framed(
+            destination_id, batch, trace_context, key, limit, oversized,
+            spread=spread, ordered=ordered,
+        )
         if oversized:
             _divert_oversized_to_dlq(destination_id, oversized, trace_context)
 
@@ -498,6 +556,8 @@ class _ProducerThread:
         key: bytes,
         limit: int,
         oversized: List[Dict[str, Any]],
+        spread: Optional[Tuple[int, int]] = None,
+        ordered: bool = False,
     ) -> None:
         """Produz ``batch`` em registros ≤ ``limit``; o que não cabe vai p/ ``oversized``.
 
@@ -507,12 +567,15 @@ class _ProducerThread:
         2+ eventos é re-dividido com metade do tamanho que ele tinha; a recursão
         termina porque o limite cai pela metade a cada nível até sobrar 1 evento.
         """
-        for sub_batch, value in _frames(destination_id, batch, trace_context, limit):
+        for sub_batch, value in _frames(destination_id, batch, trace_context, limit, ordered):
             if len(sub_batch) == 1 and _exceeds_request_limit(value, key):
                 oversized.extend(sub_batch)
                 continue
             try:
-                self._produce_value(destination_id, value, key)
+                if spread is None:
+                    self._produce_value(destination_id, value, key)
+                else:
+                    self._produce_value(destination_id, value, key, spread=spread)
             except Exception as exc:
                 if not _is_message_too_large(exc):
                     raise
@@ -528,11 +591,16 @@ class _ProducerThread:
                 )
                 self._produce_framed(
                     destination_id, sub_batch, trace_context, key,
-                    max(1, len(value) // 2), oversized,
+                    max(1, len(value) // 2), oversized, spread=spread, ordered=ordered,
                 )
 
     def _produce_value(
-        self, destination_id: str, value: bytes, key: bytes, topic: Optional[str] = None
+        self,
+        destination_id: str,
+        value: bytes,
+        key: bytes,
+        topic: Optional[str] = None,
+        spread: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Envia UM registro já enquadrado e BLOQUEIA até o ack. Em erro FATAL de
         idempotência, recria o producer (self-heal) e propaga o erro p/ o caller."""
@@ -545,7 +613,7 @@ class _ProducerThread:
         fut: Optional[concurrent.futures.Future] = None
         try:
             fut = asyncio.run_coroutine_threadsafe(
-                self._bounded_send(value, key, topic), self._loop
+                self._bounded_send(value, key, topic, spread), self._loop
             )
             # +2s de folga sobre o teto INTERNO → o wait_for interno dispara
             # primeiro (cancela a send), e este result só colhe resultado/erro.
@@ -649,6 +717,17 @@ def shutdown_producer() -> None:
 
 # ── Consumer (role dispatcher) ────────────────────────────────────────────────
 
+def group_timeouts() -> Dict[str, int]:
+    """Sessão, heartbeat e rebalance dos grupos de consumo (processor e
+    dispatcher) — ver ``KAFKA_SESSION_TIMEOUT_MS`` em ``config``."""
+    session = int(settings.KAFKA_SESSION_TIMEOUT_MS)
+    return {
+        "session_timeout_ms": session,
+        "heartbeat_interval_ms": min(int(settings.KAFKA_HEARTBEAT_INTERVAL_MS), session // 3),
+        "rebalance_timeout_ms": max(int(settings.KAFKA_REBALANCE_TIMEOUT_MS), session),
+    }
+
+
 def owns_partition(consumer: Any, tp: Any) -> bool:
     """True se ``tp`` ainda está atribuída a este consumer.
 
@@ -708,21 +787,103 @@ async def _emit_consumer_lag(consumer: Any, metrics: Any) -> None:
             )
 
 
+class OffsetTracker:
+    """Offsets em voo por partição, para commitar com entrega CONCORRENTE.
+
+    Com vários lotes da mesma partição em voo ao mesmo tempo (Onda 4b), o offset
+    commitado é o primeiro ainda NÃO concluído — nunca além de um registro que
+    não foi entregue nem estacionado (invariante da Onda 0). Concluídos depois
+    dele esperam; numa queda, são relidos (at-least-once)."""
+
+    def __init__(self) -> None:
+        self._open: Dict[Any, set] = {}
+        self._high: Dict[Any, int] = {}
+        self._committed: Dict[Any, int] = {}
+
+    def start(self, tp: Any, offset: int) -> None:
+        self._open.setdefault(tp, set()).add(offset)
+        self._high[tp] = max(self._high.get(tp, -1), offset)
+
+    def done(self, tp: Any, offset: int) -> None:
+        self._open.get(tp, set()).discard(offset)
+
+    def forget(self, tp: Any, offset: int) -> None:
+        """O registro volta ao tópico (seek): sai do controle e o commit não pode
+        passar dele."""
+        self._open.get(tp, set()).discard(offset)
+        if self._high.get(tp, -1) >= offset:
+            self._high[tp] = offset - 1
+
+    def reset(self, tp: Any) -> None:
+        """Partição revogada: o novo dono relê a partir do último commit."""
+        self._open.pop(tp, None)
+        self._high.pop(tp, None)
+        self._committed.pop(tp, None)
+
+    def commit_point(self, tp: Any) -> Optional[int]:
+        """Próximo offset a commitar, ou None se não avançou."""
+        if tp not in self._high:
+            return None
+        pending = self._open.get(tp)
+        nxt = min(pending) if pending else self._high[tp] + 1
+        if nxt <= self._committed.get(tp, -1):
+            return None
+        self._committed[tp] = nxt
+        return nxt
+
+
+def _dispatch_revoke_drain(inflight: set, tracker: OffsetTracker, advance: Any) -> Any:
+    """Listener de rebalance do dispatcher: na revogação, nada novo começa e os
+    lotes em voo terminam e commitam ANTES de a partição mudar de dono — o mesmo
+    fechamento da janela de duplicata do processor (Onda 3f), agora com entrega
+    concorrente. Espera no máximo metade do ``rebalance_timeout``."""
+    from aiokafka import ConsumerRebalanceListener
+
+    timeout_s = group_timeouts()["rebalance_timeout_ms"] / 2000.0
+
+    class _Drain(ConsumerRebalanceListener):
+        revoking = False
+
+        async def on_partitions_revoked(self, revoked: Any) -> None:
+            if not revoked:
+                return
+            self.revoking = True
+            pending = list(inflight)
+            if pending:
+                await asyncio.wait(pending, timeout=timeout_s)
+            for tp in revoked:
+                try:
+                    await advance(tp)
+                except Exception:  # noqa: BLE001 — o novo dono relê
+                    logger.debug("data-plane: commit na revogação falhou tp=%s", tp, exc_info=True)
+                tracker.reset(tp)
+
+        async def on_partitions_assigned(self, assigned: Any) -> None:
+            self.revoking = False
+
+    return _Drain()
+
+
 async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) -> None:
     """Loop do consumer do role ``dispatcher``: consome o tópico de entrega e chama
     o despacho existente. at-least-once com commit manual EXPLÍCITO por offset:
 
       - sucesso                  → commita ``{tp: offset+1}``;
-      - breaker OPEN             → lote à DLQ (error_kind=breaker_open) + commita;
+      - breaker OPEN             → lote ESTACIONADO no Kafka (``parked``) + commita;
       - transitório < N tentat.  → ``seek`` de volta + backoff (reprocessa);
-      - transitório esgotado     → lote à DLQ (error_kind=exhausted) + commita
+      - transitório esgotado     → lote ESTACIONADO + commita
                                     (desbloqueia a partição — sem poison-trap infinito);
-      - erro NÃO classificado    → tratado como transitório (seek + backoff, depois DLQ);
-      - DLQ não confirmou        → NÃO commita: seek + backoff, o lote segue no tópico;
+      - erro NÃO classificado    → tratado como transitório (seek + backoff, depois estaciona);
+      - estacionar falhou        → NÃO commita: seek + backoff, o lote segue no tópico;
       - envelope inválido/malformado → descarta (outcome=invalid) + commita.
 
+    Destino com ``delivery.ordered`` (Onda 4e) segue outro caminho: um lote por
+    vez, na ordem do tópico, e estacionado nunca é ultrapassado (``ordered``).
+
     Invariante (ADR-0018 Onda 0): nenhum offset é commitado sem a entrega ou a
-    gravação na DLQ confirmadas.
+    gravação durável (estacionamento; DLQ só para poison) confirmadas. Destino
+    fora não grava linha no Postgres (Onda 4a): o drenador do estacionamento
+    (``parked.run_parked_consumer``) entrega quando ele volta.
 
     Cooperativo: ``stop_event`` faz o loop sair APÓS terminar+commitar o registro
     corrente (drain limpo). Lag é emitido por uma task de BACKGROUND sobre TODAS
@@ -733,8 +894,7 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     from aiokafka.structs import TopicPartition
 
     from .. import circuit_breaker
-    from ..delivery import persist_batch_dlq
-    from ..pipeline import _batch_org_id, dispatch_batch_to_destination
+    from ..pipeline import dispatch_batch_to_destination
 
     try:
         from ..delivery import TransientDeliveryError  # type: ignore
@@ -746,7 +906,6 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
     await _ensure_deliver_topic()
 
     consumer = AIOKafkaConsumer(
-        deliver_topic(),
         **_client_kwargs(),
         group_id=settings.KAFKA_CONSUMER_GROUP,
         enable_auto_commit=False,
@@ -755,20 +914,31 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
         # Folga p/ um dispatch lento não ser tido como "consumer morto" → rebalance
         # espúrio + re-entrega.
         max_poll_interval_ms=settings.KAFKA_MAX_POLL_INTERVAL_MS,
+        **group_timeouts(),
     )
     # Telemetria do data-plane: métricas de consumo/lag + continuidade
     # de trace (span FILHO do carrier W3C carregado na mensagem). No-op se OTel off.
     from .. import metrics, tracing
 
+    # Estado do laço concorrente (Onda 4b), criado ANTES do start: o rebalance
+    # pode chamar o listener assim que o consumer entra no grupo.
+    tracker = OffsetTracker()
+    inflight: set = set()
+
+    async def _advance(tp: Any) -> None:
+        """Commita até o maior offset CONTÍNUO concluído da partição."""
+        nxt = tracker.commit_point(tp)
+        if nxt is not None:
+            await safe_commit(consumer, tp, nxt)
+
+    drain = _dispatch_revoke_drain(inflight, tracker, _advance)
+    consumer.subscribe([deliver_topic()], listener=drain)
     await consumer.start()
     _touch_health(_READY_FILE)  # readiness: consumer.start() ok
     logger.info(
         "data-plane: dispatcher consumindo topic=%s group=%s",
         deliver_topic(), settings.KAFKA_CONSUMER_GROUP,
     )
-
-    # Contador de tentativas transitórias por (partition, offset) — bound + DLQ.
-    attempts: Dict[tuple, int] = {}
 
     async def _emit_lag() -> None:
         """Emite lag de TODAS as partições atribuídas em background e toca o
@@ -781,59 +951,281 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
             except Exception:  # pragma: no cover — lag é advisory, nunca derruba o loop
                 pass
 
-    async def _persist_dlq(batch: list, dest_id: Any, error_kind: str) -> bool:
-        """Grava o lote na DLQ e diz se GRAVOU. ``persist_batch_dlq`` devolve
-        False em falha (não levanta); qualquer exceção também conta como falha.
-        O chamador só commita o offset com True."""
-        try:
-            ok = await asyncio.to_thread(
-                persist_batch_dlq,
-                batch,
-                destination_id=str(dest_id),
-                error_kind=error_kind,
-                organization_id=_batch_org_id(batch),
-            )
-        except Exception:  # noqa: BLE001 — falha da DLQ = não commitar
-            logger.exception(
-                "data-plane: falha ao gravar DLQ dest=%s kind=%s — lote mantido no tópico",
-                dest_id, error_kind,
-            )
-            return False
-        if ok is not True:
-            logger.error(
-                "data-plane: DLQ não confirmou dest=%s kind=%s — lote mantido no tópico",
-                dest_id, error_kind,
-            )
-            return False
-        return True
+    async def _park(value: bytes, dest_id: Any, reason: str) -> bool:
+        from .parked import park
 
-    async def _commit(tp: "TopicPartition", offset: int) -> None:
-        """Commit EXPLÍCITO do offset processado (não bare commit de todas as
-        partições) + tolera partição revogada no rebalance."""
-        await safe_commit(consumer, tp, offset + 1)
+        return await park(value, str(dest_id), reason)
 
     lag_task = asyncio.create_task(_emit_lag())
+    # UM cliente Redis para o processo (ADR-0018 Onda 3f). O despacho criava um
+    # por lote — o padrão das tasks Celery, cujo loop morre a cada task — e cada
+    # cliente novo pagava conexão + ``importlib.metadata.version`` do redis-py:
+    # ~1/4 do tempo do dispatcher no gate de carga. Aqui o loop vive o processo
+    # inteiro, então o cliente (e o pool dele) também.
+    from ..celery_app import get_worker_redis
+    from ..pipeline import DISPATCH_REDIS
+
+    shared_redis = get_worker_redis()
+    redis_token = DISPATCH_REDIS.set(shared_redis)
+    stopping = lambda: stop_event is not None and stop_event.is_set()  # noqa: E731
+    dest_sems: Dict[str, asyncio.Semaphore] = {}
+    #: Destino marcado lento (um lote esperou a vez além de ``slow_after``) até
+    #: este instante: os lotes dele que chegarem estacionam JÁ NA BUSCA, sem ocupar
+    #: vaga em voo. Sem isso, os lotes do lento esperavam a vez ocupando as vagas
+    #: do teto global e o destino saudável quase não conseguia entrar (gate de
+    #: carga: 31 s → 159 s para o saudável com um destino a 1 ms/evento).
+    slow_until: Dict[str, float] = {}
+    max_inflight = max(1, int(settings.KAFKA_DISPATCH_MAX_INFLIGHT))
+    per_dest = max(1, int(settings.KAFKA_DISPATCH_INFLIGHT_PER_DEST))
+    slow_after = float(settings.KAFKA_DISPATCH_SLOW_PARK_SECONDS)
+
+    async def _sleep(delay: float) -> None:
+        """Espera interrompível pelo ``stop_event`` (o drain não espera backoff),
+        em fatias de até 0,5 s."""
+        remaining = float(delay)
+        while remaining > 0 and not stopping():
+            step = min(0.5, remaining)
+            await asyncio.sleep(step)
+            remaining -= step
+
+    async def _deliver(tp: Any, msg: Any, dest_id: str, batch: list, payload: Dict[str, Any]) -> None:
+        """Entrega UM registro. Só marca o offset concluído com a entrega ou o
+        estacionamento confirmados (Onda 0); no stop, abandona sem concluir — o
+        registro é relido pelo próximo dono."""
+        attempts = 0
+        outcome = "ok"
+        started = time.perf_counter()
+        sem = dest_sems.setdefault(dest_id, asyncio.Semaphore(per_dest))
+        try:
+            try:
+                await asyncio.wait_for(sem.acquire(), timeout=slow_after)
+            except asyncio.TimeoutError:
+                # O destino não deu vez em ``slow_after`` s: está lento ou falhando.
+                # O lote vai ao estacionamento e libera a vaga — é isto que impede
+                # um destino lento de segurar os outros (Onda 4b) por mais que isso.
+                # Rótulo próprio: cada espera dessas custou até ``slow_after`` s de
+                # uma vaga em voo; as estacionadas na busca não custam nada.
+                outcome = "parked_slow_wait"
+                # Marca pelo ciclo do estacionamento (não por uma janela de
+                # espera): o drenador entrega o atrasado no ritmo do destino, e o
+                # caminho principal só volta a tentar depois disso.
+                slow_until[dest_id] = time.monotonic() + max(
+                    slow_after, float(settings.KAFKA_PARKED_HOLD_SECONDS)
+                )
+                while not stopping():
+                    if await _park(msg.value, dest_id, "slow"):
+                        tracker.done(tp, msg.offset)
+                        await _advance(tp)
+                        return
+                    await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                return
+            try:
+                while True:
+                    if stopping():
+                        return
+                    try:
+                        with tracing.span_with_parent(
+                            "dataplane.dispatch",
+                            payload.get("trace"),
+                            span_kind="consumer",
+                            **{
+                                "centralops.destination_id": str(dest_id),
+                                "centralops.batch_size": len(batch),
+                                "messaging.system": "kafka",
+                                "messaging.operation.type": "process",
+                                "messaging.destination.name": getattr(msg, "topic", None),
+                                "messaging.destination.partition.id": (
+                                    str(msg.partition)
+                                    if getattr(msg, "partition", None) is not None else None
+                                ),
+                            },
+                        ):
+                            result = await dispatch_batch_to_destination(dest_id, batch)
+                            tracing.record_dispatch_outcome(result)
+                        break
+                    except circuit_breaker.BreakerOpen:
+                        # Destino fora ESPERA NO KAFKA (Onda 4a): estaciona o lote
+                        # nunca tentado. Broker recusando: tenta de novo.
+                        outcome = "parked"
+                        if await _park(msg.value, dest_id, "breaker_open"):
+                            logger.info("data-plane: breaker OPEN dest=%s — lote estacionado", dest_id)
+                            break
+                        outcome = "park_failed"
+                        await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                    except Exception as exc:  # noqa: BLE001 — nenhum erro conclui sem destino durável
+                        attempts += 1
+                        if attempts > settings.KAFKA_MAX_DELIVERY_ATTEMPTS:
+                            # Transitório não é poison: ESTACIONA (Onda 4a). A partição
+                            # nunca ficou presa — a re-tentativa é desta tarefa só.
+                            outcome = "exhausted"
+                            logger.error(
+                                "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas, %s) "
+                                "— estacionado",
+                                dest_id, msg.offset, attempts, type(exc).__name__,
+                            )
+                            if await _park(msg.value, dest_id, "exhausted"):
+                                break
+                            outcome = "park_failed"
+                            await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                            continue
+                        if isinstance(exc, TransientDeliveryError):
+                            outcome = "transient"
+                        else:
+                            outcome = "unclassified"
+                            logger.warning(
+                                "data-plane: erro não classificado no dispatch dest=%s offset=%s "
+                                "(tentativa %d) — tratado como transitório",
+                                dest_id, msg.offset, attempts, exc_info=True,
+                            )
+                        await _sleep(float(min(2 ** attempts, 30)))
+            finally:
+                sem.release()
+            tracker.done(tp, msg.offset)
+            await _advance(tp)
+        finally:
+            metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - started)
+            metrics.DATAPLANE_CONSUMED.labels(outcome=outcome).inc()
+
+    from . import ordered as _ordered
+
+    #: Último lote em voo de cada destino com entrega em ordem (Onda 4e): o
+    #: próximo só decide depois dele.
+    ordered_tail: Dict[str, asyncio.Task] = {}
+
+    async def _park_ordered(value: bytes, dest_id: str, reason: str) -> bool:
+        """Estaciona um lote de destino ordenado com o número de sequência dele.
+        Só volta False no stop (nada concluído: o registro é relido)."""
+        while not stopping():
+            try:
+                seq = await _ordered.reserve(shared_redis, dest_id)
+            except Exception:  # noqa: BLE001 — Redis fora: sem marca não estaciona
+                logger.warning(
+                    "data-plane: sem marca de ordem no Redis dest=%s — nova tentativa",
+                    dest_id, exc_info=True,
+                )
+                await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                continue
+            if await _park(_ordered.stamp(value, seq), dest_id, reason):
+                return True
+            await _sleep(_DLQ_FAILURE_BACKOFF_S)
+        return False
+
+    async def _deliver_ordered(
+        tp: Any, msg: Any, dest_id: str, batch: list, payload: Dict[str, Any],
+        prev: Optional[asyncio.Task],
+    ) -> None:
+        """Entrega UM lote de destino ordenado, depois do anterior dele.
+
+        Uma tentativa direta, com o teto de ``slow_after``: falha, disjuntor
+        aberto ou demora estacionam o lote (o drenador re-tenta, em ordem), em
+        vez de segurar a fila do destino. Lote que esperou a vez além de
+        ``slow_after`` também estaciona sem tentar, e com isso a fila esvazia
+        rápido: os seguintes acham a marca e estacionam atrás dele."""
+        outcome = "ordered_ok"
+        started = time.perf_counter()
+        try:
+            if prev is not None:
+                await asyncio.wait({prev})
+            if stopping():
+                outcome = "ordered_abandoned"
+                return
+            waited = time.perf_counter() - started
+            reason: Optional[str] = None
+            while reason is None:
+                try:
+                    backlog = await _ordered.has_backlog(shared_redis, dest_id)
+                except Exception:  # noqa: BLE001 — sem saber, não ultrapassa
+                    logger.warning(
+                        "data-plane: Redis fora ao checar a ordem dest=%s — nova tentativa",
+                        dest_id, exc_info=True,
+                    )
+                    await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                    if stopping():
+                        outcome = "ordered_abandoned"
+                        return
+                    continue
+                if backlog:
+                    reason = "ordered_backlog"
+                elif waited > slow_after:
+                    reason = "slow"
+                break
+            if reason is None:
+                try:
+                    with tracing.span_with_parent(
+                        "dataplane.dispatch",
+                        payload.get("trace"),
+                        span_kind="consumer",
+                        **{
+                            "centralops.destination_id": str(dest_id),
+                            "centralops.batch_size": len(batch),
+                            "centralops.ordered": True,
+                            "messaging.system": "kafka",
+                            "messaging.operation.type": "process",
+                            "messaging.destination.name": getattr(msg, "topic", None),
+                            "messaging.destination.partition.id": (
+                                str(msg.partition)
+                                if getattr(msg, "partition", None) is not None else None
+                            ),
+                        },
+                    ):
+                        result = await asyncio.wait_for(
+                            dispatch_batch_to_destination(dest_id, batch), timeout=slow_after
+                        )
+                        tracing.record_dispatch_outcome(result)
+                except circuit_breaker.BreakerOpen:
+                    reason = "breaker_open"
+                except asyncio.TimeoutError:
+                    reason = "slow"
+                except Exception as exc:  # noqa: BLE001 — o drenador re-tenta, em ordem
+                    logger.warning(
+                        "data-plane: entrega em ordem falhou dest=%s offset=%s (%s) — estacionado",
+                        dest_id, msg.offset, type(exc).__name__,
+                    )
+                    reason = "exhausted"
+            if reason is not None:
+                outcome = f"ordered_parked_{reason}"
+                if not await _park_ordered(msg.value, dest_id, reason):
+                    outcome = "ordered_abandoned"
+                    return
+            tracker.done(tp, msg.offset)
+            await _advance(tp)
+        finally:
+            metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - started)
+            metrics.DATAPLANE_CONSUMED.labels(outcome=outcome).inc()
+
     # Poll com timeout (em vez de ``async for``, que bloqueia): permite checar o
     # ``stop_event`` a cada tick → drain cooperativo PRONTO mesmo com a partição
     # ociosa, sem esperar o deadline de hard-cancel.
     _poll_timeout = 1.0
+    _last_touch = [0.0]
     try:
-        while True:
-            if stop_event is not None and stop_event.is_set():
-                break
+        while not stopping():
+            if len(inflight) >= max_inflight or drain.revoking:
+                # Teto de registros em voo (memória e conexões limitadas), ou
+                # rebalance em curso: nada novo até alguém terminar.
+                if inflight:
+                    await asyncio.wait(inflight, timeout=_poll_timeout, return_when=asyncio.FIRST_COMPLETED)
+                else:
+                    await asyncio.sleep(0.05)
+                continue
             try:
                 msg = await asyncio.wait_for(consumer.getone(), timeout=_poll_timeout)
             except asyncio.TimeoutError:
                 continue  # nenhuma msg neste tick — re-checa stop_event no topo
             except StopAsyncIteration:
                 break  # stream encerrado (fake/teste); o getone() real bloqueia
-            _touch_health(_HEARTBEAT_FILE)  # progresso → liveness
+            # progresso → liveness. No máximo 1×/s: o liveness olha o mtime em
+            # segundos, e tocar o arquivo POR REGISTRO era uma abertura de arquivo
+            # por lote no laço principal.
+            _now = time.monotonic()
+            if _now - _last_touch[0] >= 1.0:
+                _touch_health(_HEARTBEAT_FILE)
+                _last_touch[0] = _now
             tp = TopicPartition(msg.topic, msg.partition)
-            key = (tp.partition, msg.offset)
+            tracker.start(tp, msg.offset)
 
             # Decode + GUARD de schema: JSON inválido OU envelope sem batch/dest
-            # válido = poison message → descarta+commita (não cai no except-genérico
-            # que assumiria "DLQ no dispatch").
+            # válido = poison message → descarta+conclui.
             try:
                 payload = decode_delivery(msg.value)
             except Exception:
@@ -841,8 +1233,8 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                     "data-plane: payload inválido (offset=%s) — descartado", msg.offset
                 )
                 metrics.DATAPLANE_CONSUMED.labels(outcome="invalid").inc()
-                await _commit(tp, msg.offset)
-                attempts.pop(key, None)
+                tracker.done(tp, msg.offset)
+                await _advance(tp)
                 continue
 
             dest_id = payload.get("destination_id")
@@ -853,102 +1245,56 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
                     msg.offset, dest_id,
                 )
                 metrics.DATAPLANE_CONSUMED.labels(outcome="invalid").inc()
-                await _commit(tp, msg.offset)
-                attempts.pop(key, None)
+                tracker.done(tp, msg.offset)
+                await _advance(tp)
                 continue
 
-            _start = time.perf_counter()
-            outcome = "ok"
-            backoff = 0.0  # >0 → retry transitório (seek já feito; dorme após medir)
-            try:
-                # Continua o trace fim-a-fim: span filho do traceparent propagado
-                # pelo producer (fecha o gap do "hop Kafka" — SRE vê collect→deliver).
-                with tracing.span_with_parent(
-                    "dataplane.dispatch",
-                    payload.get("trace"),
-                    span_kind="consumer",
-                    **{
-                        "centralops.destination_id": str(dest_id),
-                        "centralops.batch_size": len(batch),
-                        "messaging.system": "kafka",
-                        "messaging.operation.type": "process",
-                        "messaging.destination.name": getattr(msg, "topic", None),
-                        "messaging.destination.partition.id": (
-                            str(msg.partition) if getattr(msg, "partition", None) is not None else None
-                        ),
-                    },
-                ):
-                    outcome = await dispatch_batch_to_destination(dest_id, batch)
-                    # Desvio para a DLQ sem exceção (destino ausente/de outro
-                    # tenant, rejeição pelo sink) também é erro no span.
-                    tracing.record_dispatch_outcome(outcome)
-                await _commit(tp, msg.offset)
-                attempts.pop(key, None)
-            except circuit_breaker.BreakerOpen:
-                # Breaker OPEN: o lote NUNCA foi tentado e NÃO foi persistido pelo
-                # dispatch. DLQ (recuperável) ANTES de commitar — e só commita se a
-                # DLQ CONFIRMAR a gravação (ADR-0018 Onda 0): com o Postgres fora,
-                # o lote fica no Kafka e é relido, em vez de sumir.
-                outcome = "breaker_open"
-                if await _persist_dlq(batch, dest_id, "breaker_open"):
-                    logger.warning(
-                        "data-plane: breaker OPEN dest=%s — lote na DLQ (breaker_open)", dest_id
-                    )
-                    await _commit(tp, msg.offset)
-                    attempts.pop(key, None)
-                else:
-                    outcome = "dlq_failed"
-                    safe_seek(consumer, tp, msg.offset)
-                    backoff = _DLQ_FAILURE_BACKOFF_S
-            except Exception as exc:  # noqa: BLE001 — nenhum erro commita sem DLQ
-                # TransientDeliveryError E qualquer erro NÃO classificado. Antes, o
-                # não classificado caía num ramo que commitava supondo "rejeições já
-                # na DLQ pelo dispatch" — falso para erro de conexão do sender, falha
-                # do Postgres ao ler o destino, bug no formatter. Era perda silenciosa
-                # (ADR-0018 Onda 0). Agora todo erro é re-tentado com backoff e, ao
-                # esgotar, vai à DLQ; o commit só acontece com a DLQ confirmada.
-                attempts[key] = attempts.get(key, 0) + 1
-                if attempts[key] > settings.KAFKA_MAX_DELIVERY_ATTEMPTS:
-                    # Esgotou: DLQ + commit p/ DESBLOQUEAR a partição (sem isto, um
-                    # destino transitório-permanente prende a partição em loop de
-                    # seek e faz HoL-blocking nos co-tenants).
-                    outcome = "exhausted"
-                    logger.error(
-                        "data-plane: transitório esgotado dest=%s offset=%s (%d tentativas, %s) — DLQ",
-                        dest_id, msg.offset, attempts[key], type(exc).__name__,
-                    )
-                    if await _persist_dlq(batch, dest_id, "exhausted"):
-                        attempts.pop(key, None)
-                        await _commit(tp, msg.offset)
-                    else:
-                        outcome = "dlq_failed"
-                        safe_seek(consumer, tp, msg.offset)
-                        backoff = _DLQ_FAILURE_BACKOFF_S
-                else:
-                    # at-least-once: volta a posição e reprocessa com backoff exponencial.
-                    if isinstance(exc, TransientDeliveryError):
-                        outcome = "transient"
-                    else:
-                        outcome = "unclassified"
-                        logger.warning(
-                            "data-plane: erro não classificado no dispatch dest=%s offset=%s "
-                            "(tentativa %d) — tratado como transitório",
-                            dest_id, msg.offset, attempts[key], exc_info=True,
-                        )
-                    safe_seek(consumer, tp, msg.offset)
-                    backoff = float(min(2 ** attempts[key], 30))
+            if payload.get("ordered") is True:
+                # Entrega em ordem (Onda 4e): encadeia no lote anterior do destino.
+                # Nada de estacionar na busca: isso passaria na frente dos que
+                # ainda estão na fila dele.
+                prev = ordered_tail.get(dest_id)
+                task = asyncio.create_task(
+                    _deliver_ordered(tp, msg, dest_id, batch, payload, prev)
+                )
+                ordered_tail[dest_id] = task
 
-            # Latência do ATTEMPT de dispatch — EXCLUI o backoff do transitório.
-            metrics.DATAPLANE_CONSUME_LATENCY.observe(time.perf_counter() - _start)
-            metrics.DATAPLANE_CONSUMED.labels(outcome=outcome).inc()
+                def _untail(t: asyncio.Task, _dest: str = dest_id) -> None:
+                    if ordered_tail.get(_dest) is t:
+                        del ordered_tail[_dest]
 
-            if backoff:
-                await asyncio.sleep(backoff)
-            # stop_event é re-checado no TOPO do while (drain após este registro).
+                task.add_done_callback(_untail)
+                inflight.add(task)
+                task.add_done_callback(inflight.discard)
+                continue
+
+            if slow_until.get(dest_id, 0.0) > time.monotonic():
+                # Destino marcado lento: estaciona sem entrar na fila dele.
+                if await _park(msg.value, dest_id, "slow"):
+                    metrics.DATAPLANE_CONSUMED.labels(outcome="parked_slow").inc()
+                    tracker.done(tp, msg.offset)
+                    await _advance(tp)
+                else:
+                    # Broker recusando: relê depois (nada concluído).
+                    safe_seek(consumer, tp, msg.offset)
+                    tracker.forget(tp, msg.offset)
+                    await _sleep(_DLQ_FAILURE_BACKOFF_S)
+                continue
+            task = asyncio.create_task(_deliver(tp, msg, dest_id, batch, payload))
+            inflight.add(task)
+            task.add_done_callback(inflight.discard)
+        # Drain: termina (ou abandona, se for stop) o que está em voo e commita.
+        if inflight:
+            await asyncio.gather(*list(inflight), return_exceptions=True)
     finally:
         lag_task.cancel()
         try:
             await lag_task
         except BaseException:  # pragma: no cover — CancelledError no shutdown
+            pass
+        DISPATCH_REDIS.reset(redis_token)
+        try:
+            await shared_redis.aclose()
+        except Exception:  # pragma: no cover — encerramento best-effort
             pass
         await consumer.stop()

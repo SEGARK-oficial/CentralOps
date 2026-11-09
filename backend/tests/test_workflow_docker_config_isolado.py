@@ -38,10 +38,14 @@ _JOBS_CONHECIDOS = frozenset(
     {
         ("build-and-publish.yml", "build-and-push"),
         ("ci.yml", "build"),
-        ("ci.yml", "e2e-setup"),
+        # nov/2026: imagem do frontend em job próprio (paralelo à da API).
+        ("ci.yml", "build-frontend"),
+        # ``e2e-setup`` saiu: cada shard já rodava o projeto setup do Playwright.
         ("ci.yml", "e2e"),
         ("ci.yml", "publish"),
         ("release-please.yml", "build-release-image"),
+        # nov/2026: o release promove a imagem testada (fallback = build acima).
+        ("release-please.yml", "promote-release-image"),
     }
 )
 

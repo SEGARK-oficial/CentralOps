@@ -412,11 +412,16 @@ const DestinationDetailPage: React.FC = () => {
                 <p className="text-xs text-text-tertiary">{t("detailPage.health.noRecentTraffic")}</p>
               )}
 
-              {metrics && (metrics.gauges?.queue_depth != null || metrics.gauges?.backpressure_state != null) && (
-                <div className="flex flex-wrap gap-3">
-                  {metrics.gauges.queue_depth != null && <Badge variant="outline">{t("detailPage.health.queueDepth", { value: metrics.gauges.queue_depth })}</Badge>}
-                  {metrics.gauges.backpressure_state != null && <Badge variant="warning">{t("detailPage.health.backpressure", { value: metrics.gauges.backpressure_state })}</Badge>}
-                </div>
+              {/* Destino fora do ar ou recusando: os lotes esperam no estacionamento
+                  do Kafka e saem sozinhos quando ele volta (ADR-0018 Onda 4). */}
+              {metrics && metrics.parked?.batches > 0 && (
+                <Notice variant="warning" title={t("detailPage.health.parkedTitle")} data-testid="destination-parked">
+                  {t("detailPage.health.parkedBody", {
+                    batches: metrics.parked.batches,
+                    events: metrics.parked.events,
+                    since: metrics.parked.since ? formatDateTime(metrics.parked.since * 1000) : "—",
+                  })}
+                </Notice>
               )}
             </div>
 
@@ -449,6 +454,8 @@ const DestinationDetailPage: React.FC = () => {
                 </Button>
               </div>
             </div>
+
+            <p className="text-xs text-text-secondary">{t("detailPage.dlq.onlyRejections")}</p>
 
             {!dlq || dlq.total === 0 ? (
               <p className="text-sm text-text-tertiary">{t("detailPage.dlq.empty")}</p>

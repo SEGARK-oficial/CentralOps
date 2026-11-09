@@ -163,7 +163,7 @@ def test_helm_workers_drain_at_least_task_time_limit():
 # ── Compose: o MESMO data-plane em todos os serviços da app ─────────────────
 
 _KAFKA_VARS = (
-    "EVENT_DATAPLANE",
+    # EVENT_DATAPLANE saiu na Onda 5: o Kafka é o único data-plane.
     "KAFKA_BOOTSTRAP_SERVERS",
     "KAFKA_SECURITY_PROTOCOL",
     "KAFKA_SASL_MECHANISM",

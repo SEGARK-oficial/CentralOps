@@ -7,22 +7,22 @@ arquivo, ``test_every_dispatch_site_settles``, NÃO foi substituído e continua
 lá: ele é um CENSO dos sites de dispatch, e censo é justamente o que este
 harness não sabe fazer — ele só enxerga os sites que o ciclo ALCANÇA.
 
-Aqui nada é lido do ``.py``. O ciclo REAL (``pipeline._run_collection_once``) é
-executado contra dublês, e o que se afirma é o EFEITO observável:
+Aqui nada é lido do ``.py``. O estágio REAL (``pipeline.process_raw_events``, o
+único lugar onde o evento é processado desde o ADR-0018 Onda 5) é executado
+contra dublês, e o que se afirma é o EFEITO observável:
 
   * todo ``msg_id`` reivindicado termina o ciclo entregue-e-liquidado OU solto;
   * nunca as duas coisas, nunca nenhuma;
   * a liquidação nunca precede o hand-off durável (provado invertendo o mundo:
     se o hand-off levanta, a claim PRECISA aparecer no release);
-  * o release acontece ANTES do ``aclose`` do cliente Redis — depois dele o DEL
-    iria contra um cliente fechado e a compensação viraria no-op silencioso.
+  * o release acontece ANTES do ``aclose`` do cliente Redis — o encerramento do
+    estágio inteiro (release incluso) precede o fechamento do cliente.
 
 Refactor-safety, na medida certa: como os fatos são medidos por ORDEM DE EVENTOS
 numa fita, mover a liquidação para um helper, um context manager ou um decorator
 continua passando; removê-la, ou movê-la para antes do dispatch, falha. Mas as
-sondas são monkeypatch POR NOME (``pipeline.claim``, ``pipeline._enqueue_
-dispatch``, ``dedupe.release_many``): renomear ou realocar um desses seams faz a
-fita parar de registrar. O que impede isso de ficar VERDE por vacuidade é o
+sondas são a janela de dedupe passada ao estágio e ``pipeline._enqueue_dispatch``
+por NOME: renomear ou realocar um desses seams faz a fita parar de registrar. O que impede isso de ficar VERDE por vacuidade é o
 assert positivo que abre ``_assert_conservation`` (houve claim) e os asserts de
 presença ao lado de cada assert de ordem — sem eles, fita vazia aprova tudo.
 """
@@ -42,7 +42,7 @@ from typing import Any
 import pytest
 
 from backend.app.collectors import pipeline
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 
 
 # ── Dublês ────────────────────────────────────────────────────────────────────
@@ -53,8 +53,8 @@ _ACLOSE = ("aclose", ())
 
 
 class _FakeRedis:
-    """Cliente Redis do ciclo. Só ``aclose`` é chamado nele por dentro do
-    pipeline (claim e release_many são sondados à parte) — e ele REGISTRA esse
+    """Cliente Redis do estágio. Só ``aclose`` é chamado nele por dentro do
+    pipeline (claim e release são sondados na janela) — e ele REGISTRA esse
     fechamento na fita: um DEL contra cliente fechado não deixa rastro que o
     ``except`` do finally torne visível, então a compensação simplesmente não
     acontece e a claim órfã só cai no TTL. Sem o registro não há como provar a
@@ -94,7 +94,6 @@ class _FakeDb:
 class _FakeConfig:
     collector_batch_size = 2          # força >1 flush por tamanho
     collector_batch_flush_seconds = 1e9
-    effective_dedupe_ttl_seconds = 60
     rate_limits_by_vendor: dict = {}
     domain_concurrency_limits: dict = {}
 
@@ -127,20 +126,12 @@ class _FakeRegistration:
     collector_cls: Any = None
 
 
-def _make_collector_cls(raw_events, boom_at=None):
-    """Coletor que devolve ``raw_events``; opcionalmente levanta no i-ésimo."""
+def _make_collector_cls():
+    """Classe registrada: o estágio só usa ``event_type`` e ``extract_message_id``
+    (numa instância sem ``__init__``)."""
 
     class _Collector:
         event_type = "alert"
-
-        def __init__(self, ctx):
-            self.ctx = ctx
-
-        async def collect(self):
-            for i, ev in enumerate(raw_events):
-                if boom_at is not None and i == boom_at:
-                    raise RuntimeError("vendor caiu no meio da página")
-                yield ev
 
         def extract_message_id(self, raw):
             return raw["id"]
@@ -228,34 +219,46 @@ def harness(monkeypatch):
         pipeline.sample_reservoir, "push", lambda *a, **k: _noop_coro()
     )
 
-    # ── as três sondas do invariante ──────────────────────────────────
-    async def _claim(redis, integration_id, msg_id, **kw):
-        tape.claimed(msg_id)
-        return True
+    # ── as sondas do invariante: a janela da partição e o hand-off ─────
+    class _ProbeWindow:
+        def __init__(self) -> None:
+            self._w = DedupeWindow(max_ids=1000, ttl_seconds=3600)
 
-    monkeypatch.setattr(pipeline, "claim", _claim)
+        def claim(self, integration_id, msg_id):
+            tape.claimed(msg_id)
+            return self._w.claim(integration_id, msg_id)
 
-    async def _release_many(redis, integration_id, ids):
-        tape.released(ids)
-        return len(list(ids))
+        def settle(self, integration_id, msg_ids):
+            self._w.settle(integration_id, msg_ids)
 
-    monkeypatch.setattr(dedupe, "release_many", _release_many)
+        def release(self, integration_id, msg_ids):
+            msg_ids = list(msg_ids)
+            if msg_ids:
+                tape.released(msg_ids)
+            return self._w.release(integration_id, msg_ids)
 
-    def run(raw_events, *, boom_at=None, dispatch_raises=False):
+    def run(raw_events, *, dispatch_fails_at=None, dispatch_raises=False):
+        """``dispatch_fails_at``: índice da chamada de hand-off que levanta (o
+        broker cai no meio do lote); ``dispatch_raises``: já a primeira."""
+        if dispatch_raises:
+            dispatch_fails_at = 0
         reg = _FakeRegistration()
-        reg.collector_cls = _make_collector_cls(raw_events, boom_at=boom_at)
+        reg.collector_cls = _make_collector_cls()
         monkeypatch.setattr(pipeline, "registry_get", lambda p, s: reg)
+        calls = {"n": 0}
 
         def _dispatch(batch, routes=None, **kw):
             ids = [e["_centralops"]["event_id"] for e in batch]
-            if dispatch_raises:
+            n = calls["n"]
+            calls["n"] += 1
+            if dispatch_fails_at is not None and n >= dispatch_fails_at:
                 # NÃO registra entrega: o hand-off falhou.
                 raise RuntimeError("broker fora do ar")
             tape.dispatched(ids)
 
         monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch)
 
-        coro = pipeline._run_collection_once(integration_id=42, stream="alerts")
+        coro = pipeline.process_raw_events(42, "alerts", raw_events, dedupe=_ProbeWindow())
         try:
             asyncio.run(coro)
             return None
@@ -307,7 +310,7 @@ def _assert_conservation(tape: _Tape) -> None:
 
 
 def test_happy_path_every_claim_is_delivered_and_settled(harness):
-    """Ciclo sem falha: tudo entregue, nada solto (release é no-op)."""
+    """Lote sem falha: tudo entregue, nada solto (release é no-op)."""
     tape, run = harness
     assert run(_events(5)) is None
 
@@ -348,14 +351,15 @@ def test_odd_tail_after_size_flush_is_still_settled(harness):
 
 
 def test_mid_cycle_failure_releases_only_the_unsettled(harness):
-    """O vendor cai depois de 3 eventos (1 lote entregue + 1 parcial em voo).
-    O entregue fica liquidado; só o parcial é solto."""
+    """O broker cai no 2º hand-off (1 lote entregue + 1 em voo). O entregue
+    fica liquidado; só o que estava em voo é solto — o Kafka reentrega o
+    registro e esses eventos voltam a ser processados."""
     tape, run = harness
-    exc = run(_events(5), boom_at=3)
+    exc = run(_events(5), dispatch_fails_at=1)
     assert isinstance(exc, RuntimeError)
 
     assert sorted(tape.delivered) == ["m0", "m1"]
-    assert tape.released_ids == ["m2"], (
+    assert tape.released_ids == ["m2", "m3"], (
         "o finally precisa soltar EXATAMENTE o não-liquidado"
     )
     _assert_conservation(tape)
@@ -379,12 +383,9 @@ def test_settlement_never_precedes_the_durable_handoff(harness):
 
 
 def test_release_happens_before_the_redis_client_is_closed(harness):
-    """A outra prova de ORDEM, também sem ler o fonte: soltar DEPOIS do
-    ``aclose`` mandaria o DEL contra um cliente fechado. Esse modo de falha é
-    mudo — o release está dentro de um ``try/except`` que só loga, então a
-    compensação viraria no-op e a claim órfã ficaria de pé até o TTL, sem
-    exceção, sem métrica. Pior que não existir, porque parece que existe.
-    """
+    """A outra prova de ORDEM, também sem ler o fonte: o encerramento do
+    estágio (que devolve as claims à janela e grava o que estava acumulado)
+    vem antes de fechar o cliente Redis que ele usa."""
     tape, run = harness
     # Ciclo COM falha no meio: é o único em que o finally tem algo a soltar.
     exc = run(_events(4), dispatch_raises=True)
@@ -413,10 +414,9 @@ def test_release_happens_before_the_redis_client_is_closed(harness):
 
 
 def test_release_uses_the_batch_api_not_one_roundtrip_per_id(harness):
-    """R2: a compensação é UMA chamada em lote, não N. Um DEL por claim num
-    ciclo de 10k eventos travaria o worker justo no caminho de falha."""
+    """R2: a compensação é UMA chamada em lote, não N."""
     tape, run = harness
-    run(_events(5), boom_at=3)
+    run(_events(5), dispatch_fails_at=1)
 
     releases = [e for e in tape.events if e[0] == "release"]
-    assert len(releases) == 1 and releases[0][1] == ("m2",)
+    assert len(releases) == 1 and releases[0][1] == ("m2", "m3")

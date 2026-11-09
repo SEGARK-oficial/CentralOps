@@ -14,7 +14,7 @@ import { SyslogSourcesPanel } from "../SyslogSourcesPanel"
 const mocked = vi.mocked(api)
 
 const info = (transport: string, streams: string[]): api.IngestInfo => ({
-  integration_id: 7, platform: "fortinet_fortigate", transport, streams, has_token: true, endpoint_base: "/api/ingest", buffer_depth: 0, icon_id: null,
+  integration_id: 7, platform: "fortinet_fortigate", transport, streams, has_token: true, endpoint_base: "/api/ingest", icon_id: null,
 })
 
 const source: api.SyslogSource = {
@@ -29,8 +29,10 @@ describe("SyslogSourcesPanel", () => {
   it("não renderiza para integração pull", async () => {
     mocked.getIngestInfo.mockRejectedValue(new Error("422"))
     render(<SyslogSourcesPanel integrationId={7} canManage />)
-    await waitFor(() => expect(mocked.getIngestInfo).toHaveBeenCalled())
-    expect(screen.queryByTestId("syslog-sources")).toBeNull()
+    // O painel nasce visível e só some quando a rejeição do getIngestInfo
+    // assenta: esperar só a CHAMADA deixava o assert correr antes disso.
+    expect(screen.getByTestId("syslog-sources")).toBeTruthy()
+    await waitFor(() => expect(screen.queryByTestId("syslog-sources")).toBeNull())
     expect(mocked.listSyslogSources).not.toHaveBeenCalled()
   })
 
