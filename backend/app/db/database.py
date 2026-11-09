@@ -1434,6 +1434,8 @@ def _run_lightweight_migrations() -> None:
                 ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
                 ("aws_cloudwatch", "aws_cloudwatch.event", 0, "AWS CloudWatch Logs — log events de um log group (Base Event: transporte heterogêneo)"),
                 ("aws_waf", "aws_waf.event", 4002, "AWS WAF — log de requisição das web ACLs, do S3 ou do CloudWatch Logs (HTTP Activity)"),
+                ("aws_securityhub", "aws_securityhub.finding", 2004, "AWS Security Hub — achados agregados no formato ASFF (Detection Finding)"),
+                ("aws_guardduty", "aws_guardduty.finding", 2004, "Amazon GuardDuty — achados de ameaça (Detection Finding)"),
                 ("veeam", "veeam.session", 1006, "Veeam Backup & Replication — sessões de job (Scheduled Job Activity)"),
                 # Classe decidida por evento (value_map); o seed anuncia a dominante.
                 ("gcp_pubsub", "gcp.audit", 6003, "Google Cloud Audit Logs via Pub/Sub (API Activity; login do Workspace → Authentication)"),

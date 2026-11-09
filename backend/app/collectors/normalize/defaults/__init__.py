@@ -49,6 +49,9 @@ DEFAULT_MAPPING_FILES = {
     ("aws_cloudwatch", "aws_cloudwatch.event"): "aws_cloudwatch_event.json",
     # AWS WAF (web ACL, S3 ou CloudWatch) → OCSF HTTP Activity (ação, regra, cliente).
     ("aws_waf", "aws_waf.event"): "aws_waf_event.json",
+    # AWS Security Hub (ASFF) e GuardDuty → OCSF Detection Finding.
+    ("aws_securityhub", "aws_securityhub.finding"): "aws_securityhub_finding.json",
+    ("aws_guardduty", "aws_guardduty.finding"): "aws_guardduty_finding.json",
     # Google Cloud via Pub/Sub: Audit Logs → API Activity (login → Authentication);
     # GKE → API Activity; Cloud SQL MySQL → Authentication/Datastore Activity.
     ("gcp_pubsub", "gcp.audit"): "gcp_audit.json",

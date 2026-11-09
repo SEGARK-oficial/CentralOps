@@ -98,6 +98,7 @@ const sidebars: SidebarsConfig = {
         'integrations/aws-cloudtrail',
         'integrations/aws-cloudwatch',
         'integrations/aws-waf',
+        'integrations/aws-findings',
         'integrations/microsoft-entra-id',
         'integrations/okta',
         'integrations/ninjaone',

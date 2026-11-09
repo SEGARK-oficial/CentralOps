@@ -1,0 +1,308 @@
+{
+  "_comment": [
+    "Amazon GuardDuty (GetFindings) -> Detection Finding (2004).",
+    "Severity numerica -> faixas oficiais; Service.Archived = Close/Archived; IP remoto vem de qualquer Action."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(Service.Archived && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": 1,
+        "update": 2,
+        "close": 3
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(Service.Archived && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": "Create",
+        "update": "Update",
+        "close": "Close"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(Service.Archived && 'close') || (CreatedAt == UpdatedAt && 'create') || 'update'",
+      "value_map": {
+        "create": 200401,
+        "update": 200402,
+        "close": 200403
+      },
+      "default": 200400,
+      "required": true
+    },
+    {
+      "target": "normalized.time",
+      "source": "UpdatedAt",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "_comment": "Faixas oficiais do GuardDuty: 1.0-3.9 Low, 4.0-6.9 Medium, 7.0-8.9 High, 9.0+ Critical.",
+      "target": "normalized.severity_id",
+      "source": "(Severity >= `9` && 'critical') || (Severity >= `7` && 'high') || (Severity >= `4` && 'medium') || (Severity >= `0` && 'low') || 'unknown'",
+      "value_map": {
+        "low": 2,
+        "medium": 3,
+        "high": 4,
+        "critical": 5
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "(Severity >= `9` && 'critical') || (Severity >= `7` && 'high') || (Severity >= `4` && 'medium') || (Severity >= `0` && 'low') || 'unknown'",
+      "value_map": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Achado do GuardDuty é alerta, salvo arquivado.",
+      "target": "normalized.is_alert",
+      "source": "(Service.Archived && 'archived') || 'open'",
+      "value_map": {
+        "archived": false
+      },
+      "default": true
+    },
+    {
+      "target": "normalized.status_id",
+      "source": "(Service.Archived && 'archived') || 'new'",
+      "value_map": {
+        "new": 1,
+        "archived": 5
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "(Service.Archived && 'archived') || 'new'",
+      "value_map": {
+        "new": "New",
+        "archived": "Archived"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.count",
+      "source": "Service.Count",
+      "when": {
+        "exists": "Service.Count"
+      }
+    },
+    {
+      "target": "normalized.message",
+      "source": "Title",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "Id",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "Title",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.desc",
+      "source": "Description",
+      "default": null
+    },
+    {
+      "_comment": "Type no formato ThreatPurpose:ResourceType/ThreatFamily (ex.: UnauthorizedAccess:EC2/SSHBruteForce).",
+      "target": "normalized.finding_info.types",
+      "source": "[Type]",
+      "when": {
+        "exists": "Type"
+      }
+    },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "CreatedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "CreatedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.modified_time",
+      "source": "UpdatedAt",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "UpdatedAt"
+      }
+    },
+    {
+      "target": "normalized.finding_info.first_seen_time",
+      "source": "Service.EventFirstSeen",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "Service.EventFirstSeen"
+      }
+    },
+    {
+      "target": "normalized.finding_info.last_seen_time",
+      "source": "Service.EventLastSeen",
+      "type_cast": "iso_to_epoch",
+      "when": {
+        "exists": "Service.EventLastSeen"
+      }
+    },
+    {
+      "target": "normalized.finding_info.product.name",
+      "const": "GuardDuty"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "Id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "GuardDuty"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "guardduty"
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "AccountId",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "Region",
+      "default": null
+    },
+    {
+      "target": "normalized.resources",
+      "source": "[{type: Resource.ResourceType, uid: Resource.InstanceDetails.InstanceId || Resource.AccessKeyDetails.AccessKeyId || Resource.S3BucketDetails[0].Name || Resource.EksClusterDetails.Name || Resource.RdsDbInstanceDetails.DbInstanceIdentifier || Resource.LambdaDetails.FunctionName}]",
+      "when": {
+        "exists": "Resource.ResourceType"
+      }
+    },
+    {
+      "target": "normalized.actor.user.name",
+      "source": "Resource.AccessKeyDetails.UserName",
+      "when": {
+        "exists": "Resource.AccessKeyDetails.UserName"
+      }
+    },
+    {
+      "target": "normalized.actor.user.type",
+      "source": "Resource.AccessKeyDetails.UserType",
+      "when": {
+        "exists": "Resource.AccessKeyDetails.UserType"
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "Service.Action.AwsApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.NetworkConnectionAction.RemoteIpDetails.IpAddressV4 || Service.Action.KubernetesApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.RdsLoginAttemptAction.RemoteIpDetails.IpAddressV4 || Service.Action.PortProbeAction.PortProbeDetails[0].RemoteIpDetails.IpAddressV4",
+      "when": {
+        "exists": "Service.Action.AwsApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.NetworkConnectionAction.RemoteIpDetails.IpAddressV4 || Service.Action.KubernetesApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.RdsLoginAttemptAction.RemoteIpDetails.IpAddressV4 || Service.Action.PortProbeAction.PortProbeDetails[0].RemoteIpDetails.IpAddressV4"
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.location.country",
+      "source": "Service.Action.AwsApiCallAction.RemoteIpDetails.Country.CountryCode || Service.Action.NetworkConnectionAction.RemoteIpDetails.Country.CountryCode || Service.Action.PortProbeAction.PortProbeDetails[0].RemoteIpDetails.Country.CountryCode",
+      "when": {
+        "exists": "Service.Action.AwsApiCallAction.RemoteIpDetails.Country.CountryCode || Service.Action.NetworkConnectionAction.RemoteIpDetails.Country.CountryCode || Service.Action.PortProbeAction.PortProbeDetails[0].RemoteIpDetails.Country.CountryCode"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_guardduty_api",
+      "source": "Service.Action.AwsApiCallAction.Api",
+      "when": {
+        "exists": "Service.Action.AwsApiCallAction.Api"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_guardduty_action_type",
+      "source": "Service.Action.ActionType",
+      "when": {
+        "exists": "Service.Action.ActionType"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_guardduty_detector",
+      "source": "Service.DetectorId",
+      "when": {
+        "exists": "Service.DetectorId"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "src_endpoint.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "Service.Action.AwsApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.NetworkConnectionAction.RemoteIpDetails.IpAddressV4 || Service.Action.KubernetesApiCallAction.RemoteIpDetails.IpAddressV4 || Service.Action.RdsLoginAttemptAction.RemoteIpDetails.IpAddressV4 || Service.Action.PortProbeAction.PortProbeDetails[0].RemoteIpDetails.IpAddressV4",
+          "skip_null": true
+        },
+        {
+          "name": "actor.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "Resource.AccessKeyDetails.UserName",
+          "skip_null": true
+        },
+        {
+          "name": "resources.uid",
+          "type": "Resource UID",
+          "type_id": 10,
+          "source": "Resource.InstanceDetails.InstanceId || Resource.AccessKeyDetails.AccessKeyId || Resource.S3BucketDetails[0].Name || Resource.EksClusterDetails.Name || Resource.RdsDbInstanceDetails.DbInstanceIdentifier || Resource.LambdaDetails.FunctionName",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ]
+}

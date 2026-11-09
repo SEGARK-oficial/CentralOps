@@ -351,7 +351,8 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
 
     O External ID e o principal entram como DEFAULT dos parâmetros: o cliente
     aplica sem editar nada. Permissões mínimas para as fontes de hoje (CloudTrail
-    e WAF no S3, CloudWatch Logs — onde também cai o WAF entregue em log group);
+    e WAF no S3, CloudWatch Logs — onde também cai o WAF entregue em log group —,
+    e leitura de achados do Security Hub e do GuardDuty);
     buckets e chave KMS são opcionais e, vazios, não geram a política correspondente.
     """
     principal_param: Dict[str, Any] = {
@@ -423,6 +424,25 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                                         "Action": [
                                             "logs:DescribeLogGroups",
                                             "logs:FilterLogEvents",
+                                        ],
+                                        "Resource": "*",
+                                    }
+                                ],
+                            },
+                        },
+                        {
+                            "PolicyName": "CentralOpsFindingsRead",
+                            "PolicyDocument": {
+                                "Version": "2012-10-17",
+                                "Statement": [
+                                    {
+                                        "Effect": "Allow",
+                                        "Action": [
+                                            "securityhub:GetFindings",
+                                            "guardduty:ListDetectors",
+                                            "guardduty:ListFindings",
+                                            "guardduty:GetFindings",
+                                            "ec2:DescribeRegions",
                                         ],
                                         "Resource": "*",
                                     }

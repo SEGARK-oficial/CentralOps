@@ -1,0 +1,204 @@
+{
+  "SchemaVersion": "2018-10-08",
+  "Id": "arn:aws:guardduty:us-east-1:111122223333:detector/abc/finding/def",
+  "ProductArn": "arn:aws:securityhub:us-east-1::product/aws/guardduty",
+  "ProductName": "GuardDuty",
+  "CompanyName": "Amazon",
+  "Region": "us-east-1",
+  "GeneratorId": "arn:aws:guardduty:us-east-1:111122223333:detector/abc",
+  "AwsAccountId": "111122223333",
+  "Types": [
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 0",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 1",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 2",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 3",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 4",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 5",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 6",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 7",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 8",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 9",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 10",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 11",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 12",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 13",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 14",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 15",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 16",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 17",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 18",
+    "Software and Configuration Checks/Industry and Regulatory Standards/CIS 19"
+  ],
+  "FirstObservedAt": "2026-11-09T09:00:00.000Z",
+  "LastObservedAt": "2026-11-09T10:00:00.000Z",
+  "CreatedAt": "2026-11-09T09:05:00.000Z",
+  "UpdatedAt": "2026-11-09T10:05:00.000Z",
+  "Severity": {
+    "Label": "HIGH",
+    "Normalized": 70
+  },
+  "Title": "SSH brute force contra i-0abc",
+  "Description": "198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.198.51.100.7 tenta SSH em i-0abc.",
+  "Resources": [
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    },
+    {
+      "Type": "AwsEc2Instance",
+      "Id": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc",
+      "Region": "us-east-1"
+    }
+  ],
+  "Workflow": {
+    "Status": "NEW"
+  },
+  "RecordState": "ACTIVE",
+  "Remediation": {
+    "Recommendation": {
+      "Text": "Restrinja a porta 22.",
+      "Url": "https://docs.aws.amazon.com/guardduty/"
+    }
+  }
+}
