@@ -191,3 +191,42 @@ async def test_legacy_entry_pre_adr008_has_no_syslog_format(redis_client) -> Non
     entries = await read_recent(redis_client, _ORG, limit=10)
     assert len(entries) == 1
     assert entries[0]["syslog_format"] is None
+
+
+@pytest.mark.asyncio
+async def test_ring_is_sampled_by_time_not_by_volume(redis_client, monkeypatch) -> None:
+    """ADR-0018 Onda 3f: o ring guarda os últimos N, e o dispatch o chamava com
+    TODO lote entregue — redação + ``json.dumps`` de cada evento, no event loop,
+    para o ``LTRIM`` descartar. Por janela, cada organização grava no máximo N."""
+    from .. import audit_buffer
+
+    calls = []
+    real = audit_buffer._redact
+    # Só a chamada de topo (o evento); a redação é recursiva pelo mesmo nome.
+    monkeypatch.setattr(
+        audit_buffer, "_redact",
+        lambda ev: (calls.append(1) if isinstance(ev, dict) and "_centralops" in ev else None)
+        or real(ev),
+    )
+    clock = [1000.0]
+    monkeypatch.setattr(audit_buffer.time, "monotonic", lambda: clock[0])
+
+    for chunk in range(10):  # 10 lotes de 4 na mesma janela, ring de 6
+        batch = [_ev("sophos", "alerts", f"w1-{chunk}-{i}") for i in range(4)]
+        await record_batch(redis_client, batch, _ORG, ring_size=6)
+    assert len(calls) == 6, "redigiu evento que o ring ia descartar"
+    entries = await read_recent(redis_client, _ORG, limit=100)
+    # Os mais novos de cada lote que coube: 4 do 1º lote e os 2 últimos do 2º.
+    assert {e["event"]["id"] for e in entries} == {
+        "w1-0-0", "w1-0-1", "w1-0-2", "w1-0-3", "w1-1-2", "w1-1-3",
+    }
+
+    # Outra organização tem a própria janela.
+    await record_batch(redis_client, [_ev("sophos", "alerts", "other")], _ORG + 1, ring_size=6)
+    assert len(calls) == 7
+
+    # Janela seguinte: volta a gravar, e o ring passa a mostrar o lote novo.
+    clock[0] += audit_buffer.SAMPLE_WINDOW_SECONDS
+    await record_batch(redis_client, [_ev("sophos", "alerts", "w2")], _ORG, ring_size=6)
+    entries = await read_recent(redis_client, _ORG, limit=1)
+    assert entries[0]["event"]["id"] == "w2"

@@ -813,6 +813,16 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
         await safe_commit(consumer, tp, offset + 1)
 
     lag_task = asyncio.create_task(_emit_lag())
+    # UM cliente Redis para o processo (ADR-0018 Onda 3f). O despacho criava um
+    # por lote — o padrão das tasks Celery, cujo loop morre a cada task — e cada
+    # cliente novo pagava conexão + ``importlib.metadata.version`` do redis-py:
+    # ~1/4 do tempo do dispatcher no gate de carga. Aqui o loop vive o processo
+    # inteiro, então o cliente (e o pool dele) também.
+    from ..celery_app import get_worker_redis
+    from ..pipeline import DISPATCH_REDIS
+
+    shared_redis = get_worker_redis()
+    redis_token = DISPATCH_REDIS.set(shared_redis)
     # Poll com timeout (em vez de ``async for``, que bloqueia): permite checar o
     # ``stop_event`` a cada tick → drain cooperativo PRONTO mesmo com a partição
     # ociosa, sem esperar o deadline de hard-cancel.
@@ -950,5 +960,10 @@ async def run_dispatch_consumer(stop_event: Optional[threading.Event] = None) ->
         try:
             await lag_task
         except BaseException:  # pragma: no cover — CancelledError no shutdown
+            pass
+        DISPATCH_REDIS.reset(redis_token)
+        try:
+            await shared_redis.aclose()
+        except Exception:  # pragma: no cover — encerramento best-effort
             pass
         await consumer.stop()

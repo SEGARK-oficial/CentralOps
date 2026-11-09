@@ -290,3 +290,37 @@ async def test_revoked_partition_is_not_committed_or_seeked(monkeypatch):
     await kt.run_dispatch_consumer()      # não levanta
 
     assert fake.commits == [] and fake.seeks == []
+
+
+async def test_one_redis_client_for_the_whole_consumer(monkeypatch):
+    """ADR-0018 Onda 3f: o despacho criava um cliente Redis POR LOTE (padrão das
+    tasks Celery, cujo loop morre a cada task) — conexão nova e
+    ``importlib.metadata.version`` do redis-py a cada lote, ~1/4 do tempo do
+    dispatcher no gate de carga. O consumer vive o processo: um cliente só,
+    publicado para o despacho e fechado no fim."""
+    clients: list = []
+
+    class _Redis:
+        closed = False
+
+        async def aclose(self):
+            self.closed = True
+
+    def _new():
+        clients.append(_Redis())
+        return clients[-1]
+
+    monkeypatch.setattr("backend.app.collectors.celery_app.get_worker_redis", _new)
+    seen: list = []
+
+    async def _dispatch(dest, batch):
+        seen.append(pipeline.DISPATCH_REDIS.get())
+
+    fake = _FakeConsumer([_msg(0, "d", [{"e": 1}]), _msg(1, "d", [{"e": 2}])])
+    _install(monkeypatch, fake, _dispatch)
+
+    await kt.run_dispatch_consumer()
+
+    assert len(clients) == 1 and seen == [clients[0], clients[0]]
+    assert clients[0].closed is True
+    assert pipeline.DISPATCH_REDIS.get() is None

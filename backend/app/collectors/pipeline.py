@@ -25,6 +25,7 @@ import logging
 import ssl
 import time
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
@@ -3649,6 +3650,12 @@ class DispatchOutcome:
         )
 
 
+#: Cliente Redis de PROCESSO para o despacho, publicado por quem tem loop de vida
+#: longa (o consumer do ``dispatcher``, ADR-0018 Onda 3f). Sem ele (tasks Celery,
+#: cujo loop morre a cada task) cada lote cria e fecha o seu.
+DISPATCH_REDIS: "ContextVar[Optional[Any]]" = ContextVar("dispatch_redis", default=None)
+
+
 async def dispatch_batch_to_destination(
     destination_id: str, batch: list[Dict[str, Any]]
 ) -> DispatchOutcome:
@@ -3834,7 +3841,8 @@ async def dispatch_batch_to_destination(
         return DispatchOutcome(destination_kind=dest_config.kind, shadow=True)
 
     # circuit breaker guard + bulkhead + chunked send.
-    redis = get_worker_redis()
+    shared_redis = DISPATCH_REDIS.get()
+    redis = shared_redis if shared_redis is not None else get_worker_redis()
     try:
         # fatia o lote por max_items E max_bytes (o que fechar
         # primeiro), de modo que um sink com teto próprio de tamanho não rejeite
@@ -4080,9 +4088,10 @@ async def dispatch_batch_to_destination(
         raise
     finally:
         # Best-effort close: a dead Redis client must not turn a delivered batch
-        # into a task failure.
+        # into a task failure. O cliente de processo é de quem o publicou.
         try:
-            await redis.aclose()
+            if shared_redis is None:
+                await redis.aclose()
         except Exception:  # pragma: no cover - defensive
             logger.debug(
                 "dispatch_to_destination: redis.aclose() falhou (ignorado)",

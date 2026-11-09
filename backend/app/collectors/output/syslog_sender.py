@@ -88,10 +88,14 @@ class SyslogTCPClient:
             try:
                 await self._ensure()
                 assert self._writer is not None
+                # UMA escrita por lote (ADR-0018 Onda 3f): ``write`` por evento
+                # virava um ``send`` de socket por evento — ~1/5 do tempo do
+                # dispatcher no gate de carga. Os bytes no fio são os mesmos.
+                frames = []
                 for event in batch:
                     line = format_rfc5424(event).encode("utf-8")
-                    frame = f"{len(line)} ".encode("ascii") + line
-                    self._writer.write(frame)
+                    frames.append(f"{len(line)} ".encode("ascii") + line)
+                self._writer.write(b"".join(frames))
                 await self._writer.drain()
             except (OSError, asyncio.CancelledError):
                 # Conexão quebrada (destino reiniciou, reset, recusa) ou envio

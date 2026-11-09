@@ -148,6 +148,54 @@ async def _persist_raw_dlq(group: _Group, error_kind: str, detail: str) -> bool:
     return ok is True
 
 
+#: Quanto o rebalance espera o lote em voo terminar e commitar antes de entregar a
+#: partição (ADR-0018 Onda 3f). Bem abaixo do ``max_poll_interval``, que é o teto
+#: de quanto o grupo inteiro pode ficar parado no rebalance.
+_REVOKE_DRAIN_TIMEOUT_S = 30.0
+
+
+def _revoke_drain(timeout_s: float = _REVOKE_DRAIN_TIMEOUT_S) -> Any:
+    """Listener de rebalance que fecha a janela de duplicata da troca de dono.
+
+    Sem ele, quando um processor entra ou sai do grupo, o lote em processamento
+    terminava DEPOIS da revogação: o ``commit`` era recusado (partição não é mais
+    deste processo), e o novo dono relia um lote que já tinha ido para a entrega —
+    duplicata a cada escala, medida no gate de carga (14 mil eventos num rebalance
+    de 2 processos). Com ele, a revogação (1) impede o laço de começar outro lote e
+    (2) espera o lote em voo commitar, ainda como dono, antes de devolver a
+    partição. Estourado o prazo, segue: o novo dono relê (at-least-once)."""
+    from aiokafka import ConsumerRebalanceListener
+
+    class _RevokeDrain(ConsumerRebalanceListener):
+        def __init__(self) -> None:
+            self.revoking = False
+            self._idle = asyncio.Event()
+            self._idle.set()
+
+        def busy(self) -> None:
+            self._idle.clear()
+
+        def done(self) -> None:
+            self._idle.set()
+
+        async def on_partitions_revoked(self, revoked: Any) -> None:
+            if not revoked:
+                return
+            self.revoking = True
+            try:
+                await asyncio.wait_for(self._idle.wait(), timeout_s)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "processor: lote em voo não terminou em %.0f s no rebalance — o "
+                    "novo dono da partição o relê (duplicata possível)", timeout_s,
+                )
+
+        async def on_partitions_assigned(self, assigned: Any) -> None:
+            self.revoking = False
+
+    return _RevokeDrain()
+
+
 async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> None:
     from aiokafka import AIOKafkaConsumer
 
@@ -168,7 +216,6 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
         )
     )
     consumer = AIOKafkaConsumer(
-        raw_topic(),
         **_client_kwargs(),
         group_id=settings.KAFKA_PROCESSOR_GROUP,
         enable_auto_commit=False,
@@ -176,6 +223,8 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
         max_partition_fetch_bytes=settings.KAFKA_MAX_REQUEST_BYTES,
         max_poll_interval_ms=settings.KAFKA_MAX_POLL_INTERVAL_MS,
     )
+    drain = _revoke_drain()
+    consumer.subscribe([raw_topic()], listener=drain)
     await consumer.start()
     _touch(_READY_FILE)
     logger.info(
@@ -211,9 +260,16 @@ async def run_raw_processor(stop_event: Optional[threading.Event] = None) -> Non
             _touch(_HEARTBEAT_FILE)
             for tp, msgs in batches.items():
                 for group in _group_records(msgs):
-                    if not owns_partition(consumer, tp):
-                        break  # revogada no rebalance: o novo dono processa o resto
-                    done = await _handle_group(consumer, tp, group, attempts, metrics)
+                    if drain.revoking or not owns_partition(consumer, tp):
+                        # Rebalance em curso ou partição já revogada: nenhum lote
+                        # novo. Depois da reatribuição a posição volta ao último
+                        # commit, então o que ficou aqui é relido por quem for dono.
+                        break
+                    drain.busy()
+                    try:
+                        done = await _handle_group(consumer, tp, group, attempts, metrics)
+                    finally:
+                        drain.done()
                     if not done:
                         break  # seek feito: o resto desta partição é relido depois
     finally:

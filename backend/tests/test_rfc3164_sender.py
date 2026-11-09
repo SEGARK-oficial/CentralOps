@@ -129,16 +129,18 @@ async def test_send_batch_writes_lf_delimited() -> None:
     with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
         await client.send_batch(events)
 
-    # Coleta todos os bytes escritos
+    # UMA escrita por lote (ADR-0018 Onda 3f): um ``send`` de socket por evento
+    # era ~1/5 do tempo do dispatcher. O que importa é o fio: N linhas LF.
     written_calls = mock_writer.write.call_args_list
-    assert len(written_calls) == 2, f"Esperado 2 writes, obtido {len(written_calls)}"
+    assert len(written_calls) == 1, f"Esperado 1 write, obtido {len(written_calls)}"
+    wire: bytes = written_calls[0][0][0]
+    assert wire.endswith(b"\n"), f"Lote não termina com \\n: {wire[-5:]!r}"
+    lines = wire.split(b"\n")[:-1]
+    assert len(lines) == 2, f"Esperado 2 linhas, obtido {len(lines)}"
 
-    for call in written_calls:
-        raw: bytes = call[0][0]
-        # Cada linha deve terminar com \n (LF-delimited)
-        assert raw.endswith(b"\n"), f"Linha não termina com \\n: {raw[-5:]!r}"
+    for raw in lines:
         # Decode deve produzir linha RFC 3164 válida
-        decoded = raw[:-1].decode("utf-8")
+        decoded = raw.decode("utf-8")
         assert decoded.startswith(f"<{PRI_INFO}>")
         # JSON válido no final
         json_start = decoded.index("{", decoded.index("]: ") + 3)

@@ -31,7 +31,8 @@ from __future__ import annotations
 import json
 import logging
 import socket
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
 import redis.asyncio as redis_async
 
@@ -80,6 +81,35 @@ DEFAULT_RING_SIZE = 500
 # sozinho (útil em deploys de teste que rotacionam containers).
 DEFAULT_TTL_SECONDS = 86400
 
+# Amostragem por tempo (ADR-0018 Onda 3f). O ring guarda os ÚLTIMOS
+# ``ring_size`` eventos, mas o dispatch chamava ``record_batch`` com TODO lote
+# entregue: a 10k eps eram 10 mil redações recursivas + ``json.dumps`` por
+# segundo, no event loop do dispatcher, para o ``LTRIM`` jogar fora quase tudo.
+# Medido no gate de carga: ~30% do tempo do dispatcher. Agora cada processo
+# grava no máximo ``ring_size`` eventos por organização a cada 5 s — o ring se
+# renova inteiro nesse intervalo, e o custo deixa de crescer com o volume.
+SAMPLE_WINDOW_SECONDS = 5.0
+_MAX_TRACKED_ORGS = 10_000
+_sample_budget: Dict[int, Tuple[float, int]] = {}
+
+
+def reset_sampling() -> None:
+    """Zera as janelas de amostragem (testes: o estado é por processo)."""
+    _sample_budget.clear()
+
+
+def _take_sample(org_id: int, wanted: int, ring_size: int, now: float) -> int:
+    """Quantos eventos deste lote ainda cabem na janela da organização."""
+    start, used = _sample_budget.get(org_id, (now, 0))
+    if now - start >= SAMPLE_WINDOW_SECONDS or now < start:
+        start, used = now, 0
+    take = max(0, min(wanted, ring_size - used))
+    if len(_sample_budget) >= _MAX_TRACKED_ORGS and org_id not in _sample_budget:
+        _sample_budget.clear()
+    _sample_budget[org_id] = (start, used + take)
+    return take
+
+
 # PRI usado pelo SyslogTCPClient (facility=local0, severity=info).
 # Gravado no ring para que a UI reconstrua a linha RFC 5424 fiel.
 _PRI_INFO = 134
@@ -111,6 +141,11 @@ async def record_batch(
     """
     if not batch:
         return
+    # Os MAIS NOVOS do lote: são os que o ``LTRIM`` manteria.
+    take = _take_sample(org_id, len(batch), ring_size, time.monotonic())
+    if take <= 0:
+        return
+    batch = batch[-take:]
     key = _audit_key(org_id)
     try:
         # gethostname() reflete o host do worker que fez o dispatch —

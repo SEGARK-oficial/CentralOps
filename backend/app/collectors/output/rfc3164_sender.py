@@ -107,11 +107,13 @@ class Rfc3164JsonClient:
             try:
                 await self._ensure()
                 assert self._writer is not None
-                for event in batch:
-                    line = format_rfc3164(event).encode("utf-8")
-                    # Framing LF-delimited: Wazuh syslog input aceita \n como
-                    # separador de mensagens (padrão mais antigo, mais simples).
-                    self._writer.write(line + b"\n")
+                # Framing LF-delimited: Wazuh syslog input aceita \n como
+                # separador de mensagens (padrão mais antigo, mais simples). UMA
+                # escrita por lote, não um ``send`` de socket por evento (ADR-0018
+                # Onda 3f); os bytes no fio são os mesmos.
+                self._writer.write(
+                    b"".join(format_rfc3164(event).encode("utf-8") + b"\n" for event in batch)
+                )
                 await self._writer.drain()
             except (OSError, asyncio.CancelledError):
                 # Conexão quebrada (destino reiniciou, reset, recusa) ou envio

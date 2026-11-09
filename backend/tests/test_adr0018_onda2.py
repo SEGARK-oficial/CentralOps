@@ -165,6 +165,9 @@ class _FakeConsumer:
         self.commits: list = []
         self.seeks: list = []
 
+    def subscribe(self, topics, listener=None):
+        self.topics, self.listener = list(topics), listener
+
     async def start(self):
         pass
 

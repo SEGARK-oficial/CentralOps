@@ -654,6 +654,9 @@ def test_processor_activates_the_snapshot(monkeypatch):
         def __init__(self, *a, **k):
             pass
 
+        def subscribe(self, topics, listener=None):
+            pass
+
         async def start(self):
             seen["active"] = config_snapshot.ACTIVE.get()
             raise RuntimeError("para aqui")
@@ -1074,3 +1077,64 @@ def test_historical_processor_writes_no_absence_heartbeat(harness):
 
     assert asyncio.run(_open(False)) is True
     assert asyncio.run(_open(True)) is False
+
+
+
+# ── Onda 3f — troca de dono da partição sem duplicata ────────────────────────
+
+
+def test_rebalance_waits_for_the_in_flight_batch_to_commit(monkeypatch):
+    """Achado do gate de carga: com 2 processors, o rebalance revogava a partição
+    no meio de um lote; o ``commit`` era recusado e o novo dono relia o lote, que
+    já tinha ido à entrega (14 mil duplicatas). A revogação agora espera o lote em
+    voo commitar, ainda como dono, e o laço não começa outro."""
+    from backend.tests.test_adr0018_onda2 import _TP, _install, _rec
+
+    order: List[str] = []
+    revoke_task: List[Any] = []
+
+    async def _cycle(iid, stream, events, partition, ids=None):
+        order.append(f"process:{stream}")
+        if not revoke_task:
+            # O coordenador do grupo revoga ENQUANTO este lote processa.
+            revoke_task.append(asyncio.ensure_future(fake.listener.on_partitions_revoked({tp})))
+            for _ in range(5):
+                await asyncio.sleep(0)
+            assert not revoke_task[0].done(), "a revogação não esperou o lote em voo"
+        return True
+
+    tp = _TP(0)
+    fake, stop = _install(
+        monkeypatch, [{tp: [_rec(10, 1, "a"), _rec(11, 1, "b")]}], cycle=_cycle,
+    )
+    real_commit = fake.commit
+
+    async def _commit(offsets):
+        order.append("commit")
+        await real_commit(offsets)
+
+    fake.commit = _commit
+
+    async def _run():
+        await proc.run_raw_processor(stop_event=stop)
+        await revoke_task[0]
+
+    asyncio.run(_run())
+    # O lote em voo commitou como dono; o seguinte não começou (é relido pelo novo
+    # dono a partir do commit, sem duplicar o primeiro).
+    assert order == ["process:a", "commit"], order
+    assert fake.commits == [{0: 11}]
+
+
+def test_revoke_drain_gives_up_after_the_timeout():
+    from backend.app.collectors.dataplane import processor as _proc
+
+    async def _run():
+        drain = _proc._revoke_drain(timeout_s=0.01)
+        drain.busy()  # lote travado: o rebalance não pode esperar para sempre
+        await drain.on_partitions_revoked({"tp"})
+        assert drain.revoking is True
+        await drain.on_partitions_assigned({"tp"})
+        assert drain.revoking is False
+
+    asyncio.run(_run())

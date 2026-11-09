@@ -55,13 +55,22 @@ def _event(seq: int, run_id: str) -> dict:
 
 
 async def run(args: argparse.Namespace) -> int:
+    stats = await send(args)
+    return 0 if stats["accepted"] else 1
+
+
+async def send(args: argparse.Namespace, run_id: str | None = None) -> dict:
+    """Envia a carga e devolve as contagens (também usado por ``dataplane_gate``)."""
     import aiohttp
 
-    run_id = f"lt-{int(time.time())}"
+    run_id = run_id or f"lt-{int(time.time())}"
     seq = 0
     statuses: Counter = Counter()
     latencies: list[float] = []
     accepted = 0
+    # Lotes aceitos INTEIROS (200): [primeiro seq, tamanho]. É o que o destino
+    # tem de receber, um a um — base da conferência de perda e duplicata.
+    accepted_ranges: list[tuple[int, int]] = []
     deadline = time.monotonic() + args.duration
     started = time.monotonic()
     interval = (args.batch / args.eps) if args.eps > 0 else 0.0
@@ -94,7 +103,10 @@ async def run(args: argparse.Namespace) -> int:
                     payload = await resp.read()
                     statuses[resp.status] += 1
                     if resp.status in (200, 207):
-                        accepted += json.loads(payload).get("accepted", 0)
+                        n = json.loads(payload).get("accepted", 0)
+                        accepted += n
+                        if resp.status == 200 and n == args.batch:
+                            accepted_ranges.append((first, args.batch))
                     elif resp.status in (429, 503):
                         retry = float(resp.headers.get("Retry-After", "1"))
                         await asyncio.sleep(min(retry, 5.0))
@@ -119,7 +131,17 @@ async def run(args: argparse.Namespace) -> int:
     print(f"requisições          {dict(statuses)}")
     print(f"latência ms          p50={pct(0.50):.0f} p95={pct(0.95):.0f} p99={pct(0.99):.0f} "
           f"média={statistics.mean(lat) * 1000:.0f}")
-    return 0 if accepted else 1
+    return {
+        "run_id": run_id,
+        "elapsed": elapsed,
+        "sent": seq,
+        "accepted": accepted,
+        "statuses": dict(statuses),
+        "accepted_ranges": accepted_ranges,
+        "p50_ms": pct(0.50),
+        "p95_ms": pct(0.95),
+        "p99_ms": pct(0.99),
+    }
 
 
 def main() -> int:

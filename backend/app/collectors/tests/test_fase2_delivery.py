@@ -154,6 +154,50 @@ def test_transient_delivery_error_carries_destination_id() -> None:
     assert "dest-xyz" in str(exc)
 
 
+@pytest.mark.asyncio
+async def test_dispatch_uses_the_process_redis_and_does_not_close_it(
+    static_db, seeded_destination
+) -> None:
+    """ADR-0018 Onda 3f: com cliente de processo publicado (o consumer do
+    dispatcher), o despacho NÃO cria cliente por lote nem fecha o compartilhado."""
+    import fakeredis.aioredis as fakeredis_aio
+
+    from backend.app.collectors import pipeline as _pl
+
+    shared = fakeredis_aio.FakeRedis(decode_responses=True)
+    closed: list = []
+    real_aclose = shared.aclose
+
+    async def _aclose(*a, **k):
+        closed.append(True)
+        await real_aclose(*a, **k)
+
+    shared.aclose = _aclose
+    fake_target = AsyncMock()
+    fake_target.send_batch.return_value = DeliveryResult(accepted=1)
+
+    def _no_new_client():
+        raise AssertionError("criou cliente Redis por lote com o de processo publicado")
+
+    token = _pl.DISPATCH_REDIS.set(shared)
+    try:
+        with (
+            patch(
+                "backend.app.collectors.output.destination_cache.get_destination",
+                new_callable=AsyncMock,
+                return_value=fake_target,
+            ),
+            patch("backend.app.collectors.celery_app.get_worker_redis", _no_new_client),
+        ):
+            await _pl.dispatch_batch_to_destination(
+                seeded_destination, [_make_envelope("evt-1")]
+            )
+    finally:
+        _pl.DISPATCH_REDIS.reset(token)
+    assert fake_target.send_batch.await_count == 1
+    assert closed == []
+
+
 # ── CHUNK A: secret resolution in dispatch_batch_to_destination ───────────────
 
 
