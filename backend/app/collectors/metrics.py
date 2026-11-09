@@ -233,6 +233,8 @@ RAW_CONSUMER_LAG = _instrument("collector_raw_consumer_lag")
 PARKED = _instrument("collector_parked_total")
 PARKED_DRAINED = _instrument("collector_parked_drained_total")
 PARKED_LAG = _instrument("collector_parked_lag")
+# Idade (s) do lote mais antigo ainda esperando, por partição do estacionamento.
+PARKED_HEAD_AGE = _instrument("collector_parked_head_age_seconds")
 # Snapshot de config do processor servindo a última versão boa (banco fora).
 CONFIG_SNAPSHOT_STALE = _instrument("collector_config_snapshot_stale_total")
 

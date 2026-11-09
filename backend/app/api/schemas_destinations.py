@@ -294,6 +294,17 @@ class DestinationTapResponse(BaseModel):
     entries: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class DestinationParked(BaseModel):
+    """Lotes do destino esperando no estacionamento do Kafka (ADR-0018 Onda 4):
+    destino fora do ar ou recusando. Saem sozinhos quando ele volta. Retrato
+    aproximado — a verdade é o tópico."""
+
+    batches: int = 0
+    events: int = 0
+    #: epoch (s) do primeiro lote ainda esperando; None quando nada espera.
+    since: Optional[float] = None
+
+
 class DestinationMetricsResponse(BaseModel):
     """Per-destination observability. DB-derived summary is
     ALWAYS present; ``series`` (EPS/bytes/latency over time) is populated only
@@ -303,8 +314,9 @@ class DestinationMetricsResponse(BaseModel):
     available: bool
     reason: Optional[str] = None
     series: Dict[str, Any] = Field(default_factory=dict)
-    # Latest point-in-time gauges (queue_depth, backpressure_state).
-    gauges: Dict[str, Any] = Field(default_factory=dict)
+    # O que espera no estacionamento (substitui os gauges da fila Celery, que
+    # saiu no ADR-0018 Onda 5).
+    parked: DestinationParked = Field(default_factory=DestinationParked)
     # Always-available DB/Redis summary.
     dlq_total: int = 0
     dlq_24h: int = 0

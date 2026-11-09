@@ -301,7 +301,9 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # -4 (ADR-0018 Onda 5): saíram com a lane Celery e o buffer Redis do push —
     # collector_dispatch_shed_total, collector_dispatch_queue_depth,
     # collector_ingest_buffer_depth e collector_ingest_dropped_total. 73 → 69.
-    assert len(facade_names) == 69
+    # +1: collector_parked_head_age_seconds — idade do lote estacionado mais
+    # antigo, base do alerta de retenção do estacionamento. 69 → 70.
+    assert len(facade_names) == 70
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

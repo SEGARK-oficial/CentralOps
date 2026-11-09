@@ -57,7 +57,7 @@ Depois de padronizado, o evento é avaliado por regras de roteamento e enviado a
 - **Descarte intencional.** Eventos de ruído podem ser descartados de propósito para controlar custo e volume, conforme as regras que você definir.
 - **Destino padrão.** Todo evento que não se encaixa em nenhuma regra vai para o destino marcado como padrão. Sem destino padrão, ele vai para a fila de reenvio como "sem rota". Nenhum evento se perde por falta de uma regra.
 
-Se um destino fica indisponível, os eventos não são perdidos. Falhas curtas são re-tentadas automaticamente. Se o destino continua fora, os eventos vão para a **fila de reenvio** dele, que você reprocessa pelo botão **Reprocessar** em **Roteia -> Destinos** quando o destino volta. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
+Se um destino fica indisponível, os eventos não são perdidos. Falhas curtas são re-tentadas automaticamente. Se o destino continua fora, os lotes dele **estacionam** no data-plane e saem sozinhos, na ordem, quando ele volta (até 7 dias, por padrão); a aba **Saúde** do destino mostra quantos estão esperando. Um destino fora do ar não atrasa os outros. Eventos que o destino **recusa de vez** (credencial, formato, tamanho) vão para a **fila de reenvio** dele, que você reprocessa pelo botão **Reprocessar** em **Roteia -> Destinos** depois de corrigir a causa. Há também uma proteção contra destino instável, que reduz a pressão sobre um destino com falhas repetidas.
 
 **Onde acompanhar:**
 
@@ -123,7 +123,7 @@ Use o quadro abaixo para identificar onde está o problema:
 | Eventos demoram a aparecer; acúmulo crescente na coleta | Coleta | **Visão geral -> Saúde do pipeline** e **Coleta -> Integrações** |
 | Eventos caindo em quarentena | Normalização | **Normaliza -> Quarentena** |
 | Muitos campos novos sinalizados | Normalização | **Normaliza -> Drift** |
-| Um destino não recebe; fila de reenvio crescendo | Entrega | **Roteia -> Destinos** e **Roteia -> Rotas** |
+| Um destino não recebe; aviso de lotes estacionados ou fila de reenvio crescendo | Entrega | **Roteia -> Destinos** e **Roteia -> Rotas** |
 
 > Se o acúmulo continua crescendo mesmo sem nenhum erro nas telas acima, pode ser falta de capacidade no processamento em segundo plano. Esse dimensionamento é gerenciado pela equipe de infraestrutura — registre o que você viu na tela de **Saúde do Pipeline** e fale com o administrador da plataforma.
 

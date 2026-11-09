@@ -6,7 +6,7 @@ description: "Como identificar e recuperar um destino (Splunk, Elasticsearch, S3
 
 # Destino externo fora do ar
 
-Quando um destino externo para de receber eventos, o CentralOps deixa de entregar os dados para ele, ativa a **proteção contra destino instável** e guarda os eventos não entregues na **fila de reenvio**. Esta página explica como reconhecer essa situação na interface, descobrir a causa e recolocar o destino no ar.
+Quando um destino externo para de receber eventos, o CentralOps deixa de entregar os dados para ele, ativa a **proteção contra destino instável** e **estaciona** os lotes: eles esperam no data-plane e saem sozinhos, na ordem, quando o destino volta. Eventos que o destino **recusa de vez** (credencial inválida, formato que ele não aceita) vão para a **fila de reenvio**. Esta página explica como reconhecer essa situação na interface, descobrir a causa e recolocar o destino no ar.
 
 > A configuração de destinos só aparece para administradores da plataforma, no menu **Roteia → Destinos**.
 
@@ -15,7 +15,8 @@ Quando um destino externo para de receber eventos, o CentralOps deixa de entrega
 Use esta página quando notar qualquer um destes sinais na interface:
 
 - Um destino aparece com **badge vermelho** ("indisponível") ou amarelo ("degradado") na tela **Roteia → Destinos**.
-- A **fila de reenvio** de um destino (Splunk, Elasticsearch, S3, Sentinel, Kafka ou OTLP) está crescendo e não drena.
+- A aba **Saúde** do destino mostra o aviso **Esperando o destino voltar** (lotes estacionados).
+- A **fila de reenvio** de um destino (Splunk, Elasticsearch, S3, Sentinel, Kafka ou OTLP) está crescendo: o destino está recusando eventos.
 - O botão de **testar conexão** do destino falha.
 
 Cenários reais de SOC:
@@ -23,7 +24,7 @@ Cenários reais de SOC:
 | Cenário | O que você observa |
 | --- | --- |
 | O Splunk para de aceitar eventos de madrugada porque o token expirou | Badge vermelho no destino Splunk, fila de reenvio subindo, rejeições do tipo "autenticação" |
-| O cluster Elasticsearch fica sobrecarregado em um pico de alertas | Destino degradado, latência alta, rejeições por excesso de requisições |
+| O cluster Elasticsearch fica sobrecarregado em um pico de alertas | Destino degradado, latência alta, aviso de lotes estacionados até ele dar conta |
 | A regra de coleta (DCR) do Sentinel é renomeada pela equipe de nuvem | Destino indisponível, rejeições do tipo "regra de coleta inválida" |
 
 ## Passo 1 — Confirme a falha na interface
@@ -36,13 +37,13 @@ Cenários reais de SOC:
 | --- | --- |
 | Saudável | O destino responde e os eventos fluem normalmente. |
 | Degradado | Há eventos acumulando na fila de reenvio nas últimas 24h, mas o destino ainda responde em parte. |
-| Indisponível | A proteção contra destino instável foi ativada — o CentralOps parou de tentar entregar e está guardando os eventos na fila de reenvio. |
+| Indisponível | A proteção contra destino instável foi ativada — o CentralOps parou de tentar entregar e está estacionando os lotes, que saem sozinhos quando o destino volta. |
 
 4. Use o botão de **testar conexão** do destino. Se o teste falhar, anote o tipo de erro mostrado — ele indica a causa e direciona a correção nas seções abaixo.
 
 ## Passo 2 — Identifique o tipo de erro
 
-Na tela do destino, abra a **fila de reenvio** e veja qual tipo de rejeição predomina. Os tipos mais comuns e a ação correspondente:
+Se o destino está **recusando** eventos, eles estão na **fila de reenvio**: abra-a e veja qual tipo de rejeição predomina. Se ele está **fora do ar ou lento** (tempo esgotado, conexão recusada), a fila fica vazia e o aviso **Esperando o destino voltar** aparece na aba **Saúde** — use o **teste de conexão** para ver o erro. Os tipos mais comuns e a ação correspondente:
 
 | Tipo de rejeição | Causa provável | Ação |
 | --- | --- | --- |
@@ -118,16 +119,22 @@ Quando o destino está sobrecarregado (rejeições por **excesso de requisiçõe
 1. Use o botão de **testar conexão** do destino. Se passar, o destino está respondendo novamente.
 2. Acompanhe o destino por alguns minutos em **Roteia → Destinos**:
    - O status deve voltar para **saudável**.
-   - A **fila de reenvio** deve começar a drenar (a contagem cai conforme os eventos guardados são reenviados).
+   - O aviso **Esperando o destino voltar** some quando o último lote estacionado sair. Não há nada a fazer: eles saem sozinhos, na ordem em que chegaram.
+   - Se o destino recusou eventos durante o problema (credencial, formato), reprocesse a **fila de reenvio** depois de corrigir a causa (veja [Fila de reenvio](./dlq-and-destination-delivery.md)).
 
-> **Como a proteção contra destino instável funciona:** após algumas falhas seguidas, o CentralOps para de tentar entregar e guarda os eventos na fila de reenvio, em vez de insistir e sobrecarregar o destino. Passado um curto período de espera, ele faz uma tentativa de prova. Se passar, volta a entregar normalmente; se falhar, espera mais um pouco antes de tentar de novo. Por isso, depois de corrigir a causa, a recuperação pode levar alguns minutos até a próxima tentativa de prova.
+> **Como a proteção contra destino instável funciona:** após algumas falhas seguidas, o CentralOps para de tentar entregar e estaciona os lotes, em vez de insistir e sobrecarregar o destino. Passado um curto período de espera, ele faz uma tentativa de prova. Se passar, volta a entregar normalmente e os lotes estacionados saem; se falhar, espera mais um pouco antes de tentar de novo. Por isso, depois de corrigir a causa, a recuperação pode levar alguns minutos até a próxima tentativa de prova. Um destino fora do ar não segura os outros: cada um espera e volta por conta própria.
+
+## Quanto tempo os lotes esperam
+
+Os lotes estacionados ficam guardados por **7 dias** (padrão). Passado esse prazo, o data-plane os apaga e os eventos se perdem. Para um destino que vai ficar fora por mais tempo, peça ao administrador da plataforma para aumentar a retenção do estacionamento (`KAFKA_PARKED_RETENTION_MS`) antes do prazo, ou para desligar as rotas que apontam para ele.
 
 ## Prevenção
 
 Para reduzir a chance de um destino cair sem aviso:
 
 - **Teste a conexão periodicamente.** Use o botão de **testar conexão** em **Roteia → Destinos** de tempos em tempos, especialmente em destinos cujas credenciais expiram (tokens de curta duração, chaves rotacionadas pela equipe de nuvem).
-- **Monitore a fila de reenvio.** Acompanhe em **Roteia → Destinos** se a fila de algum destino está crescendo. Uma fila que sobe de forma constante é o primeiro sinal de um destino com problema.
+- **Monitore o estacionamento e a fila de reenvio.** Em **Roteia → Destinos**, o aviso **Esperando o destino voltar** e uma fila de reenvio que sobe são os primeiros sinais de um destino com problema.
+- **Use os alertas prontos.** Quem integra o CentralOps ao Prometheus recebe dois alertas do estacionamento: **lotes esperando há 30 minutos** (destino fora do ar) e **lote estacionado há mais de 5 dias** (crítico: perto do prazo de 7 dias).
 - **Acompanhe a saúde do pipeline.** A tela **Visão geral → Saúde do pipeline** mostra a saúde geral da entrega e ajuda a identificar destinos degradados antes de uma queda completa.
 - **Mantenha as credenciais em dia.** Combine com as equipes donas dos destinos (Splunk, nuvem, Kafka) um aviso antes de rotacionar credenciais, para girar a credencial no CentralOps na mesma janela.
 
@@ -135,7 +142,7 @@ Para reduzir a chance de um destino cair sem aviso:
 
 ## Quando escalar
 
-Escale se, depois de corrigir a causa e testar, o destino continuar indisponível ou a fila de reenvio não drenar:
+Escale se, depois de corrigir a causa e testar, o destino continuar indisponível, o aviso de lotes estacionados não sumir ou a fila de reenvio não drenar:
 
 1. **Reúna evidências pela interface:**
    - O status do destino e o resultado do **teste de conexão**.

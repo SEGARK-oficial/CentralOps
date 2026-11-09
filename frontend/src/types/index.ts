@@ -2007,8 +2007,9 @@ export interface DestinationMetrics {
   reason: string | null
   /** série lógica (sent/rejected/latency_avg) → [[minute_epoch, valor], ...]. */
   series: Record<string, [number, number][]>
-  /** gauges instantâneos (queue_depth, backpressure_state). */
-  gauges: Record<string, string | null>
+  /** Lotes esperando no estacionamento do Kafka (destino fora do ar ou
+   *  recusando). Saem sozinhos quando o destino volta. ``since`` em epoch (s). */
+  parked: { batches: number; events: number; since: number | null }
   dlq_total: number
   dlq_24h: number
   by_error_kind: Record<string, number>

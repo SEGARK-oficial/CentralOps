@@ -78,6 +78,32 @@ groups:
             o destino e reprocesse pela tela de Destinos.
           runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
 
+      - alert: CentralOpsParkedBacklog
+        expr: sum(collector_parked_lag) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lotes estacionados há 30 min esperando um destino voltar"
+          description: >-
+            Um destino está fora do ar ou recusando há pelo menos 30 minutos e os
+            lotes dele esperam no tópico de estacionamento (nada se perdeu). Eles
+            saem sozinhos quando o destino volta; a tela do destino mostra quantos.
+          runbook: docs-site/docs/runbooks/destination-down.md
+
+      - alert: CentralOpsParkedNearRetention
+        expr: max(collector_parked_head_age_seconds) > 432000
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Lote estacionado há mais de 5 dias — perto da retenção do tópico"
+          description: >-
+            O tópico de estacionamento guarda lotes por 7 dias (KAFKA_PARKED_RETENTION_MS).
+            Passado isso, o Kafka apaga o lote e os eventos se perdem. Recupere o
+            destino ou aumente a retenção do tópico antes disso.
+          runbook: docs-site/docs/runbooks/destination-down.md
+
   - name: centralops-push
     rules:
       - alert: CentralOpsRawProcessingToDLQ

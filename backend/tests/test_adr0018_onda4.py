@@ -168,12 +168,67 @@ def test_parked_batches_drain_on_recovery(monkeypatch):
     # B não esperou por A (outra partição), e A saiu em ordem depois de voltar.
     assert delivered.index("dest-b-0") < delivered.index("dest-a-0")
     assert [d for d in delivered if d.startswith("dest-a")] == ["dest-a-0", "dest-a-1"]
-    # Cada recusa voltou o offset de A e pausou SÓ a partição dele.
-    assert set(consumer.pauses) == {0} and len(consumer.pauses) == 3
-    assert all(seek == (0, 0) for seek in consumer.seeks)
+    # Cada recusa voltou o offset de A (só a partição dele); B nunca foi segurada.
+    assert consumer.seeks == [(0, 0)] * 3
     # Commits: B, depois A inteiro; nenhuma linha na DLQ.
     assert (1, 1) in consumer.commits and (0, 2) in consumer.commits
     assert dlq == []
+
+
+def test_slow_parked_destination_does_not_hold_the_others(monkeypatch):
+    """Drenador concorrente por partição: enquanto o lote de um destino lento (ou
+    com entrega em ordem e muito atraso) está em voo, as outras partições
+    continuam saindo. Antes era um laço só e B esperava A terminar."""
+    topic = parked.parked_topic()
+    consumer = _ParkedConsumer(
+        {0: [_value("dest-a", 0), _value("dest-a", 1)], 1: [_value("dest-b", i) for i in range(3)]},
+        topic,
+    )
+    delivered: List[str] = []
+    a_inflight = {"n": 0, "max": 0}
+
+    async def _dispatch(dest, batch):
+        if dest == "dest-a":
+            a_inflight["n"] += 1
+            a_inflight["max"] = max(a_inflight["max"], a_inflight["n"])
+            await asyncio.sleep(0.2)
+            a_inflight["n"] -= 1
+        delivered.append(batch[0]["_centralops"]["event_id"])
+
+    stop = _install(monkeypatch, consumer, _dispatch, [])
+    asyncio.run(_drain_until(stop, lambda: len(delivered) == 5))
+
+    # B inteiro saiu enquanto o 1º lote de A ainda estava em voo...
+    assert delivered[:3] == ["dest-b-0", "dest-b-1", "dest-b-2"]
+    # ...e A continuou em ordem, um lote por vez na partição dele.
+    assert delivered[3:] == ["dest-a-0", "dest-a-1"] and a_inflight["max"] == 1
+    assert (0, 2) in consumer.commits and (1, 3) in consumer.commits
+
+
+def test_parked_ledger_counts_what_waits_per_destination(monkeypatch):
+    """A tela do destino lê quantos lotes/eventos esperam e desde quando. O
+    contador sobe ao estacionar e desce ao drenar; zerou, some."""
+    import fakeredis
+
+    from backend.app.collectors import observability_store as obs
+
+    fake = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(obs, "_redis", lambda: fake)
+    assert parked.parked_state("d1") == {"batches": 0, "events": 0, "since": None}
+    parked.note_parked("d1", 3)
+    parked.note_parked("d1", 2)
+    state = parked.parked_state("d1")
+    assert state["batches"] == 2 and state["events"] == 5 and state["since"] > 0
+    assert fake.pttl(parked._ledger_key("d1")) > 0, "expira com a retenção do tópico"
+    parked.note_drained("d1", 3)
+    assert parked.parked_state("d1")["batches"] == 1
+    parked.note_drained("d1", 2)
+    assert parked.parked_state("d1")["batches"] == 0
+    assert not fake.exists(parked._ledger_key("d1"))
+    # Redis fora: a tela mostra zero, nunca quebra.
+    monkeypatch.setattr(obs, "_redis", lambda: (_ for _ in ()).throw(ConnectionError("x")))
+    assert parked.parked_state("d1")["batches"] == 0
+    parked.note_parked("d1", 1)  # não levanta
 
 
 def test_parked_transient_error_stays_parked_never_dlq(monkeypatch):

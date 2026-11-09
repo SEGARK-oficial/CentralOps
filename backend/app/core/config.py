@@ -343,6 +343,10 @@ class Settings(BaseSettings):
     KAFKA_PARKED_RETENTION_MS: int = 7 * 24 * 3600 * 1000
     KAFKA_PARKED_GROUP: str = "centralops-parked"
     KAFKA_PARKED_HOLD_SECONDS: float = 30.0
+    # Partições do estacionamento drenadas ao mesmo tempo (um lote em voo por
+    # partição). Um destino lento ou com muito atraso não segura a volta dos
+    # outros enquanto houver vaga.
+    KAFKA_PARKED_MAX_INFLIGHT: int = 8
     KAFKA_SESSION_TIMEOUT_MS: int = 45000
     KAFKA_HEARTBEAT_INTERVAL_MS: int = 3000
     KAFKA_REBALANCE_TIMEOUT_MS: int = 60000

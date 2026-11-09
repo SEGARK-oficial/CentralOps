@@ -245,6 +245,7 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_parked_total": {"kind": "counter", "unit": "1", "labels": ("reason",)},
     "collector_parked_drained_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_parked_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    "collector_parked_head_age_seconds": {"kind": "gauge", "unit": "s", "labels": ("partition",)},
     # ADR-0018 Onda 3b: leituras de configuração do processor servidas da última
     # versão boa porque o Postgres falhou. ``kind`` = routes | mapping |
     # integration | inflight_rules | enrichment_policy | ocsf_enforcement |
