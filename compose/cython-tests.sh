@@ -56,13 +56,25 @@ for mod in critical:
 print("cython-tests: smoke-check passed.")
 PY
 
-echo "cython-tests: running pytest sweep…"
+# Sweep PARALELO (pytest-xdist). Serial em 4 vCPU ele levava 21-34 min e era a
+# maior fatia do teto de 50 min do job. Mesmo teto de processos do
+# cython-build.sh: ``nproc`` mente dentro de container com quota CFS (devolve os
+# cores do HOST), então o padrão é min(nproc, 4); PYTEST_WORKERS sobrepõe
+# (``0`` = serial, para depurar uma falha que só aparece em paralelo).
+_DETECTED="$(nproc 2>/dev/null || echo 2)"
+WORKERS="${PYTEST_WORKERS:-$(( _DETECTED < 4 ? _DETECTED : 4 ))}"
+XDIST_ARGS=()
+if [[ "${WORKERS}" -gt 0 ]]; then
+    XDIST_ARGS=(-n "${WORKERS}")
+fi
+echo "cython-tests: running pytest sweep (workers=${WORKERS})…"
 # --ignore: benchmarks/ requires pytest-benchmark (dev-only); they are
 # not a regression gate. Performance baselines run in a separate CI job.
 # --maxfail=5: short-circuit after a handful of failures. With the source_only
 # auto-skip in backend/conftest.py wiring up the known-incompatible tests,
 # anything that reaches this threshold is a real regression and worth halting on.
 exec python -m pytest \
+    "${XDIST_ARGS[@]}" \
     -m "not source_only" \
     --maxfail=5 \
     --no-header \

@@ -76,3 +76,20 @@ jobs:
           # Quando confiar na política e quiser a poda semanal AUTOMÁTICA, troque
           # esta linha por:  ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
           dry-run: ${{ github.event_name == 'schedule' || inputs.dry-run }}
+
+      # Imagens EFÊMERAS `ci-<run_id>` do ci.yml. O job `cleanup` de lá só as
+      # apaga quando o run inteiro passa (de propósito: `gh run rerun --failed`
+      # de um shard E2E puxa a mesma imagem). Run que falha ou é cancelado deixa
+      # a tag para sempre — eram ~380 entre os dois pacotes em nov/2026. Nenhum
+      # deploy fixa `ci-*`, então aqui a poda é REAL também no schedule; 3 dias
+      # cobrem qualquer re-run.
+      - name: Poda imagens efêmeras ci-* antigas
+        uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
+        with:
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "centralops centralops-frontend"
+          image-tags: "ci-*"
+          tag-selection: tagged
+          cut-off: 3d
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}

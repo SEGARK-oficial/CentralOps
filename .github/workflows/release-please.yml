@@ -35,9 +35,88 @@ jobs:
   # o gatilho `on: push: tags: [v*]` do build-and-publish.yml nunca disparava
   # para releases automáticos, e só a tag `latest` (do push em main) era
   # publicada. Construir aqui, no mesmo run, fecha esse gap sem exigir um PAT.
-  build-release-image:
+  # ── Release = PROMOVER a imagem já testada, não recompilar ──────────────────
+  # O commit do release é este push na main, e o ci.yml do MESMO push compila,
+  # roda o sweep + E2E, passa no Trivy e publica ``sha-<commit>``. Recompilar aqui
+  # repetia ~45 min de runner para gerar o mesmo artefato — e era o que reprovava
+  # release (2.13.0). Este job espera a imagem do ci.yml e só re-tagueia
+  # (imagetools, mesmo digest: SBOM, provenance e o gate Trivy herdados). Se o
+  # ci.yml deste commit falhar ou a imagem não aparecer, ``build-release-image``
+  # abaixo roda o caminho antigo como fallback.
+  promote-release-image:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest  # só API do registry/GitHub — não ocupa o pool
+    timeout-minutes: 110
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
+    outputs:
+      promoted: ${{ steps.promote.outputs.promoted }}
+    steps:
+      - name: Isolar DOCKER_CONFIG deste job
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+      - name: Esperar a imagem testada do ci.yml e promover
+        id: promote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -uo pipefail
+          repo="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          short="${GITHUB_SHA:0:7}"
+          ver="${TAG#v}"; major="${ver%%.*}"; rest="${ver#*.}"; minor="${rest%%.*}"
+          api="ghcr.io/${repo}"; fe="ghcr.io/${repo}-frontend"
+          echo "promoted=false" >> "$GITHUB_OUTPUT"
+
+          ci_state() {  # conclusão do ci.yml deste commit (vazio = ainda rodando)
+            gh run list --repo "${{ github.repository }}" --workflow ci.yml \
+              --commit "$GITHUB_SHA" --event push --json status,conclusion \
+              --jq '.[0] | select(.status == "completed") | .conclusion' 2>/dev/null || true
+          }
+          ready() { docker buildx imagetools inspect "$1:sha-${short}" >/dev/null 2>&1; }
+
+          deadline=$(( $(date +%s) + 100 * 60 ))
+          until ready "$api" && ready "$fe"; do
+            state="$(ci_state)"
+            if [ -n "$state" ] && [ "$state" != "success" ]; then
+              echo "::warning::ci.yml de ${short} terminou '${state}' — sem imagem testada; o fallback recompila."
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::warning::sha-${short} não apareceu em 100 min — o fallback recompila."
+              exit 0
+            fi
+            sleep 60
+          done
+
+          for base in "$api" "$fe"; do
+            docker buildx imagetools create \
+              -t "${base}:v${ver}" -t "${base}:v${major}.${minor}" -t "${base}:v${major}" \
+              "${base}:sha-${short}"
+            digest="$(docker buildx imagetools inspect "${base}:v${ver}" --format '{{.Manifest.Digest}}')"
+            cosign sign --yes "${base}@${digest}"
+            echo "promovido ${base}:sha-${short} -> v${ver} (${digest})"
+          done
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+  # Fallback: só roda quando a promoção não aconteceu (ci.yml falhou/sumiu).
+  build-release-image:
+    needs: [release-please, promote-release-image]
+    if: ${{ always() && needs.release-please.outputs.release_created == 'true' && needs.promote-release-image.outputs.promoted != 'true' }}
     runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     permissions:
       contents: read
@@ -177,8 +256,9 @@ jobs:
           # run_attempt entra para que um "Re-run" puxe os pacotes do dia.
           build-args: |
             SECURITY_EPOCH=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          # Mesmo cache remoto que o ci.yml grava (antes: escopo gha PRÓPRIO, que
+          # nunca reaproveitava o compile do CI). Só lê — quem grava é a main.
+          cache-from: type=registry,ref=${{ steps.img.outputs.ref }}:${{ matrix.target == 'final' && 'buildcache-api' || 'buildcache' }}
           # SBOM + provenance SLSA anexados (atestações OCI) — paridade com
           # build-and-publish.yml (procurement enterprise/MSSP exige proveniência).
           sbom: true
