@@ -141,7 +141,7 @@ def test_pipeline_still_uses_that_expression():
     """A paridade é bilateral: se o pipeline mudar, este teste avisa."""
     from backend.app.collectors import pipeline
 
-    src = inspect.getsource(pipeline._run_collection_once)
+    src = inspect.getsource(pipeline.StreamProcessor.process)
     assert "applied.reduced_raw or raw_event" in src, (
         "pipeline.py mudou a montagem do envelope — preview.py precisa "
         "acompanhar, senão o preview passa a mentir"

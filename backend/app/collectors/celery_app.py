@@ -1,11 +1,11 @@
 """Singleton Celery app do subsistema de collectors.
 
-Três queues especializadas:
+Control-plane: agenda coletas, backfill, query e manutenção. O lote de evento
+não passa por aqui — ele viaja pelo data-plane Kafka (ADR-0018).
 
 - ``collect.priority``  → EDR tempo real (Sophos alerts, Defender incidents).
 - ``collect.bulk``      → auditoria e inventário (NinjaOne activities).
-- ``dispatch.wazuh``    → envio desacoplado ao Wazuh.
-- ``dispatch.dlq``      → dead-letter para investigação manual.
+- ``dispatch.dlq``      → reenvio da DLQ de um destino, pedido pela UI.
 
 Workers são escalados horizontalmente via ``docker compose up --scale``.
 Cada task abre sua própria ``SessionLocal`` efêmera — **nenhum
@@ -24,7 +24,6 @@ from kombu import Queue
 
 from ..core import ee_hooks
 from ..core.config import settings
-from .queues import all_dispatch_dest_queues
 
 if TYPE_CHECKING:
     import redis.asyncio as redis_async_module
@@ -249,13 +248,8 @@ celery_app.conf.update(
         Queue("collect.priority", routing_key="collect.priority"),
         Queue("collect.bulk", routing_key="collect.bulk"),
         Queue("collect.backfill", routing_key="collect.backfill"),
-        # A fila dedicada dispatch.wazuh foi removida — o
-        # wazuh-default agora entrega pela lane genérica dispatch.destination.
-        Queue("dispatch.destination", routing_key="dispatch.destination"),
-        # Bulkhead: shard queues dispatch.destination.0..N-1 (hash-routing).
-        # Um worker pode dedicar-se a um shard (-Q dispatch.destination.3) para
-        # isolamento OS-level; o pool default consome todos.
-        *(Queue(_q, routing_key=_q) for _q in all_dispatch_dest_queues()),
+        # Reenvio da DLQ (drain_destination_dlq). A entrega em si é do papel
+        # dispatcher do Kafka; as filas dispatch.destination.N saíram na Onda 5.
         Queue("dispatch.dlq", routing_key="dispatch.dlq"),
         # Fila DEDICADA de query ao vivo (QueryService). Consumida
         # pelo serviço dedicado collector-worker-query (-Q collect.query) — isolada
@@ -269,8 +263,6 @@ celery_app.conf.update(
         "collectors.collect_vendor_logs_priority": {"queue": "collect.priority"},
         "collectors.collect_vendor_logs_bulk": {"queue": "collect.bulk"},
         "collectors.collect_backfill_job": {"queue": "collect.backfill"},
-        # Despacho genérico por destino (lane única).
-        "collectors.dispatch_to_destination": {"queue": "dispatch.destination"},
         # Migração do scheduler legado (services/scheduler.py).
         "collectors.scheduler.dispatch_due_scheduled_queries": {"queue": "collect.bulk"},
         # A EXECUÇÃO da scheduled query vai p/ a fila dedicada de

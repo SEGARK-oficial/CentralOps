@@ -93,7 +93,9 @@ spec:
             {{- else if eq $name "maintenance" }}
             - "maintenance,maintenance.high"
             {{- else if eq $name "dispatcher" }}
-            - "dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7"
+            # Só o reenvio da DLQ pedido pela UI; a entrega é do kafka-dispatcher
+            # (as filas dispatch.destination.N saíram no ADR-0018 Onda 5).
+            - "dispatch.dlq"
             {{- else if eq $name "query" }}
             # Busca federada e scheduled queries. Sem consumidor, a scheduled query
             # do CE ficava pendente para sempre (ADR-0018 Onda 1).

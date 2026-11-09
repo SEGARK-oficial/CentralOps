@@ -1013,7 +1013,10 @@ def note_unenriched(batch: Sequence[MutableMapping[str, Any]], reason: str) -> i
 
 
 def load_policy_for_org(
-    organization_id: Optional[int], *, enabled: Optional[bool] = None
+    organization_id: Optional[int],
+    *,
+    enabled: Optional[bool] = None,
+    strict: bool = False,
 ) -> Optional[CompiledPolicy]:
     """Política ATIVA da org, compilada. **SÍNCRONA** — chamar via ``to_thread``.
 
@@ -1034,6 +1037,9 @@ def load_policy_for_org(
     conexão de banco**: resolver a flag lendo a tabela abriria a sessão ANTES de
     descobrir que não havia nada a fazer, que é exatamente o custo que o gate
     existe para evitar. ``None`` cai em ``settings``, o comportamento anterior.
+
+    ``strict=True`` deixa o erro de BANCO subir (não o de compilação): o snapshot
+    do processor serve a política da última carga boa (ADR-0018 Onda 3b).
     """
     if organization_id is None:
         return None
@@ -1109,6 +1115,8 @@ def load_policy_for_org(
                 return None
             raw_rules = version_row.rules
     except Exception:  # noqa: BLE001 — a coleta nunca cai por causa do enriquecimento
+        if strict:
+            raise
         logger.exception("enrich: falha carregando política (org %s)", organization_id)
         return None
 

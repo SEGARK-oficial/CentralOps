@@ -5,16 +5,15 @@ opcionais de deploy). Eles provam os invariantes que o tracing PROMETE:
 
 1. OFF (default) ⇒ no-op total: ``carrier()`` vazio, spans são None, init False.
 2. ON sem os pacotes ⇒ degrada para no-op (init False, warning), NUNCA levanta.
-3. Producer byte-idêntico: com OTEL off, ``_enqueue_dispatch`` NÃO injeta
-   ``traceparent`` nos kwargs Celery (wire/payload inalterado vs. legado).
-4. Tasks de dispatch aceitam os kwargs de trace-context (back-compat de
-   assinatura — mensagens antigas sem eles desserializam).
+3. Producer byte-idêntico: com OTEL off, ``_enqueue_dispatch`` NÃO passa
+   trace-context ao ``produce_delivery`` (envelope de entrega inalterado).
+4. O envelope de entrega do Kafka carrega o trace-context quando há, e sai com
+   ``trace`` vazio quando não há (o consumidor lê ``payload.get("trace")``).
 """
 
 from __future__ import annotations
 
 import importlib.util
-import inspect
 import os
 from unittest.mock import patch
 
@@ -98,24 +97,26 @@ def test_init_is_idempotent():
 
 
 def test_enqueue_dispatch_off_injects_no_traceparent(monkeypatch):
-    """OTEL off ⇒ kwargs Celery byte-idênticos (sem traceparent/tracestate).
+    """OTEL off ⇒ nenhum trace-context vai ao ``produce_delivery``.
 
-    O ``wazuh-default`` deixou de ser
-    special-case — ele flui pela MESMA via uniforme ``dispatch_to_destination``
-    (celery-mode, o default do ambiente de teste). A invariante #3 do tracing
-    permanece: com OTEL off, ``tracing.carrier()`` é vazio, então NENHUM
-    ``traceparent``/``tracestate`` é injetado nos kwargs do dispatch — o wire
-    fica byte-idêntico ao legado (só ``destination_id`` + ``batch``).
+    O ``wazuh-default`` não é special-case — flui pela MESMA via uniforme de todo
+    destino, ``produce_delivery`` no tópico ``deliver`` (único data-plane desde a
+    ADR-0018 Onda 5). A invariante #3 do tracing permanece: com OTEL off,
+    ``tracing.carrier()`` é vazio, então o terceiro argumento (trace-context) é
+    ``None`` — o envelope sai com ``trace`` vazio, idêntico ao de antes do tracing.
     """
     import types as _types
 
     from backend.app.collectors import pipeline, routing
-    from backend.app.collectors import tasks as _tasks
 
     # Isola o fan-out do DB: roteamento → sub-lote único p/ wazuh-default.
-    monkeypatch.setattr(pipeline, "_load_destination_residency", lambda ids: {})
-    monkeypatch.setattr(pipeline, "_load_wazuh_loop_destination_ids", lambda ids: frozenset())
-    monkeypatch.setattr(pipeline, "_load_fallback_destination_id", lambda org: "wazuh-default")
+    monkeypatch.setattr(pipeline, "_load_destination_residency", lambda ids, **k: {})
+    monkeypatch.setattr(
+        pipeline, "_load_wazuh_loop_destination_ids", lambda ids, **k: frozenset()
+    )
+    monkeypatch.setattr(
+        pipeline, "_load_fallback_destination_id", lambda org, **k: "wazuh-default"
+    )
     monkeypatch.setattr(pipeline, "_load_routes_for_org", lambda org: [])
     monkeypatch.setattr(
         routing,
@@ -129,36 +130,42 @@ def test_enqueue_dispatch_off_injects_no_traceparent(monkeypatch):
 
     with (
         patch.object(settings, "OTEL_ENABLED", False),
-        patch.object(_tasks.dispatch_to_destination, "apply_async") as md,
+        patch("backend.app.collectors.dataplane.produce_delivery") as mp,
     ):
         pipeline._enqueue_dispatch([_ev(5), _ev(2)])
 
-    md.assert_called_once()
-    call = md.call_args
-    sent_kwargs = call.kwargs["kwargs"]
-    # wazuh-default agora vai pela via uniforme dispatch_to_destination.
-    assert sent_kwargs["destination_id"] == "wazuh-default"
-    # OTEL off ⇒ kwargs byte-idênticos: só destination_id + batch, sem trace-context.
-    assert set(sent_kwargs.keys()) == {"destination_id", "batch"}
-    assert "traceparent" not in sent_kwargs and "tracestate" not in sent_kwargs
+    mp.assert_called_once()
+    dest_id, sent, trace_ctx = mp.call_args.args
+    # wazuh-default vai pela via uniforme produce_delivery.
+    assert dest_id == "wazuh-default"
+    assert len(sent) == 2
+    # OTEL off ⇒ sem trace-context (nem traceparent, nem tracestate).
+    assert trace_ctx is None
 
 
-# ── Invariante 4: tasks aceitam trace-context (back-compat) ──────────────
+# ── Invariante 4: envelope de entrega carrega o trace-context ────────────
 
 
-def test_dispatch_tasks_accept_trace_context_kwargs():
-    """Assinaturas aceitam traceparent/tracestate com default None.
+def test_delivery_envelope_carries_trace_context():
+    """O consumidor (papel dispatcher) continua o trace a partir de
+    ``payload["trace"]``: com contexto ele viaja intacto; sem contexto o campo
+    sai vazio — e o consumidor lida com ``trace`` ausente/vazio (``.get``)."""
+    from backend.app.collectors.dataplane.kafka_transport import (
+        decode_delivery,
+        encode_delivery,
+    )
 
-    A via dupla Wazuh foi removida — ``dispatch_to_wazuh``
-    não existe mais. A única tarefa de dispatch é ``dispatch_to_destination``
-    (rota uniforme p/ TODO destino, incl. wazuh-default).
-    """
-    from backend.app.collectors.tasks import dispatch_to_destination
+    batch = [_ev(5)]
+    tp = {"traceparent": "00-" + "a" * 32 + "-" + "b" * 16 + "-01"}
 
-    for task in (dispatch_to_destination,):
-        params = inspect.signature(task.run).parameters
-        assert "traceparent" in params and params["traceparent"].default is None
-        assert "tracestate" in params and params["tracestate"].default is None
+    with_tp = decode_delivery(encode_delivery("dest-1", batch, tp))
+    assert with_tp["destination_id"] == "dest-1"
+    assert with_tp["batch"] == batch
+    assert with_tp["trace"] == tp
+
+    without_tp = decode_delivery(encode_delivery("dest-1", batch, None))
+    assert without_tp["trace"] == {}
+    assert "traceparent" not in without_tp and "tracestate" not in without_tp
 
 
 class _ExplodingTracer:

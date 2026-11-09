@@ -554,6 +554,57 @@ def record_unknown_fields(
         for path, value in deltas
     ]
 
+    return _upsert_unknown_fields(values, vendor=vendor, event_type=event_type)
+
+
+def record_unknown_fields_many(items: Iterable[Mapping[str, Any]]) -> int:
+    """Versão em LOTE de :func:`record_unknown_fields` (ADR-0018 Onda 3c).
+
+    O pipeline amostra ~10% dos eventos (mais 100% dos primeiros de uma fonte
+    nova) para o drift, e cada amostra era um upsert no Postgres — mil escritas
+    por segundo a 10k eps. Aqui o lote inteiro vira UM upsert: as ocorrências do
+    mesmo (vendor, event_type, path, org) são somadas antes, e o resultado no
+    banco é o mesmo de N chamadas. Mesmo fail-closed em ``organization_id`` None.
+
+    ``items``: dicts com ``vendor``, ``event_type``, ``raw``, ``consumed_paths``,
+    ``organization_id`` e, opcional, ``dsl_version``."""
+    now = datetime.utcnow()
+    agg: Dict[Tuple[str, str, str, int], Dict[str, Any]] = {}
+    for item in items:
+        organization_id = item.get("organization_id")
+        if organization_id is None:
+            continue
+        deltas = compute_unknown_paths(
+            item["raw"], item["consumed_paths"], dsl_version=item.get("dsl_version", 1)
+        )
+        for path, value in deltas:
+            key = (item["vendor"], item["event_type"], path, organization_id)
+            row = agg.get(key)
+            if row is not None:
+                row["occurrence_count"] += 1
+                continue
+            agg[key] = {
+                "id": str(_uuid4()),
+                "vendor": item["vendor"],
+                "event_type": item["event_type"],
+                "field_path": path,
+                "organization_id": organization_id,
+                "sample_value": build_sample_value(value),
+                "sample_type": _type_name(value),
+                "occurrence_count": 1,
+                "first_seen": now,
+                "last_seen": now,
+                "status": "new",
+            }
+    if not agg:
+        return 0
+    values = list(agg.values())
+    return _upsert_unknown_fields(
+        values, vendor=values[0]["vendor"], event_type=values[0]["event_type"]
+    )
+
+
+def _upsert_unknown_fields(values: list, *, vendor: str, event_type: str) -> int:
     try:
         with database.SessionLocal() as db:
             dialect = db.bind.dialect.name if db.bind is not None else "sqlite"

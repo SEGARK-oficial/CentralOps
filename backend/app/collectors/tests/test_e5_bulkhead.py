@@ -1,12 +1,10 @@
 """per-destination bulkhead.
 
-Two mechanisms:
-  - hash-routing: each destination_id maps to a STABLE shard queue
-    (dispatch.destination.0..N-1) so a slow destination saturates only its
-    shard; an operator isolates it with a dedicated per-shard worker.
-  - concurrency semaphore: caps concurrent send_batch for ONE destination on
-    ONE loop (per-process; see concurrency_pool docstring). Proven here at the
-    asyncio level where it is effective.
+O hash-routing para filas Celery ``dispatch.destination.0..N-1`` saiu na ADR-0018
+Onda 5 (a entrega é do papel dispatcher do Kafka, que isola destino por shard de
+partição). Fica o semáforo de concorrência: limita ``send_batch`` simultâneos de
+UM destino num MESMO loop (por processo; ver o docstring de concurrency_pool).
+Provado aqui no nível do asyncio, onde ele vale.
 """
 
 from __future__ import annotations
@@ -19,66 +17,7 @@ os.environ.setdefault("APP_ENV", "test")
 
 import pytest
 
-from backend.app.collectors import queues
 from backend.app.collectors.output import concurrency_pool
-
-
-# ── Hash-routing ───────────────────────────────────────────────────────────
-
-
-def test_shard_queue_is_stable() -> None:
-    """Same destination_id always maps to the same shard (ordering/socket reuse)."""
-    a = queues.dispatch_dest_shard_queue("splunk-prod-001")
-    b = queues.dispatch_dest_shard_queue("splunk-prod-001")
-    assert a == b
-    assert a.startswith("dispatch.destination.")
-    shard = int(a.rsplit(".", 1)[1])
-    assert 0 <= shard < queues.DISPATCH_DEST_SHARDS
-
-
-def test_shard_queue_distributes_across_shards() -> None:
-    """A spread of destination ids hits more than one shard (not all in shard 0)."""
-    seen = {
-        queues.dispatch_dest_shard_queue(f"dest-{i:04d}")
-        for i in range(200)
-    }
-    assert len(seen) >= queues.DISPATCH_DEST_SHARDS // 2
-    assert seen <= set(queues.all_dispatch_dest_queues())
-
-
-def test_all_shard_queues_registered_in_celery() -> None:
-    """Every shard queue is declared so the worker can consume it."""
-    from backend.app.collectors.celery_app import celery_app
-
-    declared = {q.name for q in celery_app.conf.task_queues}
-    for shard_q in queues.all_dispatch_dest_queues():
-        assert shard_q in declared, f"{shard_q} not declared in task_queues"
-
-
-def test_compose_dispatcher_consumes_all_shards() -> None:
-    """The collector-dispatcher's -Q list in docker-compose MUST be a superset of
-    all shard queues — else routed batches strand in the broker. This
-    machine-enforces the constant↔compose contract so a shard-count bump can't
-    silently drift."""
-    import pathlib
-
-    compose = (
-        pathlib.Path(__file__).resolve().parents[4] / "compose" / "docker-compose.yml"
-    )
-    text = compose.read_text()
-    # The real -Q value line (not the explanatory comment, which says "0..7").
-    q_lines = [
-        ln
-        for ln in text.splitlines()
-        if "dispatch.destination.0" in ln and not ln.lstrip().startswith("#")
-    ]
-    assert q_lines, "no dispatcher -Q line containing the destination shards found"
-    line = q_lines[0]
-    for shard_q in queues.all_dispatch_dest_queues():
-        assert shard_q in line, (
-            f"{shard_q} not consumed by the dispatcher -Q in docker-compose.yml — "
-            f"shard-count drift would strand its batches"
-        )
 
 
 # ── Concurrency semaphore ──────────────────────────────────────────────────

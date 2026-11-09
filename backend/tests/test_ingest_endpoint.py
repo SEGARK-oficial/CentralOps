@@ -1,12 +1,13 @@
 """Teste de integração do endpoint de ingestão push.
 
 Exercita o fluxo HTTP completo: admin emite token → edge-collector faz POST com o
-token → eventos vão para o buffer Redis (fakeredis). Cobre os caminhos de erro
-(sem token, plataforma não-push, stream desconhecido).
+token → eventos vão para o tópico ``raw`` do data-plane Kafka (``produce_raw_async``
+trocado por um gravador). O buffer Redis de antes saiu na ADR-0018 Onda 5: o 200
+só sai depois do ack do raw, e broker fora é 503 com Retry-After. Cobre também os
+caminhos de erro (sem token, plataforma não-push, stream desconhecido).
 """
 from __future__ import annotations
 
-import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -20,7 +21,7 @@ from backend.app.routers import ingest as ingest_router
 
 
 @pytest.fixture()
-def setup():
+def setup(monkeypatch):
     engine = create_engine(
         "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -36,20 +37,19 @@ def setup():
 
     app.dependency_overrides[get_session] = override_get_session
 
-    # Redis falso compartilhado (server único → dados persistem entre clientes).
-    server = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    # Tópico raw em memória: cada produce grava (integration_id, stream, eventos).
+    # O router importa ``produce_raw_async`` pelo nome, então o patch vale no
+    # módulo do router (o que ele chama) e na origem (quem importar depois).
+    produced: list = []
 
-    async def fake_redis_client():
-        return server
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
+        produced.append((integration_id, stream, list(events)))
+        return len(events)
 
-    # neutraliza o aclose() do endpoint para o server seguir vivo nas asserts
-    orig_aclose = server.aclose
-
-    async def _noop_aclose(*a, **k):
-        return None
-
-    server.aclose = _noop_aclose
-    ingest_router._redis_client = fake_redis_client
+    monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
+    monkeypatch.setattr(
+        "backend.app.collectors.dataplane.raw.produce_raw_async", _produce
+    )
 
     # Seed org + integração push (FortiGate) + uma pull (sophos) para o caminho 422.
     with TestingSession() as db:
@@ -69,7 +69,7 @@ def setup():
     r = client.post("/api/auth/login", json={"username": "admin", "password": "AdminPass1!"})
     assert r.status_code == 200, r.text
 
-    yield client, push_id, pull_id, server
+    yield client, push_id, pull_id, produced
 
     client.close()
     app.dependency_overrides.clear()
@@ -77,7 +77,7 @@ def setup():
 
 
 def test_issue_token_and_ingest_flow(setup):
-    client, push_id, _pull_id, server = setup
+    client, push_id, _pull_id, produced = setup
 
     # admin emite token
     r = client.post(f"/api/ingest/integrations/{push_id}/token")
@@ -96,19 +96,25 @@ def test_issue_token_and_ingest_flow(setup):
     assert r.status_code == 200, r.text
     payload = r.json()
     assert payload["accepted"] == 2
-    assert payload["dropped"] == 0
-    assert payload["buffer_depth"] == 2
+    # Sem buffer Redis: a resposta não tem mais ``dropped``/``buffer_depth``.
+    assert "dropped" not in payload and "buffer_depth" not in payload
+    # Os dois eventos foram ao tópico raw, na ordem, para a integração/stream certos.
+    assert len(produced) == 1
+    iid, stream, events = produced[0]
+    assert (iid, stream) == (push_id, "traffic")
+    assert [e["srcip"] for e in events] == ["10.0.0.1", "10.0.0.2"]
 
-    # info reflete token + profundidade
+    # info reflete o token
     r = client.get(f"/api/ingest/integrations/{push_id}")
     assert r.status_code == 200, r.text
     info = r.json()
     assert info["transport"] == "push" and info["has_token"] is True
     assert "traffic" in info["streams"]
+    assert "buffer_depth" not in info
 
 
 def test_ingest_requires_valid_token(setup):
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     # sem token → 401
     r = client.post("/api/ingest/traffic", data="{}", headers={"Content-Type": "application/json"})
     assert r.status_code == 401
@@ -121,7 +127,7 @@ def test_ingest_requires_valid_token(setup):
 
 
 def test_unknown_stream_rejected(setup):
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     r = client.post(
         "/api/ingest/nonexistent",
@@ -132,7 +138,7 @@ def test_unknown_stream_rejected(setup):
 
 
 def test_pull_platform_has_no_ingest_token(setup):
-    client, _push_id, pull_id, _server = setup
+    client, _push_id, pull_id, _raw = setup
     # emitir token para integração pull (sophos) → 422
     r = client.post(f"/api/ingest/integrations/{pull_id}/token")
     assert r.status_code == 422
@@ -170,7 +176,7 @@ def test_load_push_integration_enforces_org_scope():
 
 def test_revoke_token_invalidates_ingest(setup):
     """Revogar o token mata um token vazado SEM rotacionar: o POST passa a 401."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     r = client.post("/api/ingest/traffic", data='{"srcip":"1.2.3.4"}',
                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
@@ -183,25 +189,9 @@ def test_revoke_token_invalidates_ingest(setup):
     assert client.delete(f"/api/ingest/integrations/{push_id}/token").status_code == 404
 
 
-def test_redis_unavailable_returns_503(setup, monkeypatch):
-    """Redis indisponível no buffer → 503 explícito (edge re-tenta), não 500."""
-    from redis.exceptions import RedisError
-
-    client, push_id, _pull_id, _server = setup
-    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-
-    async def _boom(*a, **k):
-        raise RedisError("redis down")
-
-    monkeypatch.setattr(ingest_router, "push_events", _boom)
-    r = client.post("/api/ingest/traffic", data='{"srcip":"1.2.3.4"}',
-                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-    assert r.status_code == 503
-
-
 def test_rate_limit_returns_429(setup, monkeypatch):
     """Excedido o rate-limit por token → 429 com Retry-After."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
 
     monkeypatch.setattr(ingest_router.ingest_rate_limiter, "check", lambda _id: 7)
@@ -214,7 +204,7 @@ def test_rate_limit_returns_429(setup, monkeypatch):
 def test_ndjson_partial_success_207(setup):
     """Uma linha ruim no meio do NDJSON NÃO derruba o lote (modelo Cribl/Vector): as
     linhas válidas são aceitas, a inválida é contada e o status vira 207 com contadores."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, produced = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     body = (
         '{"srcip":"10.0.0.1","action":"deny"}\n'
@@ -229,14 +219,15 @@ def test_ndjson_partial_success_207(setup):
     p = r.json()
     assert p["accepted"] == 2          # as duas linhas boas passaram
     assert p["parse_errors"] == 1      # a linha ruim foi contada, não abortou o lote
-    assert p["buffer_depth"] == 2
+    # Só as duas linhas boas chegaram ao tópico raw.
+    assert [e["srcip"] for _iid, _st, evs in produced for e in evs] == ["10.0.0.1", "10.0.0.2"]
     assert p["error_detail"]           # amostra do 1º erro presente
 
 
 def test_ndjson_non_object_counted_as_type_error(setup):
     """Item JSON válido mas não-objeto (número/string solto) é rejeitado como type_error
     (não tem chaves p/ mapear no drift) — o resto do lote sobrevive, status 207."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     body = '{"srcip":"10.0.0.1"}\n42\n"apenas uma string"'
     r = client.post(
@@ -253,7 +244,7 @@ def test_oversized_event_dropped_batch_survives(setup):
     """Um evento individual acima do teto por-evento é dropado+contado; o lote segue."""
     from backend.app.routers import ingest as ing
 
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     big = "x" * (ing._MAX_EVENT_BYTES + 10)
     body = '{"srcip":"10.0.0.1"}\n' + f'{{"blob":"{big}"}}'
@@ -269,7 +260,7 @@ def test_oversized_event_dropped_batch_survives(setup):
 
 def test_single_json_malformed_still_400(setup):
     """JSON ÚNICO (não-NDJSON) irrecuperável continua 400 — não há sucesso parcial possível."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     r = client.post(
         "/api/ingest/traffic", data="{not valid json",
@@ -280,7 +271,7 @@ def test_single_json_malformed_still_400(setup):
 
 def test_clean_batch_stays_200(setup):
     """Sem rejeições → 200 puro, contadores zerados (backward-compat)."""
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     r = client.post(
         "/api/ingest/traffic",
@@ -294,37 +285,7 @@ def test_clean_batch_stays_200(setup):
     assert p["error_detail"] is None
 
 
-def test_buffer_full_returns_503_and_keeps_accepted_events(setup, monkeypatch):
-    """ADR-0018 Onda 0: buffer cheio → 503 + Retry-After (o edge re-tenta) e os
-    eventos JÁ aceitos ficam intactos. Antes o LTRIM apagava os mais antigos,
-    que já tinham recebido 200."""
-    from backend.app.collectors import ingest_buffer
-
-    client, push_id, _pull_id, server = setup
-    token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/x-ndjson"}
-
-    orig = ingest_buffer.push_events
-
-    async def _small_cap(*a, **k):
-        k["max_len"] = 2
-        return await orig(*a, **k)
-
-    monkeypatch.setattr(ingest_router, "push_events", _small_cap)
-
-    r = client.post("/api/ingest/traffic", data='{"n":1}\n{"n":2}', headers=headers)
-    assert r.status_code == 200, r.text
-    r = client.post("/api/ingest/traffic", data='{"n":3}', headers=headers)
-    assert r.status_code == 503
-    assert r.headers.get("Retry-After")
-
-    import asyncio as _asyncio
-
-    drained = _asyncio.run(ingest_buffer.drain_events(server, push_id, "traffic"))
-    assert sorted(e["n"] for e in drained) == [1, 2]
-
-
-# ── ADR-0018 Onda 2: modo kafka — o 200 só sai depois do ack do tópico raw ────
+# ── ADR-0018 Onda 2: o 200 só sai depois do ack do tópico raw ─────────────────
 
 
 def _post_ndjson(client, token, body='{"a":1}\n{"a":2}'):
@@ -336,35 +297,30 @@ def _post_ndjson(client, token, body='{"a":1}\n{"a":2}'):
 
 
 def test_ingest_acks_after_durable_write(setup, monkeypatch):
-    from backend.app.core.config import settings
-
-    client, push_id, _pull_id, _server = setup
+    """O 200 sai DEPOIS do produce no raw (o ack do broker é o retorno de
+    ``produce_raw_async``) e devolve o que o data-plane aceitou."""
+    client, push_id, _pull_id, _produced = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
     produced: list = []
 
-    async def _produce(iid, stream, events):
-        produced.append((iid, stream, [e["a"] for e in events]))
+    async def _produce(iid, stream, events, ids=None, historical=False):
+        produced.append((iid, stream, [e["a"] for e in events], historical))
         return len(events)
 
-    async def _no_redis(*a, **k):  # pragma: no cover — não pode ser chamado
-        raise AssertionError("modo kafka não usa a lista Redis")
-
     monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
-    monkeypatch.setattr(ingest_router, "push_events", _no_redis)
 
     r = _post_ndjson(client, token)
     assert r.status_code == 200, r.text
     assert r.json()["accepted"] == 2
-    assert produced == [(push_id, "traffic", [1, 2])]
+    # Push ao vivo nunca é histórico (backfill tem caminho próprio).
+    assert produced == [(push_id, "traffic", [1, 2], False)]
 
 
 def test_ingest_kafka_down_returns_503(setup, monkeypatch):
-    from backend.app.core.config import settings
-
-    client, push_id, _pull_id, _server = setup
+    """Broker fora → 503 explícito com Retry-After (a borda re-tenta com o buffer
+    de disco dela), nunca 500 nem um 200 de evento não gravado."""
+    client, push_id, _pull_id, _produced = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
 
     async def _down(*a, **k):
         raise ConnectionError("KafkaConnectionError: broker fora")
@@ -378,23 +334,14 @@ def test_ingest_kafka_down_returns_503(setup, monkeypatch):
 # ── ADR-0018 Onda 2b: Splunk HEC e OTLP/HTTP no mesmo caminho durável ─────────
 
 
-def _kafka_mode(monkeypatch, produced):
-    from backend.app.core.config import settings
-
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
-
-    async def _produce(iid, stream, events):
-        produced.extend(events)
-        return len(events)
-
-    monkeypatch.setattr(ingest_router, "produce_raw_async", _produce)
+def _raw_events(produced):
+    """Achata o que o gravador do fixture recebeu em uma lista de eventos."""
+    return [e for _iid, _stream, events in produced for e in events]
 
 
 def test_hec_event_concatenated_with_splunk_auth(setup, monkeypatch):
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    produced: list = []
-    _kafka_mode(monkeypatch, produced)
 
     body = (
         '{"time": 1700000000, "host": "fw01", "sourcetype": "fortigate", "event": {"srcip": "10.0.0.1"}}'
@@ -407,6 +354,7 @@ def test_hec_event_concatenated_with_splunk_auth(setup, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert r.json() == {"text": "Success", "code": 0}
+    produced = _raw_events(raw)
     assert [e.get("srcip") or e.get("message") for e in produced] == ["10.0.0.1", "linha de texto", "10.0.0.2"]
     assert produced[0]["_hec"]["host"] == "fw01"
     assert produced[2]["_hec"]["fields"] == {"site": "a"}
@@ -414,28 +362,23 @@ def test_hec_event_concatenated_with_splunk_auth(setup, monkeypatch):
 
 
 def test_hec_raw_and_health(setup, monkeypatch):
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    produced: list = []
-    _kafka_mode(monkeypatch, produced)
 
     r = client.post(
         "/api/ingest/hec/traffic/services/collector/raw",
         data="linha 1\nlinha 2\n", headers={"Authorization": f"Splunk {token}"},
     )
     assert r.status_code == 200, r.text
+    produced = _raw_events(raw)
     assert [e["message"] for e in produced] == ["linha 1", "linha 2"]
     assert client.get("/api/ingest/hec/traffic/services/collector/health/1.0").json()["code"] == 17
 
 
 def test_hec_requires_token_and_returns_503_when_not_stored(setup, monkeypatch):
-    from backend.app.core.config import settings
-
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, _raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
     assert client.post("/api/ingest/hec/traffic/services/collector/event", data='{"event":1}').status_code == 401
-
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
 
     async def _down(*a, **k):
         raise ConnectionError("broker fora")
@@ -475,10 +418,8 @@ def test_otlp_json_gzip(setup, monkeypatch):
     import gzip as _gzip
     import json as _json
 
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    produced: list = []
-    _kafka_mode(monkeypatch, produced)
 
     r = client.post(
         "/api/ingest/otlp/traffic/v1/logs",
@@ -491,6 +432,7 @@ def test_otlp_json_gzip(setup, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert r.json() == {}
+    produced = _raw_events(raw)
     first, second = produced
     assert first["EventID"] == 4625 and first["user"] == "alice"
     assert first["_otlp"]["resource"] == {"host.name": "srv1"}
@@ -502,10 +444,8 @@ def test_otlp_json_gzip(setup, monkeypatch):
 def test_otlp_protobuf(setup, monkeypatch):
     import importlib.util
 
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    produced: list = []
-    _kafka_mode(monkeypatch, produced)
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/x-protobuf"}
 
     if importlib.util.find_spec("opentelemetry.proto") is None:
@@ -521,16 +461,15 @@ def test_otlp_protobuf(setup, monkeypatch):
     r = client.post("/api/ingest/otlp/traffic/v1/logs", content=msg.SerializeToString(), headers=headers)
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("application/x-protobuf")
+    produced = _raw_events(raw)
     assert [e.get("user") or e.get("message") for e in produced] == ["alice", "texto livre"]
 
 
 def test_gzip_bomb_is_refused(setup, monkeypatch):
     import gzip as _gzip
 
-    client, push_id, _pull_id, _server = setup
+    client, push_id, _pull_id, raw = setup
     token = client.post(f"/api/ingest/integrations/{push_id}/token").json()["token"]
-    produced: list = []
-    _kafka_mode(monkeypatch, produced)
 
     bomb = _gzip.compress(b"{" + b" " * (17 * 1024 * 1024) + b"}")  # 17 MiB descompactado
     r = client.post(
@@ -538,4 +477,4 @@ def test_gzip_bomb_is_refused(setup, monkeypatch):
         headers={"Authorization": f"Bearer {token}", "Content-Encoding": "gzip", "Content-Type": "application/json"},
     )
     assert r.status_code == 413
-    assert produced == []
+    assert raw == []

@@ -63,11 +63,13 @@ def _global_default() -> str:
     return default if default in ENFORCEMENT_MODES else MODE_TAG_AND_PASS
 
 
-def resolve_enforcement_mode(organization_id: Optional[int]) -> str:
+def resolve_enforcement_mode(organization_id: Optional[int], *, strict: bool = False) -> str:
     """Per-org enforcement mode, or the global default when no policy row exists.
 
     Synchronous (opens its own session) so it can be a clean ``asyncio.to_thread``
     target from the pipeline. Fail-safe: on any DB error → global default.
+    ``strict=True`` re-raises the DB error instead, so the processor's config
+    snapshot can serve the last known good mode (ADR-0018 Onda 3b).
     """
     if organization_id is not None:
         try:
@@ -80,6 +82,8 @@ def resolve_enforcement_mode(organization_id: Optional[int]) -> str:
             if row is not None and row.enforcement_mode in ENFORCEMENT_MODES:
                 return row.enforcement_mode
         except Exception:  # pragma: no cover - defensive
+            if strict:
+                raise
             logger.warning(
                 "falha ao resolver política OCSF; usando default global",
                 extra={"event": "ocsf.policy_resolve_failed", "organization_id": organization_id},

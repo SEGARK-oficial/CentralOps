@@ -47,10 +47,16 @@ jobs:
       - name: Install pip-audit
         run: |
           python --version
-          pip install pip-audit
+          pip install "pip-audit>=2.9,<3"
 
+      # Audita o que a IMAGEM instala (compose/Dockerfile, estágio backend-deps):
+      # o lock + os extras de OTel e sinks. Auditar só o requirements.txt dava
+      # "No known vulnerabilities" enquanto a imagem embarcava multidict 6.7.1 e
+      # opentelemetry-api 1.44.0 com CVE (nov/2026): o .txt pina só as diretas, e
+      # as duas eram transitivas (aiohttp/yarl e mcp).
       - name: Run pip-audit
-        # Aponta para requirements.txt (mais permissivo para resolver).
-        # Quando o lockfile estiver estável em CI, migrar para:
-        #   pip-audit -r backend/requirements.lock --strict
-        run: pip-audit -r backend/requirements.txt --strict
+        run: >-
+          pip-audit --strict
+          -r backend/requirements.lock
+          -r backend/requirements-otel.txt
+          -r backend/requirements-sinks.txt

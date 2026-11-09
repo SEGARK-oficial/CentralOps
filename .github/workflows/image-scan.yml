@@ -1,0 +1,56 @@
+# image-scan.yml — Trivy diário sobre as imagens PUBLICADAS (o que roda nos deploys).
+#
+# Por que existe: o gate Trivy só roda no job `publish` do ci.yml, ou seja, só
+# quando há push na main. Entre um publish e outro a imagem `latest` envelhece:
+# pacotes do SO da base ganham correção upstream e ninguém vê — a deriva só
+# aparecia quando BARRAVA um release (13 CVEs de uma vez no 2.11.0). Este scan
+# diário avisa ANTES: vermelho aqui = "re-publique" (um push na main ou um
+# dispatch do ci.yml refaz a camada de patch com SECURITY_EPOCH novo).
+#
+# Mesmas opções do gate do publish (CRITICAL/HIGH, só o que tem correção), para
+# "passa aqui" significar "passa no publish".
+#
+# Roda em runner do GitHub: só puxa imagem pública e lê o banco do Trivy — não
+# precisa do pool self-hosted (e repo público não paga minuto).
+
+name: Image scan (published)
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: image-scan
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  trivy:
+    name: Trivy ${{ matrix.image }}:latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [centralops, centralops-frontend]
+    steps:
+      - name: Image ref
+        id: ref
+        run: |
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "ref=ghcr.io/${owner}/${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
+      - name: Trivy (mesmas opções do gate do publish)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.ref }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: O que fazer
+        if: failure()
+        run: |
+          echo "::error title=Imagem publicada com CVE corrigível::${{ steps.ref.outputs.ref }} tem CVE CRITICAL/HIGH com correção publicada. Re-publique: rode o ci.yml na main (workflow_dispatch) — o SECURITY_EPOCH novo refaz a camada de patch de SO."

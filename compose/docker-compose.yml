@@ -85,11 +85,9 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
-      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
-      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
-      # workers de maintenance/query caíam no default "celery" do código e
-      # entregavam por outra lane que a coleta.
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka declarado em TODOS os serviços da app, com os
+      # MESMOS valores (guard: test_compose_kafka_parity): todo evento viaja pelo
+      # Kafka, inclusive o que a API (ingest) e os workers de query produzem.
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -99,7 +97,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       # Default = nome do produto. O literal "Sua Empresa" aqui sobrescrevia o
       # default do codigo e vazava texto de rascunho para o header e o login de
       # toda instalacao que nao personalizasse a marca.
@@ -561,11 +559,8 @@ services:
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
-      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
-      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
-      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
-      # em prod (e não suba o serviço redpanda local).
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka. Aponte KAFKA_BOOTSTRAP_SERVERS p/
+      # MSK/Redpanda Cloud em prod (e não suba o serviço redpanda local).
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -575,7 +570,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -730,11 +725,8 @@ services:
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
-      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
-      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
-      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
-      # em prod (e não suba o serviço redpanda local).
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka. Aponte KAFKA_BOOTSTRAP_SERVERS p/
+      # MSK/Redpanda Cloud em prod (e não suba o serviço redpanda local).
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -744,7 +736,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -857,11 +849,8 @@ services:
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
-      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
-      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
-      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
-      # em prod (e não suba o serviço redpanda local).
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka. Aponte KAFKA_BOOTSTRAP_SERVERS p/
+      # MSK/Redpanda Cloud em prod (e não suba o serviço redpanda local).
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -871,7 +860,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
@@ -1002,11 +991,9 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
-      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
-      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
-      # workers de maintenance/query caíam no default "celery" do código e
-      # entregavam por outra lane que a coleta.
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka declarado em TODOS os serviços da app, com os
+      # MESMOS valores (guard: test_compose_kafka_parity): todo evento viaja pelo
+      # Kafka, inclusive o que a API (ingest) e os workers de query produzem.
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1016,7 +1003,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1143,11 +1130,9 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
-      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
-      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
-      # workers de maintenance/query caíam no default "celery" do código e
-      # entregavam por outra lane que a coleta.
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka declarado em TODOS os serviços da app, com os
+      # MESMOS valores (guard: test_compose_kafka_parity): todo evento viaja pelo
+      # Kafka, inclusive o que a API (ingest) e os workers de query produzem.
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1157,7 +1142,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1207,8 +1192,10 @@ services:
     restart: unless-stopped
 
   collector-dispatcher:
-    # uma task de dispatch é limitada por task_time_limit=900s;
-    # grace ≥ isso garante drain do envio em voo ao destino antes do encerramento.
+    # Só o REENVIO da DLQ pedido pela UI (drain_destination_dlq, fila
+    # dispatch.dlq). A entrega em si é do collector-kafka-dispatcher; as filas
+    # dispatch.destination.N saíram no ADR-0018 Onda 5. Uma task é limitada por
+    # task_time_limit=900s; grace ≥ isso drena o envio em voo.
     stop_grace_period: 930s
     image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
     entrypoint: ["/usr/local/bin/start-collector.sh"]
@@ -1217,14 +1204,11 @@ services:
       - -A
       - app.collectors.celery_app
       - worker
-      # E5 bulkhead: este pool consome a fila genérica + os 8 shards de destino
-      # (dispatch.destination.0..7). Para isolamento OS-level de um destino
-      # lento, suba um worker dedicado a um shard (-Q dispatch.destination.N).
       - -Q
-      - dispatch.dlq,dispatch.destination,dispatch.destination.0,dispatch.destination.1,dispatch.destination.2,dispatch.destination.3,dispatch.destination.4,dispatch.destination.5,dispatch.destination.6,dispatch.destination.7
+      - dispatch.dlq
       - -n
       - dispatch@%h
-      - --concurrency=8     # W6: dobra throughput de dispatch por processo
+      - --concurrency=2
       - --loglevel=info
     environment:
       # ── Features dos ADRs — declaradas em TODOS os serviços da app ──────
@@ -1280,11 +1264,9 @@ services:
       - OTEL_METRIC_EXPORT_INTERVAL_MS=${OTEL_METRIC_EXPORT_INTERVAL_MS:-15000}
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
-      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
-      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
-      # workers de maintenance/query caíam no default "celery" do código e
-      # entregavam por outra lane que a coleta.
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka declarado em TODOS os serviços da app, com os
+      # MESMOS valores (guard: test_compose_kafka_parity): todo evento viaja pelo
+      # Kafka, inclusive o que a API (ingest) e os workers de query produzem.
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1294,7 +1276,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
       # Necessario para o config_loader ler collector_config do Postgres.
       # Sem isso o loader cai no default sqlite:///./data/sophos.db, falha
@@ -1354,10 +1336,9 @@ services:
 
   # ── Onda 3 — role dispatcher do data-plane Kafka ───────────
   # Consome o tópico ``deliver`` e despacha aos destinos (reusa o
-  # dispatch_batch_to_destination: breaker/chunk/retry/DLQ). Substitui o caminho
-  # Celery dispatch.destination quando EVENT_DATAPLANE=kafka. O wazuh-default
-  # segue no collector-dispatcher acima (Celery, lane byte-idêntica). Escalável
-  # por réplicas (consumer group ``centralops-dispatcher``; no k8s = KEDA por lag).
+  # dispatch_batch_to_destination: breaker/chunk/retry/DLQ). É a ÚNICA via de
+  # entrega, wazuh-default incluso. Escalável por réplicas (consumer group
+  # ``centralops-dispatcher``; no k8s = KEDA por lag).
   collector-kafka-dispatcher:
     stop_grace_period: 930s
     image: ${IMAGE_NAME:-centralops}:${IMAGE_TAG:-latest}
@@ -1421,7 +1402,6 @@ services:
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1431,7 +1411,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP:-centralops-dispatcher}
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}
       - DATABASE_MIGRATION_URL=${DATABASE_MIGRATION_URL:-}
@@ -1514,11 +1494,9 @@ services:
       - SYSLOG_SOURCE_REFRESH_S=${SYSLOG_SOURCE_REFRESH_S:-15}
       - APP_MASTER_KEY=${APP_MASTER_KEY:-}
       - APP_ENV=${APP_ENV:-production}
-      # ADR-0018 Onda 1 — data-plane declarado em TODOS os serviços da app, com o
-      # MESMO valor (guard: test_compose_kafka_parity). Sem isto a API e os
-      # workers de maintenance/query caíam no default "celery" do código e
-      # entregavam por outra lane que a coleta.
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka declarado em TODOS os serviços da app, com os
+      # MESMOS valores (guard: test_compose_kafka_parity): todo evento viaja pelo
+      # Kafka, inclusive o que a API (ingest) e os workers de query produzem.
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1528,7 +1506,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       # grpc (4317) ou http/protobuf (4318, default); headers = auth de backend OTLP direto.
@@ -1630,11 +1608,8 @@ services:
       - COST_METERING_ENABLED=${COST_METERING_ENABLED:-true}
       - APP_ENV=${APP_ENV:-production}
       - SESSION_SECURE_COOKIE=${SESSION_SECURE_COOKIE:-1}
-      # Onda 3 — data-plane durável: kafka é o caminho de DEPLOY (o
-      # producer do fan-out publica no tópico ``deliver``). Override p/ "celery"
-      # só em dev sem broker. Aponte KAFKA_BOOTSTRAP_SERVERS p/ MSK/Redpanda Cloud
-      # em prod (e não suba o serviço redpanda local).
-      - EVENT_DATAPLANE=${EVENT_DATAPLANE:-kafka}
+      # ADR-0018 — data-plane Kafka. Aponte KAFKA_BOOTSTRAP_SERVERS p/
+      # MSK/Redpanda Cloud em prod (e não suba o serviço redpanda local).
       - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-redpanda:9092}
       - KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
       - KAFKA_SASL_MECHANISM=${KAFKA_SASL_MECHANISM:-}
@@ -1644,7 +1619,7 @@ services:
       - KAFKA_DELIVER_REPLICATION=${KAFKA_DELIVER_REPLICATION:-1}
       - KAFKA_RAW_PARTITIONS=${KAFKA_RAW_PARTITIONS:-16}
       - KAFKA_RAW_RETENTION_MS=${KAFKA_RAW_RETENTION_MS:-86400000}
-      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-4}
+      - KAFKA_RAW_SHARDS_PER_STREAM=${KAFKA_RAW_SHARDS_PER_STREAM:-16}
       # Default: Postgres do compose. Override via .env pra apontar pra
       # outro host ou voltar a SQLite (sqlite:////app/data/sophos.db).
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-centralops}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@postgres:5432/${POSTGRES_DB:-centralops}}

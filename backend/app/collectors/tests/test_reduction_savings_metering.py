@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import os
 import types
-from unittest.mock import MagicMock
 
 os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12345")
 os.environ.setdefault("APP_ENV", "test")
@@ -27,7 +26,6 @@ from backend.app.collectors import (
     observability_store as obs,
     pipeline,
     routing,
-    tasks,
     tracing,
 )
 from backend.app.collectors.output._fastjson import dumps_bytes
@@ -158,8 +156,6 @@ def test_enqueue_routed_writes_sample_bytes_saved(monkeypatch):
     monkeypatch.setattr(routing, "route_batch", lambda *a, **k: _result(
         sampled_per_route={"r1": 3}, sampled_bytes_per_org={7: 3000.0}))
     monkeypatch.setattr(tracing, "carrier", lambda: {})
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "celery")
-    monkeypatch.setattr(tasks, "dispatch_to_destination", MagicMock())
     monkeypatch.setattr(dataplane, "produce_delivery", lambda *a, **k: None)
 
     pipeline._enqueue_routed([{"e": 1}], [types.SimpleNamespace(id="r1", action="route", destination_ids=["d1"])])

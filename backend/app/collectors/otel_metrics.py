@@ -215,18 +215,12 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # tap é estado de PROCESSO, não por org/sessão, e rotular por org daria
     # cardinalidade ilimitada num contador que só interessa como "está cego?".
     "collector_capture_tap_disabled_total": {"kind": "counter", "unit": "1", "labels": ()},
-    "collector_dispatch_shed_total": {"kind": "counter", "unit": "1", "labels": ("destination_id", "reason")},
-    "collector_dispatch_queue_depth": {"kind": "gauge", "unit": "1", "labels": ("queue",)},
     "collector_destination_breaker_state": {"kind": "gauge", "unit": "1", "labels": ("destination_id", "kind")},
-    # Ingestão push: eventos aceitos no buffer, descartados por
-    # backpressure (drop-oldest) e profundidade atual do buffer Redis por
-    # (integração, stream). ``dropped`` > 0 = perda silenciosa → alerta no Grafana.
+    # Ingestão push: eventos gravados no tópico raw (ack antes do 200).
     "collector_ingest_accepted_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},
-    "collector_ingest_dropped_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},
-    "collector_ingest_buffer_depth": {"kind": "gauge", "unit": "1", "labels": ("integration_id", "stream")},
-    # Eventos rejeitados no PARSE (antes do buffer): NDJSON malformado, item não-objeto
-    # ou evento acima do teto por-evento. ``reason`` = parse|type|oversize. Distinto de
-    # ``dropped`` (backpressure) — aqui a borda mandou algo que o servidor não normaliza.
+    # Eventos rejeitados no PARSE (antes do raw): NDJSON malformado, item não-objeto
+    # ou evento acima do teto por-evento. ``reason`` = parse|type|oversize — a borda
+    # mandou algo que o servidor não normaliza.
     "collector_ingest_malformed_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream", "reason")},
     # Receptor syslog: cada mensagem recebida, por transporte e destino
     # (accepted | unknown_source | unclassified | dropped_memory). ``unknown_source``
@@ -244,6 +238,19 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     # push. outcome = ok | invalid | integration_unavailable | retry | dlq | dlq_failed.
     "collector_raw_processed_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
     "collector_raw_consumer_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    # ADR-0018 Onda 4a: store-and-forward por destino. ``reason`` = breaker_open |
+    # exhausted (lote estacionado em vez de ir à DLQ do Postgres); ``outcome`` do
+    # drenador = delivered | held (destino ainda fora) | retry | invalid; o lag é
+    # o que está estacionado, por partição do tópico.
+    "collector_parked_total": {"kind": "counter", "unit": "1", "labels": ("reason",)},
+    "collector_parked_drained_total": {"kind": "counter", "unit": "1", "labels": ("outcome",)},
+    "collector_parked_lag": {"kind": "gauge", "unit": "1", "labels": ("partition",)},
+    "collector_parked_head_age_seconds": {"kind": "gauge", "unit": "s", "labels": ("partition",)},
+    # ADR-0018 Onda 3b: leituras de configuração do processor servidas da última
+    # versão boa porque o Postgres falhou. ``kind`` = routes | mapping |
+    # integration | inflight_rules | enrichment_policy | ocsf_enforcement |
+    # destination_residency | wazuh_loop_destinations | fallback_destination.
+    "collector_config_snapshot_stale_total": {"kind": "counter", "unit": "1", "labels": ("kind",)},
     # export OTLP do PRÓPRIO processo — sem Collector no meio, é o único sinal de
     # que a telemetria está se perdendo (backend fora, credencial inválida, TLS).
     # ``signal`` ∈ {traces, metrics, logs}. A série de métricas sobe quando o

@@ -252,9 +252,9 @@
       "body": "Los valores vienen de <code>{{envFile}}</code>. Guarde para editarlos aquí; los cambios aplican en 30 segundos."
     },
     "sections": {
-      "bufferDedupe": {
-        "title": "Buffer y Dedupe",
-        "hint": "Cómo se acumulan los lotes y se filtran los eventos duplicados."
+      "batching": {
+        "title": "Lotes",
+        "hint": "Cómo se agrupan los eventos antes del envío. La deduplicación es automática, en el procesamiento."
       },
       "domainConcurrency": {
         "title": "Concurrencia por dominio",
@@ -269,9 +269,7 @@
       "batchSize": "Tamaño del lote",
       "batchSizeHelper": "Los lotes más grandes hacen menos envíos, pero cada evento puede tardar más en llegar.",
       "flushSeconds": "Flush después de (segundos)",
-      "flushSecondsHelper": "Envía el lote aunque esté incompleto tras este tiempo. Es la espera máxima de un evento.",
-      "dedupeTtl": "TTL de deduplicación (horas)",
-      "dedupeTtlHelper": "Ventana para filtrar duplicados del proveedor; el mínimo de {{min}}h cubre la reentrega del broker. Costo en Redis a 100 ev/s: 24h ~1 GB, 4h ~165 MB."
+      "flushSecondsHelper": "Envía el lote aunque esté incompleto tras este tiempo. Es la espera máxima de un evento."
     },
     "table": {
       "vendor": "Proveedor",

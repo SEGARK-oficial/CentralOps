@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from ...core.config import settings
+from . import window as _window
 from .matcher import CompiledClause, CompiledInflightRule, CompiledRuleSet
 from ..normalize.envelope import ENVELOPE_ROOTS
 
@@ -653,11 +654,16 @@ def _describe_cut_rules(repo: Any, organization_id: int, cap: int) -> str:
 
 def load_inflight_rules_for_org(
     organization_id: Optional[int],
+    *,
+    strict: bool = False,
 ) -> CompiledRuleSet:
     """Regras habilitadas em modo ``inflight`` da org, compiladas. SÍNCRONA.
 
     Chamada via ``asyncio.to_thread`` 1x por ciclo. Fail-safe para ``()`` em
     qualquer erro: um problema de DB não pode impedir a COLETA, que é o produto.
+    ``strict=True`` deixa o erro de banco subir: é o que permite ao snapshot do
+    processor servir as regras da última carga boa em vez de parar o detector
+    (ADR-0018 Onda 3b).
     ``organization_id is None`` ⇒ ``()`` (fail-CLOSED — nunca avaliar regra sem
     saber de quem é o evento).
     """
@@ -732,6 +738,8 @@ def load_inflight_rules_for_org(
                 INFLIGHT_RULES_LOADED.labels(org_id=str(organization_id)).set(0)
                 return CompiledRuleSet(rules=(), share_paths=False)
     except Exception:  # noqa: BLE001 — coleta nunca cai por causa do detector
+        if strict:
+            raise
         # DETECTOR MORTO ≠ ORG SEM REGRA — e até aqui o produto não sabia
         # dizer a diferença. O ruleset vazio devolvido logo abaixo desliga a
         # avaliação do ciclo INTEIRO; sem as duas linhas abaixo o gauge
@@ -831,16 +839,15 @@ def _is_self_emitted(envelope: Mapping[str, Any]) -> bool:
     é acionada:
 
     Pelo desenho atual a cascata NÃO é alcançável por dentro. ``_enqueue_dispatch``
-    é SAÍDA e só saída: ele chama ``_enqueue_routed`` → ``route_batch`` →
-    ``dispatch_to_destination`` (ou o tópico Kafka que o dispatcher consome), e
-    nenhum desses caminhos volta a ``run_collection_once``, que é o ÚNICO lugar
-    onde o matcher em voo roda. Emitir daqui não realimenta a ingestão.
+    é SAÍDA e só saída: ele chama ``_enqueue_routed`` → ``route_batch`` → o
+    tópico ``deliver`` que o dispatcher consome, e nenhum desses caminhos volta
+    ao tópico raw, que é a ÚNICA entrada do ``processor`` — o único lugar onde o
+    matcher em voo roda. Emitir daqui não realimenta a ingestão.
 
     O que é alcançável é a reentrada pela PORTA DA FRENTE, e ela não é
-    hipotética neste repo: ``POST /api/ingest/{stream}`` empurra para o buffer
-    Redis que o ``PushBufferCollector`` drena DENTRO do ``run_collection_once``
-    normal — "reaproveitando 100% do pipeline existente", nas palavras do
-    próprio módulo. Um destino apontado para o ``/api/ingest`` da própria
+    hipotética neste repo: ``POST /api/ingest/{stream}`` grava no mesmo tópico
+    raw que o ``processor`` consome — o push reaproveita 100% do pipeline. Um
+    destino apontado para o ``/api/ingest`` da própria
     instalação (ou para um manager Wazuh que também é FONTE coletada — o laço
     que ``_load_wazuh_loop_destination_ids`` já existe para cortar) devolve o
     evento emitido à ingestão, onde ele é indistinguível de um evento de vendor.
@@ -973,7 +980,10 @@ def _event_source_pointer(
 class InflightAccumulator:
     """Matches do ciclo, em memória. Nada aqui toca I/O."""
 
-    __slots__ = ("pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once", "absence_rules")
+    __slots__ = (
+        "pending", "matches", "errors", "overflow", "_keys_per_rule", "_logged_once",
+        "absence_rules", "heartbeat",
+    )
 
     def __init__(self) -> None:
         #: dedup_key → payload da Detection a criar
@@ -1003,6 +1013,11 @@ class InflightAccumulator:
         #: Regras de ausência CARREGADAS no ciclo (ADR-0016), por id — o flush
         #: grava o batimento delas mesmo sem match. Preenchido por ``note_rules``.
         self.absence_rules: dict[int, CompiledInflightRule] = {}
+        #: O flush grava o batimento do observador (``meta.last_cycle``) — "eu
+        #: estava olhando a fonte AGORA". Falso no backfill (ADR-0018 Onda 3d):
+        #: ele lê o passado, e o batimento dele mascararia um processor ao vivo
+        #: parado, fazendo o tique alertar ausência que é só cegueira.
+        self.heartbeat: bool = True
 
     def note_rules(self, rules: Any) -> None:
         """Registra as regras do ciclo cujo flush precisa acontecer SEM match:
@@ -1108,6 +1123,14 @@ class InflightAccumulator:
             # Mesma chave de novo no ciclo: a Detection já está pendente; o que
             # muda é a CONTAGEM, que a janela deslizante (W1.6) soma no flush.
             self.pending[key]["hits"] = int(self.pending[key].get("hits", 1)) + 1
+            hits_at = self.pending[key].get("hits_at")
+            if hits_at is not None:
+                b = _window.event_bucket(envelope, int(rule.window_seconds))
+                hits_at[b] = hits_at.get(b, 0) + 1
+            if "seen_at" in self.pending[key]:
+                self.pending[key]["seen_at"] = max(
+                    self.pending[key]["seen_at"], _window.event_time(envelope)
+                )
             if is_leg:
                 legs = self.pending[key].setdefault("legs", {})
                 if rule.leg_index not in legs:
@@ -1154,6 +1177,18 @@ class InflightAccumulator:
             # (a presença da ausência grava por token).
             "token": token,
         }
+        if _window.windowed(rule):
+            # Regra com janela: os matches contam na fatia do TEMPO DO EVENTO
+            # (ADR-0018 Onda 3c), não na do relógio do flush. Só regras com
+            # janela pagam isto, e só por evento que casou.
+            self.pending[key]["hits_at"] = {
+                _window.event_bucket(envelope, int(rule.window_seconds)): 1
+            }
+        if bool(getattr(rule, "absence", False)):
+            # Presença pelo horário do EVENTO mais novo da chave (ADR-0018 Onda
+            # 3d): um backfill ou um processor atrasado entrega eventos antigos, e
+            # gravá-los como "visto agora" esconderia um silêncio real.
+            self.pending[key]["seen_at"] = _window.event_time(envelope)
         if is_leg:
             # Ponteiro POR PERNA: é a evidência de "qual evento de qual fonte"
             # que a Detection de sequência carrega, e o que vai ao Redis para
@@ -1242,7 +1277,8 @@ def _apply_sliding_windows(acc: InflightAccumulator) -> int:
     for key, item in acc.pending.items():
         rule = item["rule"]
         if _win.windowed(rule):
-            targets[key] = (int(item.get("hits", 1)), int(rule.min_count), int(rule.window_seconds))
+            hits = item.get("hits_at") or int(item.get("hits", 1))
+            targets[key] = (hits, int(rule.min_count), int(rule.window_seconds))
     if not targets:
         return 0
     try:

@@ -2,7 +2,7 @@
 
 Valida a lógica de commit at-least-once + a resiliência de ``run_dispatch_consumer``:
 - sucesso                       → commita o offset;
-- breaker OPEN                  → lote à DLQ (breaker_open) + commita;
+- breaker OPEN                  → lote estacionado no Kafka + commita;
 - transitório < N               → ``seek`` de volta + NÃO commita (reprocessa);
 - transitório esgotado (> N)    → lote à DLQ (exhausted) + commita;
 - payload não-JSON              → descarta + commita (não trava a partição);
@@ -56,6 +56,9 @@ class _FakeConsumer:
         self._position = position
         self.revoked: set = set()
 
+    def subscribe(self, topics, listener=None):
+        self.topics, self.listener = list(topics), listener
+
     async def start(self):
         self.started = True
 
@@ -97,7 +100,10 @@ def _msg(offset, dest, batch):
     )
 
 
-def _install(monkeypatch, fake, dispatch_impl, *, dlq_capture=None, dlq_ok=True):
+def _install(
+    monkeypatch, fake, dispatch_impl, *, dlq_capture=None, dlq_ok=True,
+    park_capture=None, park_ok=True,
+):
     import aiokafka
 
     monkeypatch.setattr(aiokafka, "AIOKafkaConsumer", lambda *a, **k: fake)
@@ -118,6 +124,18 @@ def _install(monkeypatch, fake, dispatch_impl, *, dlq_capture=None, dlq_ok=True)
         return dlq_ok
 
     monkeypatch.setattr(_delivery, "persist_batch_dlq", _fake_dlq)
+
+    # Estacionamento por destino (ADR-0018 Onda 4a): capturável, sem broker.
+    from backend.app.collectors.dataplane import parked as _parked
+
+    async def _fake_park(value, destination_id, reason):
+        if park_capture is not None:
+            park_capture.append(
+                {"destination_id": destination_id, "reason": reason, "value": value}
+            )
+        return park_ok
+
+    monkeypatch.setattr(_parked, "park", _fake_park)
 
     # Acelera os backoffs MAS cede o controle ao loop (senão o _emit_lag em
     # background vira um loop sem yield e starva o teste).
@@ -149,75 +167,111 @@ async def test_success_commits(monkeypatch):
     assert fake.stopped is True
 
 
-async def test_transient_seeks_back_no_commit(monkeypatch):
+async def test_transient_is_retried_in_place_not_by_seek(monkeypatch):
+    """Onda 4b: o transitório é re-tentado DENTRO da tarefa do registro — voltar o
+    offset (seek) prendia a partição inteira, e com entrega concorrente rebobinaria
+    registros de outros destinos já em voo. Só commita depois de entregar."""
+    calls: list = []
+
     async def _dispatch(dest, batch):
-        raise TransientDeliveryError("broker do destino instável")
+        calls.append(dest)
+        if len(calls) == 1:
+            raise TransientDeliveryError("broker do destino instável")
 
     fake = _FakeConsumer([_msg(7, "dest-2", [{"e": 1}])])
     _install(monkeypatch, fake, _dispatch)
 
     await kt.run_dispatch_consumer()
 
-    assert fake.commits == []                       # NÃO commita → reprocessa
-    assert fake.seeks and fake.seeks[0][1] == 7     # volta ao offset do registro
+    assert len(calls) == 2 and fake.seeks == []
+    assert [list(c.values())[0] for c in fake.commits] == [8]
 
 
-async def test_transient_exhausted_goes_to_dlq_and_commits(monkeypatch):
-    """Transitório que NUNCA cessa: após N tentativas, vai à DLQ e commita
-    p/ DESBLOQUEAR a partição (sem poison-trap infinito)."""
+async def test_transient_exhausted_is_parked_and_commits(monkeypatch):
+    """Transitório que NUNCA cessa: após N tentativas, ESTACIONA e commita. A
+    partição nunca ficou presa. Transitório não é poison: espera no Kafka, não na
+    DLQ do Postgres (ADR-0018 Onda 4a)."""
     dlq: list = []
+    parked: list = []
+    calls: list = []
 
     async def _dispatch(dest, batch):
+        calls.append(dest)
         raise TransientDeliveryError("destino transitório-permanente")
 
-    # 1 msg, mas re-entregue: como o fake só entrega 1x, simulamos N entregas do
-    # MESMO offset enfileirando a mesma msg N+1 vezes (cada getone re-popa).
-    same = [_msg(5, "dest-x", [{"e": 1}]) for _ in range(11)]
-    fake = _FakeConsumer(same)
-    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    msg = _msg(5, "dest-x", [{"e": 1}])
+    fake = _FakeConsumer([msg])
+    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq, park_capture=parked)
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 3)
 
     await kt.run_dispatch_consumer()
 
-    assert dlq and dlq[-1]["error_kind"] == "exhausted"
-    assert dlq[-1]["destination_id"] == "dest-x"
-    # após esgotar, commitou o offset do registro (desbloqueia a partição)
-    assert fake.commits and list(fake.commits[-1].values())[0] == 6  # offset 5 + 1
+    assert len(calls) == 4                           # 1 + 3 re-tentativas
+    assert dlq == [] and fake.seeks == []
+    assert [p["reason"] for p in parked] == ["exhausted"]
+    assert parked[0]["value"] == msg.value           # o registro, byte a byte
+    assert [list(c.values())[0] for c in fake.commits] == [6]
 
 
-async def test_breaker_open_goes_to_dlq_and_commits(monkeypatch):
-    """Breaker OPEN: lote NUNCA tentado → DLQ(breaker_open) ANTES de commitar
-    (senão somem silenciosamente)."""
+async def test_destination_outage_writes_no_postgres_rows(monkeypatch):
+    """ADR-0018 Onda 4: destino fora (breaker OPEN) não grava linha no Postgres —
+    o lote nunca tentado ESTACIONA no Kafka e só então o offset é commitado."""
     from backend.app.collectors import circuit_breaker
 
     dlq: list = []
+    parked: list = []
 
     async def _dispatch(dest, batch):
         raise circuit_breaker.BreakerOpen("dest-y")
 
-    fake = _FakeConsumer([_msg(9, "dest-y", [{"e": 1}])])
-    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    msgs = [_msg(9 + i, "dest-y", [{"e": i}]) for i in range(5)]
+    fake = _FakeConsumer(msgs)
+    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq, park_capture=parked)
+
+    def _no_db(*a, **k):
+        raise AssertionError("destino fora tocou o Postgres")
+
+    monkeypatch.setattr(_delivery, "persist_rejected_to_dlq", _no_db)
 
     await kt.run_dispatch_consumer()
 
-    assert dlq and dlq[0]["error_kind"] == "breaker_open"
-    assert dlq[0]["destination_id"] == "dest-y"
-    assert len(fake.commits) == 1                   # commitou após persistir na DLQ
+    assert dlq == []
+    assert [p["reason"] for p in parked] == ["breaker_open"] * 5
+    assert [p["value"] for p in parked] == [m.value for m in msgs]
+    assert len(fake.commits) == 5                   # commitou após estacionar
     assert fake.seeks == []
 
 
-async def test_unclassified_error_is_retried_not_committed(monkeypatch):
-    """ADR-0018 Onda 0: erro não classificado NÃO commita (antes commitava sem DLQ)."""
+async def test_unclassified_error_never_commits_without_a_durable_outcome(monkeypatch):
+    """ADR-0018 Onda 0: erro não classificado NÃO commita sem entrega ou destino
+    durável. Com o estacionamento recusando e o processo parando, o registro é
+    abandonado SEM commit (o próximo dono relê)."""
+    import threading
+
+    stop = threading.Event()
+    calls: list = []
+
     async def _dispatch(dest, batch):
+        calls.append(dest)
         raise ValueError("erro não classificado")
 
     fake = _FakeConsumer([_msg(3, "dest-3", [{"e": 1}])])
-    _install(monkeypatch, fake, _dispatch)
+    parked: list = []
+    _install(monkeypatch, fake, _dispatch, park_capture=parked, park_ok=False)
+    monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 2)
 
-    await kt.run_dispatch_consumer()
+    from backend.app.collectors.dataplane import parked as _parked
 
-    assert fake.commits == []                       # nada commitado sem DLQ
-    assert len(fake.seeks) == 1                     # relido com backoff
+    async def _park_refused(value, destination_id, reason):
+        parked.append(reason)
+        stop.set()                                   # processo encerrando
+        return False
+
+    monkeypatch.setattr(_parked, "park", _park_refused)
+    await kt.run_dispatch_consumer(stop_event=stop)
+
+    assert len(calls) == 3 and parked == ["exhausted"]
+    assert fake.commits == [] and fake.seeks == []
 
 
 async def test_invalid_payload_skipped(monkeypatch):
@@ -290,3 +344,37 @@ async def test_revoked_partition_is_not_committed_or_seeked(monkeypatch):
     await kt.run_dispatch_consumer()      # não levanta
 
     assert fake.commits == [] and fake.seeks == []
+
+
+async def test_one_redis_client_for_the_whole_consumer(monkeypatch):
+    """ADR-0018 Onda 3f: o despacho criava um cliente Redis POR LOTE (padrão das
+    tasks Celery, cujo loop morre a cada task) — conexão nova e
+    ``importlib.metadata.version`` do redis-py a cada lote, ~1/4 do tempo do
+    dispatcher no gate de carga. O consumer vive o processo: um cliente só,
+    publicado para o despacho e fechado no fim."""
+    clients: list = []
+
+    class _Redis:
+        closed = False
+
+        async def aclose(self):
+            self.closed = True
+
+    def _new():
+        clients.append(_Redis())
+        return clients[-1]
+
+    monkeypatch.setattr("backend.app.collectors.celery_app.get_worker_redis", _new)
+    seen: list = []
+
+    async def _dispatch(dest, batch):
+        seen.append(pipeline.DISPATCH_REDIS.get())
+
+    fake = _FakeConsumer([_msg(0, "d", [{"e": 1}]), _msg(1, "d", [{"e": 2}])])
+    _install(monkeypatch, fake, _dispatch)
+
+    await kt.run_dispatch_consumer()
+
+    assert len(clients) == 1 and seen == [clients[0], clients[0]]
+    assert clients[0].closed is True
+    assert pipeline.DISPATCH_REDIS.get() is None

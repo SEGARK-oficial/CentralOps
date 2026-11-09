@@ -21,6 +21,17 @@ import pytest
 import pytest_asyncio
 
 
+@pytest.fixture(autouse=True)
+def _reset_audit_sampling():
+    """A amostragem do ring de auditoria (ADR-0018 Onda 3f) guarda a janela por
+    organização no processo; sem zerar, um teste herda o orçamento do anterior."""
+    from ..audit_buffer import reset_sampling
+
+    reset_sampling()
+    yield
+    reset_sampling()
+
+
 def make_threadsafe_sqlite_engine(tmp_dir: str):
     """Engine SQLite seguro para leituras CONCORRENTES vindas de threads.
 

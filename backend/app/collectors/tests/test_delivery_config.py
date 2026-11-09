@@ -34,8 +34,6 @@ from backend.app.collectors.output.delivery_config import (
 def test_delivery_config_defaults() -> None:
     d = DeliveryConfig()
     assert d.concurrency == 4
-    assert d.backpressure == "persistent_queue"
-    assert d.queue_ceiling == 0
     assert d.shadow is False
     assert d.breaker.failure_threshold == 5
     assert d.breaker.cooldown_s == 30
@@ -54,7 +52,6 @@ def test_delivery_config_defaults() -> None:
     [
         ("concurrency", 0),
         ("concurrency", 257),
-        ("queue_ceiling", -1),
         ("timeout_ms", 50),
     ],
 )
@@ -78,9 +75,12 @@ def test_breaker_bounds_rejected() -> None:
         BreakerConfig(unknown_field=1)
 
 
-def test_backpressure_enum_rejected() -> None:
-    with pytest.raises(Exception):
-        DeliveryConfig(backpressure="explode")
+def test_retired_backpressure_keys_are_dropped() -> None:
+    """``backpressure``/``queue_ceiling`` mediam a fila Celery de entrega, que saiu
+    (ADR-0018 Onda 5). Linhas antigas ainda as trazem: são ignoradas, sem 422."""
+    d = DeliveryConfig(backpressure="drop_newest", queue_ceiling=5, shadow=True)
+    assert d.shadow is True
+    assert not hasattr(d, "backpressure") and not hasattr(d, "queue_ceiling")
 
 
 # ── deep_merge + per-kind defaults ────────────────────────────────────────
@@ -176,7 +176,7 @@ def test_destination_update_rejects_bad_delivery() -> None:
     from backend.app.api.schemas_destinations import DestinationUpdate
 
     with pytest.raises(Exception):
-        DestinationUpdate(delivery={"backpressure": "nope"})
+        DestinationUpdate(delivery={"concurency": 4})  # erro de digitação = 422
     # valid partial passes
     upd = DestinationUpdate(delivery={"shadow": True})
     assert upd.delivery["shadow"] is True

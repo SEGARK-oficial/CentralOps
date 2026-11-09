@@ -4,11 +4,11 @@ Dois grupos de rotas:
 
 1. **Endpoint de ingestão** (autenticado por **token de ingestão**, não por sessão
    de usuário): ``POST /api/ingest/{stream}``. É o que o edge-collector
-   (Vector/OTel/agente) chama. Bufferiza no Redis; um collector virtual drena no
-   ciclo normal de coleta.
+   (Vector/OTel/agente) chama. Grava no tópico raw e responde só depois do ack;
+   o papel ``processor`` faz o resto (ADR-0018).
 
 2. **Gestão do token** (autenticada por **admin**): emitir/rotacionar o token e
-   consultar o endpoint/saúde do buffer. Path com 3 segmentos
+   consultar o endpoint. Path com 3 segmentos
    (``/api/ingest/integrations/{id}/...``) — não colide com ``/{stream}``.
 
 Segurança: o token nunca é persistido em claro (só o SHA-256, cifrado pelo cofre);
@@ -23,25 +23,17 @@ import hashlib
 import json
 import logging
 import zlib
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
-from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from ..collectors import registry as collector_registry
 from ..collectors.dataplane.raw import OversizedRawEventError, produce_raw_async
-from ..collectors.ingest_buffer import buffer_depth, push_events, push_goes_to_kafka
-from ..collectors.metrics import (
-    INGEST_ACCEPTED,
-    INGEST_BUFFER_DEPTH,
-    INGEST_DROPPED,
-    INGEST_MALFORMED,
-)
+from ..collectors.metrics import INGEST_ACCEPTED, INGEST_MALFORMED
 from ..core import auth as app_auth
 from ..core import tenant
-from ..core.config import settings
 from ..core.errors import ApiError
 from ..core.rate_limiter import ingest_rate_limiter
 from ..db import database, models
@@ -51,11 +43,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
-# Caps por requisição (defesa contra payloads abusivos antes do buffer).
+# Caps por requisição (defesa contra payloads abusivos antes do data-plane).
 _MAX_BODY_BYTES = 16 * 1024 * 1024  # 16 MiB
 _MAX_EVENTS_PER_REQUEST = 20_000
-# Espera sugerida ao edge quando o buffer está cheio: ~1 ciclo de dreno (20 s).
-_BUFFER_FULL_RETRY_AFTER_S = 20
+# Espera sugerida ao edge quando o data-plane não gravou (broker fora).
+_RETRY_AFTER_S = 20
 # Teto por-evento individual (após o teto do corpo). Um único evento gigante trava a
 # normalização e estoura o teto de payload do DB/destino a jusante — os concorrentes
 # (Cribl/Vector) truncam ou dropam a linha, não o lote. Aqui: dropa+conta a linha, o
@@ -68,8 +60,6 @@ _MAX_EVENT_BYTES = 1 * 1024 * 1024  # 1 MiB
 
 class IngestResponse(BaseModel):
     accepted: int
-    dropped: int = 0  # descartados por backpressure (buffer cheio)
-    buffer_depth: int = 0
     # Rejeições no PARSE (borda mandou algo inválido) — SUCESSO PARCIAL, não erro-total.
     # Espelham os concorrentes: uma linha ruim no NDJSON não derruba o lote inteiro.
     # Backward-compat: default 0 → clientes antigos ignoram; edge-collectors novos podem
@@ -118,24 +108,10 @@ class IngestInfo(BaseModel):
     streams: List[str]
     has_token: bool
     endpoint_base: str  # ex.: "/api/ingest"
-    buffer_depth: int = 0
     icon_id: Optional[str] = None  # ícone de marca (plugin-driven, do catálogo)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
-
-
-async def _redis_client() -> Any:
-    import redis.asyncio as redis_async
-
-    # socket_timeout/connect_timeout: o endpoint NÃO pode pendurar a coleta de
-    # borda se o Redis estiver lento/indisponível — falha rápido e vira 503.
-    return redis_async.from_url(
-        settings.REDIS_URL or "redis://localhost:6379/0",
-        decode_responses=True,
-        socket_timeout=5,
-        socket_connect_timeout=5,
-    )
 
 
 def _extract_token(authorization: Optional[str], x_token: Optional[str]) -> Optional[str]:
@@ -300,7 +276,7 @@ def _stamp(event: dict, stream: str) -> dict:
 
 def _admit(integ: models.Integration, stream: str) -> None:
     """Rate limit + plataforma push + stream registrado. Levanta HTTP ao recusar."""
-    # Rate-limit por integração/token: protege o buffer Redis de flood
+    # Rate-limit por integração/token: protege o data-plane de flood
     # por token vazado. Checagem barata, ANTES de ler o corpo. 429 + Retry-After.
     retry_after = ingest_rate_limiter.check(integ.id)
     if retry_after is not None:
@@ -384,80 +360,33 @@ def _count_rejections(integ: models.Integration, stream: str, batch: _ParsedBatc
 
 
 
-async def _store_events(
-    integ: models.Integration, stream: str, stamped: List[dict]
-) -> Tuple[int, int, int]:
-    """Grava os eventos no destino durável do modo corrente e devolve
-    ``(aceitos, recusados, profundidade)``. Levanta HTTP 503/413 quando NADA foi
-    gravado — o chamador nunca responde sucesso de evento que não está guardado."""
-    if push_goes_to_kafka():
-        # ADR-0018 Onda 2: o 200 só sai DEPOIS do ack do tópico raw (acks=all). O
-        # Kafka é o buffer durável; broker fora = 503 e a borda re-tenta com o
-        # buffer de disco dela. Nunca um 200 de evento que não está gravado.
-        try:
-            accepted = await produce_raw_async(integ.id, stream, stamped)
-        except OversizedRawEventError as exc:
-            logger.warning("ingest: %s", exc)
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="evento maior que o teto do data-plane (KAFKA_MAX_REQUEST_BYTES)",
-            ) from None
-        except Exception as exc:  # noqa: BLE001 — qualquer falha do broker = não gravado
-            logger.warning(
-                "ingest: tópico raw indisponível integration_id=%s (%s) — 503",
-                integ.id, type(exc).__name__,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="data-plane indisponível — re-tente após o Retry-After",
-                headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
-            ) from None
-        INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
-        return accepted, 0, 0
+async def _store_events(integ: models.Integration, stream: str, stamped: List[dict]) -> int:
+    """Grava os eventos no tópico raw e devolve quantos foram aceitos.
 
-    redis = await _redis_client()
+    ADR-0018 Onda 2: o 200 só sai DEPOIS do ack do tópico raw (acks=all). O Kafka
+    é o buffer durável; broker fora = 503 e a borda re-tenta com o buffer de
+    disco dela. Nunca um 200 de evento que não está gravado. A lista Redis de
+    antes (sem broker) saiu na Onda 5."""
     try:
-        accepted, dropped = await push_events(redis, integ.id, stream, stamped)
-        depth = await buffer_depth(redis, integ.id, stream)
-    except (RedisError, OSError) as exc:
-        # Redis indisponível/lento: NÃO 500 silencioso — 503 explícito para o edge
-        # re-tentar (Vector/Fluent Bit fazem retry com buffer de disco na borda).
+        accepted = await produce_raw_async(integ.id, stream, stamped)
+    except OversizedRawEventError as exc:
+        logger.warning("ingest: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="evento maior que o teto do data-plane (KAFKA_MAX_REQUEST_BYTES)",
+        ) from None
+    except Exception as exc:  # noqa: BLE001 — qualquer falha do broker = não gravado
         logger.warning(
-            "ingest: buffer Redis indisponível integration_id=%s (%s) — 503",
+            "ingest: tópico raw indisponível integration_id=%s (%s) — 503",
             integ.id, type(exc).__name__,
         )
-        raise ApiError(
-            "ingest.buffer_unavailable",
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            messages={
-                "pt": "buffer de ingestão temporariamente indisponível",
-                "en": "ingestion buffer temporarily unavailable",
-                "es": "buffer de ingesta temporalmente no disponible",
-            },
-        ) from None
-    finally:
-        try:
-            await redis.aclose()
-        except Exception:  # noqa: BLE001 — best-effort
-            pass
-
-    # Observabilidade: aceitos/recusados + profundidade do buffer.
-    INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
-    INGEST_BUFFER_DEPTH.labels(integration_id=str(integ.id), stream=stream).set(depth)
-    if dropped:
-        # Buffer cheio: NADA deste lote foi gravado. 503 + Retry-After faz o edge
-        # (Vector, Fluent Bit) re-tentar com o buffer de disco dele. Antes o
-        # buffer descartava os eventos MAIS ANTIGOS — já respondidos com 200 — e
-        # a borda não tinha como reenviá-los (ADR-0018 Onda 0). A métrica
-        # ``dropped`` agora conta recusas, que o edge reenvia.
-        INGEST_DROPPED.labels(vendor=integ.platform, stream=stream).inc(dropped)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="buffer de ingestão cheio — re-tente após o Retry-After",
-            headers={"Retry-After": str(_BUFFER_FULL_RETRY_AFTER_S)},
-        )
-
-    return accepted, dropped, depth
+            detail="data-plane indisponível — re-tente após o Retry-After",
+            headers={"Retry-After": str(_RETRY_AFTER_S)},
+        ) from None
+    INGEST_ACCEPTED.labels(vendor=integ.platform, stream=stream).inc(accepted)
+    return accepted
 
 
 # ── 1. Endpoint de ingestão (token-auth) ────────────────────────────────────
@@ -472,7 +401,7 @@ async def ingest(
     x_centralops_ingest_token: Optional[str] = Header(default=None),
     db: Session = Depends(database.get_session),
 ) -> IngestResponse:
-    """Recebe eventos crus de um edge-collector e os bufferiza para o pipeline.
+    """Recebe eventos crus de um edge-collector e os grava no tópico raw.
 
     Autenticado pelo **token de ingestão** da integração (Bearer) — NÃO por
     sessão de usuário. O token é a credencial e é escopado a UMA integração: ele
@@ -488,23 +417,22 @@ async def ingest(
     batch = _parse_events(body, request.headers.get("content-type", ""))
     _count_rejections(integ, stream, batch)
 
-    def _resp(accepted: int, dropped: int, depth: int) -> IngestResponse:
+    def _resp(accepted: int) -> IngestResponse:
         # 207 Multi-Status quando houve rejeição parcial no parse (a borda deve inspecionar
         # os contadores); 200 quando tudo foi aproveitado. Mantém corpo IngestResponse.
         if batch.rejected:
             response.status_code = status.HTTP_207_MULTI_STATUS
         return IngestResponse(
-            accepted=accepted, dropped=dropped, buffer_depth=depth,
+            accepted=accepted,
             parse_errors=batch.parse_errors, type_errors=batch.type_errors,
             oversized=batch.oversized, error_detail=batch.first_error,
         )
 
     if not batch.events:
-        return _resp(accepted=0, dropped=0, depth=0)
+        return _resp(accepted=0)
 
     stamped = [_stamp(ev, stream) for ev in batch.events]
-    accepted, dropped, depth = await _store_events(integ, stream, stamped)
-    return _resp(accepted=accepted, dropped=dropped, depth=depth)
+    return _resp(accepted=await _store_events(integ, stream, stamped))
 
 
 # ── 1b. Splunk HEC e OTLP/HTTP (ADR-0018 Onda 2b) ───────────────────────────
@@ -851,20 +779,10 @@ async def get_ingest_info(
     user: models.AppUser = Depends(app_auth.require_admin_user),
     db: Session = Depends(database.get_session),
 ) -> IngestInfo:
-    """Metadados de ingestão: streams, endpoint, se há token, profundidade do buffer."""
+    """Metadados de ingestão: streams, endpoint e se há token."""
     integ = _load_push_integration(db, integration_id, user)
     reg = collector_registry.get_platform(integ.platform)
     streams = collector_registry.supported_streams(integ.platform)
-    redis = await _redis_client()
-    try:
-        depth = 0
-        for s in streams:
-            depth += await buffer_depth(redis, integ.id, s)
-    finally:
-        try:
-            await redis.aclose()
-        except Exception:  # noqa: BLE001
-            pass
     return IngestInfo(
         integration_id=integ.id,
         platform=integ.platform,
@@ -872,6 +790,5 @@ async def get_ingest_info(
         streams=streams,
         has_token=ingest_tokens.has_token(integ),
         endpoint_base="/api/ingest",
-        buffer_depth=depth,
         icon_id=(reg.icon_id if reg is not None else None),
     )

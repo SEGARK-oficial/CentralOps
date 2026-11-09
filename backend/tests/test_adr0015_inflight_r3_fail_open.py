@@ -48,7 +48,7 @@ from backend.app.collectors.inflight.matcher import (
     CompiledInflightRule,
     CompiledRuleSet,
 )
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 
 
 # ── Dublês do ciclo (mesma forma do harness de conservação de claim) ─────────
@@ -86,7 +86,6 @@ class _FakeDb:
 class _FakeConfig:
     collector_batch_size = 2          # força >1 hand-off por ciclo
     collector_batch_flush_seconds = 1e9
-    effective_dedupe_ttl_seconds = 60
     rate_limits_by_vendor: dict = {}
     domain_concurrency_limits: dict = {}
 
@@ -190,7 +189,7 @@ class _Sonda:
 
 @pytest.fixture()
 def harness(monkeypatch):
-    """Monta o ciclo REAL contra dublês. Devolve ``(sonda, run)``."""
+    """Monta o estágio REAL do processor contra dublês. Devolve ``(sonda, run)``."""
     sonda = _Sonda()
 
     monkeypatch.setattr(
@@ -224,17 +223,22 @@ def harness(monkeypatch):
     monkeypatch.setattr(pipeline.drift, "should_capture", lambda *a, **k: False)
     monkeypatch.setattr(pipeline.sample_reservoir, "push", lambda *a, **k: _noop_coro())
 
-    async def _claim(redis, integration_id, msg_id, **kw):
-        sonda.claimed.append(msg_id)
-        return True
+    class _ProbeWindow:
+        """A janela de dedupe REAL do processor, com claim/release na sonda."""
 
-    monkeypatch.setattr(pipeline, "claim", _claim)
+        def __init__(self) -> None:
+            self._w = DedupeWindow(max_ids=1000, ttl_seconds=3600)
 
-    async def _release_many(redis, integration_id, ids):
-        sonda.released.extend(sorted(ids))
-        return len(list(ids))
+        def claim(self, integration_id, msg_id):
+            sonda.claimed.append(msg_id)
+            return self._w.claim(integration_id, msg_id)
 
-    monkeypatch.setattr(dedupe, "release_many", _release_many)
+        def settle(self, integration_id, msg_ids):
+            self._w.settle(integration_id, msg_ids)
+
+        def release(self, integration_id, msg_ids):
+            sonda.released.extend(sorted(msg_ids))
+            return self._w.release(integration_id, msg_ids)
 
     # ── o detector, LIGADO: ruleset não vazio ⇒ o bloco roda por evento ────
     monkeypatch.setattr(
@@ -289,7 +293,9 @@ def harness(monkeypatch):
         monkeypatch.setattr(pipeline, "_enqueue_dispatch", _dispatch)
 
         try:
-            asyncio.run(pipeline._run_collection_once(integration_id=42, stream="alerts"))
+            asyncio.run(pipeline.process_raw_events(
+                42, "alerts", raw_events, dedupe=_ProbeWindow()
+            ))
             return None
         except Exception as exc:  # noqa: BLE001 — o teste inspeciona a sonda
             return exc
@@ -326,7 +332,7 @@ def test_a_raising_matcher_does_not_drop_a_single_event(harness):
     plausível, porque parece limpeza — derrubaria os 5 para 0 aqui."""
     sonda, run = harness
     assert run(_events(5), matcher_raises=True) is None, (
-        "a exceção do matcher escapou do ciclo de coleta"
+        "a exceção do matcher escapou do estágio de processamento"
     )
 
     assert sonda.matcher_calls == 5, "sem isto o assert abaixo passa por vacuidade"
@@ -353,7 +359,7 @@ def test_a_raising_flush_does_not_drop_a_single_event(harness):
     o ciclo marcado como erro e o retry reprocessando."""
     sonda, run = harness
     assert run(_events(5), flush_raises=True) is None, (
-        "a exceção do flush escapou do finally do ciclo de coleta"
+        "a exceção do flush escapou do finally do estágio de processamento"
     )
 
     assert sonda.flush_calls == 1

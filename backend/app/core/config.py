@@ -215,23 +215,19 @@ class Settings(BaseSettings):
     # intervalo maior (sophos cases/detections) NUNCA disparavam (jul/2026).
     REDBEAT_LOCK_TIMEOUT: int = 150
 
-    # ── data-plane durável (control/data-plane split) ──
-    # Backend de TRANSPORTE de evento (data-plane), separado do control-plane
-    # (Celery+Redis: scheduling, OAuth, breaker, rate-limit, observability — que
-    # PERMANECE no Celery+Redis). Valores:
-    #   "celery" — legado: o lote viaja como payload de task no broker Redis
-    #              (dev/test sem broker; é o DEFAULT só por ergonomia de teste).
-    #   "kafka"  — durável: o lote é produzido num tópico Kafka/Redpanda e um
-    #              consumer dedicado (role ``dispatcher``) despacha. É o caminho de
-    #              DEPLOY — o compose e o Helm setam EVENT_DATAPLANE=kafka.
-    EVENT_DATAPLANE: str = "celery"
+    # ── data-plane (ADR-0018) ──
+    # O evento viaja SÓ pelo Kafka/Redpanda: coleta e ingestão gravam no tópico
+    # raw, o papel ``processor`` transforma e grava no ``deliver``, e o papel
+    # ``dispatcher`` entrega ou estaciona. Celery+Redis ficam no control-plane
+    # (agenda, OAuth, breaker, rate-limit, observabilidade) e nunca carregam
+    # lote de evento (a lane Celery de entrega saiu na Onda 5).
     # Bootstrap do broker (Redpanda self-host, MSK, Redpanda Cloud, Confluent…).
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     # Prefixo de tópico — isola ambientes que compartilham um cluster.
     KAFKA_TOPIC_PREFIX: str = "centralops"
     # Tópico de entrega (sufixado ao prefixo): 1 tópico, N partições, key=dest_id
     # → mesma destinação sempre na mesma partição (ordem + HoL-blocking limitado,
-    # espelha o DISPATCH_DEST_SHARDS do caminho Celery). Evita o anti-pattern de
+    # sub-shards por destino, ver KAFKA_DELIVER_SHARDS_PER_DEST). Evita o anti-pattern de
     # "1 tópico por destino" (cardinalidade explode com N tenants × M destinos).
     KAFKA_DELIVER_TOPIC: str = "deliver"
     KAFKA_DELIVER_PARTITIONS: int = 8
@@ -280,10 +276,26 @@ class Settings(BaseSettings):
     KAFKA_RAW_TOPIC: str = "raw"
     KAFKA_RAW_PARTITIONS: int = 16
     KAFKA_RAW_RETENTION_MS: int = 24 * 3600 * 1000
-    KAFKA_RAW_SHARDS_PER_STREAM: int = 4
+    # = partições do raw: um stream grande (firewall a 10k eps) ocupa o tópico
+    # inteiro, e cada shard vai a uma partição DISTINTA (ADR-0018 Onda 3f). Com 4
+    # o stream não passava de 4 processors (e, pelo hash, de ~2).
+    KAFKA_RAW_SHARDS_PER_STREAM: int = 16
     KAFKA_PROCESSOR_GROUP: str = "centralops-processor"
     # Registros do raw buscados por vez pelo processor (cada um é um lote de eventos).
     RAW_PROCESSOR_MAX_RECORDS: int = 50
+    # Snapshot de configuração do processor (ADR-0018 Onda 3b). Rotas, mapping,
+    # regras em voo, política de enriquecimento e mapas de destino ficam em
+    # memória por TTL (s) — o Postgres sai do caminho de cada lote. Com o banco
+    # fora, a última versão boa vale por até MAX_STALE (s); depois disso o lote
+    # espera no Kafka em vez de seguir com configuração velha demais.
+    CONFIG_SNAPSHOT_TTL_SECONDS: float = 30.0
+    CONFIG_SNAPSHOT_MAX_STALE_SECONDS: float = 900.0
+    # Dedupe do processor em memória, por partição do raw (ADR-0018 Onda 3c):
+    # substitui a chave Redis por evento. Janela por tempo (s) e por quantidade
+    # de ids (~100 B cada). Cobre a borda do cursor re-buscada e a reentrega do
+    # Kafka; reiniciar o processor esvazia a janela (at-least-once).
+    RAW_DEDUPE_WINDOW_SECONDS: float = 3600.0
+    RAW_DEDUPE_WINDOW_MAX_IDS: int = 200_000
     # ── Resiliência do data-plane (hardening pós-review) ──────
     # Consume side: nº máx. de retentativas TRANSITÓRIAS por registro antes de
     # mandar o lote à DLQ e commitar (espelha o max_retries=10 da lane Celery).
@@ -301,17 +313,46 @@ class Settings(BaseSettings):
     # = 1 sub-lote, multi-chunk). Evita rebalance espúrio por "consumer morto"
     # durante um dispatch lento. Default 15min cobre max_elapsed_ms × chunks.
     KAFKA_MAX_POLL_INTERVAL_MS: int = 900000
+    # Grupo de consumo (processor e dispatcher). Medido no gate de carga (ADR-0018
+    # Onda 3f): com o default do aiokafka (sessão de 10 s, rebalance = sessão), um
+    # soluço do broker sob CPU disputada expulsava os membros do grupo; o commit
+    # do lote em voo falhava e outro processo o reprocessava (duplicata de um
+    # registro inteiro). 45 s é o default do próprio Kafka desde a 3.0. O
+    # rebalance precisa ser MAIOR que a espera pelo lote em voo na revogação
+    # (metade dele), senão o membro que drena com correção é quem é expulso.
+    # Store-and-forward por destino (ADR-0018 Onda 4a): lote de destino com o
+    # disjuntor aberto (ou com transitório esgotado) ESTACIONA neste tópico, em
+    # vez de virar linha na DLQ do Postgres, e o drenador o entrega quando o
+    # destino volta. Retenção = quanto tempo um destino pode ficar fora sem perda
+    # (disco ≈ eps do destino × bytes × retenção ÷ compressão). Cada destino cai
+    # sempre na mesma partição; HOLD = quanto uma partição fica pausada antes de
+    # tentar de novo (≈ cooldown do disjuntor, que deixa passar uma sonda).
+    # Entrega concorrente (ADR-0018 Onda 4b): registros em voo no dispatcher e
+    # lotes de UM destino em voo ao mesmo tempo. Lote que espera mais que
+    # SLOW_PARK s pela vez no seu destino vai ao estacionamento: é o que limita
+    # a quanto um destino lento atrasa os outros (meta do ADR: 5 s). Por TEMPO, e
+    # não por tamanho de fila, para que rajada de destino saudável não estacione.
+    # Partições do tópico de entrega por destino (Onda 4c): réplicas do
+    # dispatcher dividem um destino grande. 1 = uma partição por destino.
+    KAFKA_DELIVER_SHARDS_PER_DEST: int = 4
+    KAFKA_DISPATCH_MAX_INFLIGHT: int = 32
+    KAFKA_DISPATCH_INFLIGHT_PER_DEST: int = 4
+    KAFKA_DISPATCH_SLOW_PARK_SECONDS: float = 5.0
+    KAFKA_PARKED_TOPIC: str = "deliver.parked"
+    KAFKA_PARKED_PARTITIONS: int = 32
+    KAFKA_PARKED_RETENTION_MS: int = 7 * 24 * 3600 * 1000
+    KAFKA_PARKED_GROUP: str = "centralops-parked"
+    KAFKA_PARKED_HOLD_SECONDS: float = 30.0
+    # Partições do estacionamento drenadas ao mesmo tempo (um lote em voo por
+    # partição). Um destino lento ou com muito atraso não segura a volta dos
+    # outros enquanto houver vaga.
+    KAFKA_PARKED_MAX_INFLIGHT: int = 8
+    KAFKA_SESSION_TIMEOUT_MS: int = 45000
+    KAFKA_HEARTBEAT_INTERVAL_MS: int = 3000
+    KAFKA_REBALANCE_TIMEOUT_MS: int = 60000
     # Intervalo do emissor de lag em BACKGROUND (independe de chegada de msg —
     # senão o gauge congela quando a partição zera, o pior momento p/ o SRE).
     KAFKA_LAG_REFRESH_SECONDS: int = 15
-
-    @field_validator("EVENT_DATAPLANE")
-    @classmethod
-    def _validate_event_dataplane(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"celery", "kafka"}:
-            raise ValueError("EVENT_DATAPLANE must be 'celery' or 'kafka'")
-        return normalized
 
     @model_validator(mode="after")
     def _validate_inflight_budget(self) -> "Settings":
@@ -365,24 +406,12 @@ class Settings(BaseSettings):
     # A saída desacoplada (destinos + fan-out) é o comportamento PADRÃO e
     # incondicional. A lane dedicada do Wazuh foi removida: ``wazuh-default`` é
     # um destino como qualquer outro e
-    # entrega via a lane uniforme ``dispatch_to_destination``. O catch-all é
+    # entrega pelo data-plane Kafka como os demais. O catch-all é
     # vendor-neutro (``Destination.is_default``); sem fallback, lotes sem rota
     # vão para a DLQ como ``unrouted``. NÃO há mais flag de dormência:
     # ``MULTI_DESTINATION_ENABLED`` foi removida (app pré-lançamento, sem
     # necessidade de back-compat). O roteamento por regra é o modelo ÚNICO
     # sempre-ativo (``ROUTING_ENABLED`` também removida).
-
-    # ── backpressure / load-shedding ──────────────────────────────────
-    # OFF (default): nenhum descarte; um destino backed-up conta com a
-    # durabilidade do broker + circuit breaker (que abre e fast-fail-a um sink
-    # morto, drenando a fila). ON: destinos com ``backpressure="drop_newest"`` e
-    # teto de profundidade (``delivery.queue_ceiling`` ou o teto global abaixo)
-    # têm lotes NOVOS descartados quando a shard queue passa do teto — válvula
-    # de segurança contra crescimento ilimitado do Redis (OOM multi-tenant).
-    BACKPRESSURE_E6_ENABLED: bool = False
-    # Teto global de profundidade por shard queue (0 = desabilitado). Usado como
-    # default para destinos drop_newest que não definem ``queue_ceiling`` próprio.
-    DISPATCH_QUEUE_CEILING: int = 0
 
     # ── motor de roteamento (GA, sempre ativo) ────────────────────────
     # O roteamento por regra (tabela ``routes``) é o ÚNICO modelo de despacho —
@@ -916,27 +945,6 @@ class Settings(BaseSettings):
         "microsoft_defender": {"per_second": 15, "per_minute": 600, "per_hour": 15000},
         "ninjaone": {"per_second": 5, "per_minute": 300, "per_hour": 5000},
     }
-
-    # Idempotência: TTL da chave SET NX em dias. Default reduzido de 7 → 1
-    # (raciocínio completo + números medidos em ``state/dedupe.py`` junto de
-    # ``DEFAULT_TTL_DAYS``): o TTL só precisa cobrir a janela real de
-    # reentrega (overlap de polling 1-5min, retry Celery <5min, redelivery
-    # por worker-crash limitado a visibility_timeout=3600s/1h — ver
-    # celery_app.py), não dedupe de longo prazo. 1 dia dá ~24x de folga sobre
-    # o pior caso automático, cobre replay manual do mesmo turno, e reduz o
-    # keyspace ``dedupe:*`` em ~7x — alívio direto da pressão de memória que
-    # causa evicção sob o ``volatile-lru`` 512mb do compose. Reentregas além
-    # do TTL são absorvidas pelo dedupe no destino por ``event_id``
-    # (at-least-once), então isto não é a única linha de defesa.
-    #
-    # NOTA: este campo é só o fallback de bootstrap (``_snapshot_from_env`` em
-    # config_loader.py, usado quando DB/Redis cache falham, e o seed inicial
-    # da tabela ``collector_config`` em database.py). Orgs já existentes têm
-    # ``collector_config.dedupe_ttl_days`` persistido no DB (default histórico
-    # 7, coluna em db/models.py) — mudar este env default NÃO retroage sobre
-    # orgs já provisionadas; alinhar o default do schema/DB é um follow-up
-    # fora do escopo desta mudança (fora dos arquivos tocados aqui).
-    DEDUPE_TTL_DAYS: int = 1
 
     # Coleta: flush de lote para o dispatch
     COLLECTOR_BATCH_SIZE: int = 200

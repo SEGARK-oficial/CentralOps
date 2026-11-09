@@ -2012,7 +2012,9 @@ def _run_lightweight_migrations() -> None:
                         ),
                         "bs": _settings.COLLECTOR_BATCH_SIZE or 200,
                         "flush": _settings.COLLECTOR_BATCH_FLUSH_SECONDS or 5,
-                        "ttl": _settings.DEDUPE_TTL_DAYS or 7,
+                        # Coluna legada, NOT NULL: o dedupe Redis por evento
+                        # que ela configurava saiu (ADR-0018 Onda 5).
+                        "ttl": 1,
                         "dcl": json.dumps(
                             dict(_settings.DOMAIN_CONCURRENCY_LIMITS or {}),
                             separators=(",", ":"),

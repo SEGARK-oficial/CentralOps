@@ -20,10 +20,10 @@ runs per cooldown even when the send is slow (a 5s probe TTL
 shorter than ``DISPATCH_RESULT_TIMEOUT`` let a second worker win a concurrent
 probe mid-send).
 
-BreakerOpen is TERMINAL — it MUST NOT be in tasks._RETRYABLE; instead it
-propagates to the except-all handler in dispatch_to_destination, which calls
-dispatch_to_dlq (DLQ fallback, no autoretry).  This is the whole point of
-the circuit breaker: stop hammering a failing destination.
+BreakerOpen is TERMINAL — it MUST NOT be retried in place; the Kafka
+dispatcher parks the batch in ``deliver.parked`` and drains it when the
+destination is back (ADR-0018 Onda 4a). This is the whole point of the
+circuit breaker: stop hammering a failing destination.
 
 Redis-outage policy (fail-closed-to-DLQ must not happen):
 the breaker store is an OPTIMIZATION, never a delivery gate.  A Redis blip
@@ -297,19 +297,40 @@ async def record_failure(
 # ── Convenience wrapper using DestinationConfig ───────────────────────────────
 
 
-async def check_for_config(redis: Any, dest_config: Any) -> None:
+#: Folga da sonda sobre o timeout de UMA tentativa de envio.
+_PROBE_TTL_MARGIN_S = 5
+
+
+def probe_ttl_for(cooldown_s: int, send_timeout_s: Optional[float]) -> int:
+    """TTL da sonda meio-aberta: o cooldown, mas SEMPRE mais que uma tentativa de
+    envio (ADR-0018 Onda 4c).
+
+    Com os defaults (``timeout_ms=30000`` e ``cooldown_s=30``) a sonda expirava
+    junto com o envio dela: num destino em blackhole, quando o envio estourava, a
+    sonda já tinha expirado e outro processo a pegava antes de a falha reabrir o
+    disjuntor — que nunca chegava a falhar rápido. Vivendo mais que a tentativa,
+    a falha é registrada (reabrindo o disjuntor) antes de outra sonda começar."""
+    ttl = int(cooldown_s)
+    if send_timeout_s:
+        ttl = max(ttl, int(-(-float(send_timeout_s) // 1)) + _PROBE_TTL_MARGIN_S)
+    return ttl
+
+
+async def check_for_config(
+    redis: Any, dest_config: Any, send_timeout_s: Optional[float] = None
+) -> None:
     """check() using parameters from dest_config.delivery["breaker"].
 
-    The half-open probe TTL is bound to the destination's ``cooldown_s`` so the
-    probe slot lasts exactly as long as the OPEN window (one probe per cooldown,
-    even for slow sends).
+    The half-open probe TTL is the destination's ``cooldown_s`` (one probe per
+    OPEN window), but never shorter than one send attempt — see
+    :func:`probe_ttl_for`.
     """
     _, cooldown_s, _ = _breaker_cfg(dest_config.delivery)
     await check(
         redis,
         dest_config.destination_id,
         kind=dest_config.kind,
-        probe_ttl_s=cooldown_s,
+        probe_ttl_s=probe_ttl_for(cooldown_s, send_timeout_s),
     )
 
 

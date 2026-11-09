@@ -155,33 +155,23 @@ def test_put_persists_and_flips_is_persisted(client_factory) -> None:
     assert r2.json()["config_version"] != v1
 
 
-def test_put_persists_dedupe_ttl_seconds_round_trip(client_factory) -> None:
-    """Regressão: o campo existia em Read/Base mas não em Update, então o PUT
-    descartava o valor em silêncio (HTTP 200) e o TTL ficava preso no derivado
-    de ``dedupe_ttl_days`` (24h). Cobre o meio da cadeia, não só as pontas.
-    """
+def test_put_rejects_removed_dedupe_ttl_fields(client_factory) -> None:
+    """``dedupe_ttl_days``/``dedupe_ttl_seconds`` saíram da API (ADR-0018 Onda 5:
+    o Kafka é o único data-plane e a idempotência não depende mais desse TTL). O
+    PUT com eles é 422 — e não 200 descartando em silêncio —, e a leitura não os
+    devolve mais. As colunas seguem no banco, só não são mais contrato."""
     factory, _ = client_factory
     client = factory()
     _bootstrap_admin(client)
 
-    # 4h — o piso permitido (state/dedupe.MIN_TTL_SECONDS).
-    r = client.put("/api/collectors/config", json={"dedupe_ttl_seconds": 14_400})
-    assert r.status_code == 200, r.text
-    assert r.json()["dedupe_ttl_seconds"] == 14_400
+    for removed in ("dedupe_ttl_seconds", "dedupe_ttl_days"):
+        r = client.put("/api/collectors/config", json={removed: 14_400})
+        assert r.status_code == 422, (removed, r.text)
 
-    # Releitura independente: prova que foi ao banco, não só ecoado.
     r2 = client.get("/api/collectors/config")
     assert r2.status_code == 200
-    assert r2.json()["dedupe_ttl_seconds"] == 14_400
-
-
-def test_put_rejects_dedupe_ttl_seconds_below_floor(client_factory) -> None:
-    factory, _ = client_factory
-    client = factory()
-    _bootstrap_admin(client)
-
-    r = client.put("/api/collectors/config", json={"dedupe_ttl_seconds": 3_600})
-    assert r.status_code == 422
+    assert "dedupe_ttl_seconds" not in r2.json()
+    assert "dedupe_ttl_days" not in r2.json()
 
 
 def test_put_validation_rejects_bad_rate_limits(client_factory) -> None:

@@ -1,8 +1,8 @@
-"""Receptor syslog (W3.2): fonte → integração, classificação → buffer, sem rede
-externa. Sobe UDP e TCP em portas efêmeras com Redis falso e prova o contrato
-com o pipeline: o evento chega ao MESMO buffer do POST /api/ingest, com o
-carimbo ``_ingest`` (+ transporte e peer), e o que não tem dono é descartado
-e contado — nunca aceito.
+"""Receptor syslog (W3.2): fonte → integração, classificação → tópico raw, sem
+rede externa. Sobe UDP e TCP em portas efêmeras com o produce do raw trocado por
+um dublê e prova o contrato com o pipeline: o evento chega ao MESMO tópico do
+POST /api/ingest, com o carimbo ``_ingest`` (+ transporte e peer), e o que não
+tem dono é descartado e contado — nunca aceito.
 """
 
 from __future__ import annotations
@@ -12,12 +12,10 @@ import ipaddress
 import json
 import socket
 
-import fakeredis.aioredis
 import pytest
 
 from backend.app.collectors import registry
 from backend.app.collectors.classify import compile_classifier
-from backend.app.collectors.ingest_buffer import buffer_key
 from backend.app.syslog import server as srv
 
 
@@ -35,12 +33,21 @@ def _sources(*specs):
 
 
 @pytest.fixture
-def redis():
-    return fakeredis.aioredis.FakeRedis(decode_responses=True)
+def raw(monkeypatch):
+    """Dublê do produce do tópico raw: guarda o que foi gravado por (integração,
+    stream), na ordem."""
+    written: dict = {}
+
+    async def _produce(integration_id, stream, events, ids=None, historical=False):
+        written.setdefault((integration_id, stream), []).extend(json.loads(json.dumps(events)))
+        return len(events)
+
+    monkeypatch.setattr("backend.app.collectors.dataplane.raw.produce_raw_async", _produce)
+    return written
 
 
-def _receiver(redis, sources, *, has=None, batch_max=500, flush_ms=50):
-    return srv.Receiver(redis=redis, sources=sources, registry_has=has or (lambda p, s: True),
+def _receiver(sources, *, has=None, batch_max=500, flush_ms=50):
+    return srv.Receiver(sources=sources, registry_has=has or (lambda p, s: True),
                         batch_max=batch_max, flush_ms=flush_ms, max_line=64 * 1024)
 
 
@@ -62,21 +69,21 @@ def test_resolve_mais_especifico_vence_e_respeita_porta_e_transporte():
 
 # ── handle_line: aceita, descarta, classifica ──────────────────────────────
 
-def test_fonte_desconhecida_e_descartada_e_contada(redis):
-    r = _receiver(redis, _sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "s")))
+def test_fonte_desconhecida_e_descartada_e_contada(raw):
+    r = _receiver(_sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "s")))
     assert r.handle_line(b"<13>Sep  6 01:02:03 h app: x", peer_ip="203.0.113.9", port=514, transport="udp") == "unknown_source"
     assert r.pending() == 0 and r.stats == {"unknown_source": 1}
 
 
-def test_stream_que_a_plataforma_nao_registra_e_unclassified(redis):
-    r = _receiver(redis, _sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "sumiu")), has=lambda p, s: s != "sumiu")
+def test_stream_que_a_plataforma_nao_registra_e_unclassified(raw):
+    r = _receiver(_sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "sumiu")), has=lambda p, s: s != "sumiu")
     assert r.handle_line(b"<13>Sep  6 01:02:03 h app: x", peer_ip="10.0.5.7", port=514, transport="udp") == "unclassified"
     assert r.pending() == 0 and r.stats == {"unclassified": 1}
 
 
-def test_evento_aceito_ganha_o_carimbo_do_ingest_e_vai_para_o_buffer_certo(redis):
+def test_evento_aceito_ganha_o_carimbo_do_ingest_e_vai_para_o_raw_certo(raw):
     cfg = {"rules": [{"when": "@linux_auth", "stream": "auth"}]}
-    r = _receiver(redis, _sources(("10.0.5.0/24", None, "any", 7, "custom_json", cfg, "other")))
+    r = _receiver(_sources(("10.0.5.0/24", None, "any", 7, "custom_json", cfg, "other")))
     assert r.handle_line(b"<86>Sep  6 01:02:03 srv sshd[1]: Failed password for root from 203.0.113.9 port 1 ssh2",
                          peer_ip="10.0.5.7", port=514, transport="udp") == "accepted"
     assert r.handle_line(b"<13>Sep  6 01:02:03 srv cron[2]: job", peer_ip="10.0.5.7", port=514, transport="udp") == "accepted"
@@ -84,9 +91,7 @@ def test_evento_aceito_ganha_o_carimbo_do_ingest_e_vai_para_o_buffer_certo(redis
     n = asyncio.run(r.flush())
     assert n == 2 and r.pending() == 0
 
-    async def _read(stream):
-        return [json.loads(x) for x in await redis.lrange(buffer_key(7, stream), 0, -1)]
-    auth, other = asyncio.run(_read("auth")), asyncio.run(_read("other"))
+    auth, other = raw[(7, "auth")], raw[(7, "other")]
     assert len(auth) == 1 and len(other) == 1
     ev = auth[0]
     assert ev["format"] == "rfc3164" and ev["app"] == "sshd"
@@ -94,12 +99,12 @@ def test_evento_aceito_ganha_o_carimbo_do_ingest_e_vai_para_o_buffer_certo(redis
     assert len(ev["_ingest"]["id"]) == 64 and ev["_ingest"]["received_at"].endswith("Z")
 
 
-def test_redis_fora_retem_em_memoria_com_teto(redis, monkeypatch):
-    r = _receiver(redis, _sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "s")), batch_max=2)
+def test_broker_fora_retem_em_memoria_com_teto(monkeypatch):
+    r = _receiver(_sources(("10.0.5.0/24", None, "any", 7, "custom_json", None, "s")), batch_max=2)
 
     async def _boom(*a, **k):
-        raise ConnectionError("redis down")
-    monkeypatch.setattr("backend.app.collectors.ingest_buffer.push_events", _boom)
+        raise ConnectionError("broker down")
+    monkeypatch.setattr("backend.app.collectors.dataplane.raw.produce_raw_async", _boom)
     for i in range(60):
         r.handle_line(f"<13>1 - h app - - - m{i}".encode(), peer_ip="10.0.5.7", port=514, transport="tcp")
     assert asyncio.run(r.flush()) == 0
@@ -113,9 +118,9 @@ def _free_port() -> int:
     s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
 
 
-def test_udp_e_tcp_de_verdade_incluindo_octet_count(redis):
+def test_udp_e_tcp_de_verdade_incluindo_octet_count(raw):
     cfg = {"rules": [{"when": "@fortigate", "stream": "traffic"}]}
-    r = _receiver(redis, _sources(("127.0.0.0/8", None, "any", 9, "fortinet_fortigate", cfg, "traffic")), flush_ms=30)
+    r = _receiver(_sources(("127.0.0.0/8", None, "any", 9, "fortinet_fortigate", cfg, "traffic")), flush_ms=30)
 
     async def _run():
         loop = asyncio.get_running_loop()
@@ -135,12 +140,11 @@ def test_udp_e_tcp_de_verdade_incluindo_octet_count(redis):
         await wr.drain(); wr.close()
         for _ in range(50):
             await asyncio.sleep(0.05)
-            depth_t = await redis.llen(buffer_key(9, "traffic"))
-            if depth_t >= 3:
+            if len(raw.get((9, "traffic"), [])) >= 3:
                 break
         stop.set(); await flusher
         udp.close(); tcp.close(); await tcp.wait_closed()
-        return [json.loads(x) for x in await redis.lrange(buffer_key(9, "traffic"), 0, -1)]
+        return raw.get((9, "traffic"), [])
 
     events = asyncio.run(_run())
     assert len(events) == 3

@@ -130,7 +130,7 @@ pgbouncer:
 
 ## Alertas com Prometheus Operator
 
-Se o cluster usa o Prometheus Operator, o chart cria um `PrometheusRule` com as regras do data-plane (DLQ que não grava, lag, breaker aberto, DLQ crescendo, coleta atrasada, evicção do dedupe, push recusando):
+Se o cluster usa o Prometheus Operator, o chart cria um `PrometheusRule` com as regras do data-plane (DLQ que não grava, lag, breaker aberto, DLQ crescendo, coleta atrasada, evicção do Redis):
 
 ```yaml
 monitoring:
@@ -144,7 +144,8 @@ monitoring:
 
 - **API + frontend + workers Celery + beat** como Deployments separados (release
   desacoplado da UI). Há um worker por papel: coleta prioritária, coleta em lote,
-  manutenção, busca federada e scheduled queries (`query`) e entrega. Quando o pod é
+  manutenção, busca federada e scheduled queries (`query`) e reenvio da fila de
+  reenvio (`dispatcher`). Quando o pod é
   encerrado, cada worker tem até 15 minutos e meio para terminar a tarefa em
   andamento (2 minutos na coleta prioritária).
 - **HPA** para escalar a API/workers por CPU.
@@ -154,6 +155,27 @@ monitoring:
 - **NetworkPolicies** restringindo o tráfego entre componentes.
 - **License keyring** (ConfigMap com chaves **públicas**) para verificar a licença
   Enterprise **offline** — ver **[Edições & Upgrade](../editions/community-vs-enterprise.md)**.
+
+- **Data-plane**: `raw-processor` (processa) e `kafka-dispatcher` (entrega), que
+  escalam por réplicas até o número de partições dos tópicos `raw` e `deliver`. O
+  evento só passa por eles: Celery e Redis ficam no controle (agenda, tokens,
+  disjuntor).
+
+## Dimensionamento
+
+Números medidos no gate de carga do repositório (`scripts/loadtest/dataplane_gate.py`),
+com tudo num nó só. Use como ponto de partida e meça no seu hardware.
+
+| Papel | Medido | Escala com |
+| --- | --- | --- |
+| API (ingestão push) | 30–34 mil eventos/s por processo | réplicas da API |
+| `raw-processor` | 6–6,6 mil eventos/s por processo num notebook recente; 1,1–1,5 mil por núcleo num Xeon de 2016 | réplicas, até as partições do `raw` (16) |
+| `kafka-dispatcher` | 12 mil eventos/s para um destino (4 sub-partições) | réplicas, até as partições do `deliver` |
+| Destino com **Entrega em ordem** | ~6 mil eventos/s | não escala: uma partição, um lote por vez |
+
+Um destino fora do ar por 30–40 s não gerou nenhuma linha no Postgres: os lotes
+esperaram no tópico de estacionamento e foram entregues quando ele voltou. A meta
+de 10 mil eventos/s sustentados em 3 nós ainda não foi medida num cluster.
 
 ## Próximos passos
 

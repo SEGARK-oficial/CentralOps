@@ -4,7 +4,8 @@ O default do Pydantic (``extra="ignore"``) transforma "o schema esqueceu de
 declarar um campo" em DADO PERDIDO, com HTTP 200. Duas ocorrências reais:
 
   * ``CollectorConfigUpdate`` sem ``dedupe_ttl_seconds`` — o operador ajustava o
-    TTL de dedupe para 4h, recebia 200, e o efetivo continuava 24h;
+    TTL de dedupe para 4h, recebia 200, e o efetivo continuava 24h (o campo saiu
+    de vez na ADR-0018 Onda 5; quem ainda o manda recebe 422, não 200 mudo);
   * ``PredefinedQueryUpdate``/``PredefinedQueryBase`` sem ``dialect``/
     ``spec_kind`` — a UI tinha seletor para os dois e a edição nunca persistia.
 
@@ -94,9 +95,18 @@ def test_self_profile_update_deliberately_ignores_extras() -> None:
     assert "is_global" not in dumped
 
 
-def test_collector_config_update_declares_the_field_that_regressed() -> None:
-    body = schemas.CollectorConfigUpdate(dedupe_ttl_seconds=14_400)
-    assert body.model_dump(exclude_unset=True) == {"dedupe_ttl_seconds": 14_400}
+def test_collector_config_update_rejects_the_removed_dedupe_ttl_fields() -> None:
+    """``dedupe_ttl_days``/``dedupe_ttl_seconds`` saíram do schema (ADR-0018
+    Onda 5). Um cliente antigo que ainda os mande recebe erro — nunca um 200 que
+    finge ter aplicado um TTL que não existe mais."""
+    for removed in ("dedupe_ttl_seconds", "dedupe_ttl_days"):
+        with pytest.raises(ValidationError):
+            schemas.CollectorConfigUpdate(**{removed: 14_400})
+    assert "dedupe_ttl_seconds" not in schemas.CollectorConfigUpdate.model_fields
+    assert "dedupe_ttl_days" not in schemas.CollectorConfigUpdate.model_fields
+    # O que segue declarado continua passando.
+    body = schemas.CollectorConfigUpdate(collector_batch_size=500)
+    assert body.model_dump(exclude_unset=True) == {"collector_batch_size": 500}
 
 
 def test_predefined_query_update_declares_dialect_and_spec_kind() -> None:

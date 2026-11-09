@@ -97,3 +97,64 @@ def test_classifier_matches_whole_labels_only(host, reserved):
     from backend.conftest import _is_reserved_dns_name
 
     assert _is_reserved_dns_name(host) is reserved
+
+
+# ── Rede externa bloqueada por padrão (nov/2026) ─────────────────────────────
+# Criar uma integração Defender/Sophos num teste pedia token de VERDADE e o Celery
+# tentava o broker pelo nome ``redis``: no BuildKit dos runners cada chamada
+# esperava o timeout do socket e o sweep compilado foi de ~21 para ~34 min.
+
+_EXTERNAL = (
+    "login.microsoftonline.com",
+    "id.sophos.com",
+    "redis",  # nome de serviço do compose — não existe fora dele
+    "api.contoso.com",
+)
+
+
+@pytest.mark.parametrize("host", _EXTERNAL)
+def test_external_names_fail_immediately(host):
+    started = time.monotonic()
+    with pytest.raises(socket.gaierror, match="rede externa bloqueada"):
+        socket.getaddrinfo(host, 443)
+    assert time.monotonic() - started < _FAST_S
+
+
+def test_httpx_to_a_real_vendor_host_fails_fast():
+    """O caminho do ``test_connection`` dos providers (token OAuth)."""
+    started = time.monotonic()
+    with pytest.raises(httpx.ConnectError):
+        httpx.post("https://login.microsoftonline.com/t/oauth2/v2.0/token", timeout=30.0)
+    assert time.monotonic() - started < _FAST_S
+
+
+@pytest.mark.parametrize(
+    ("host", "allowed", "external"),
+    (
+        ("login.microsoftonline.com", frozenset(), True),
+        ("ci_pg_123", frozenset({"ci_pg_123"}), False),  # Postgres do gate -m pg
+        ("CI_PG_123", frozenset({"ci_pg_123"}), False),
+        ("localhost", frozenset(), False),
+        ("svc.localhost", frozenset(), False),
+        ("127.0.0.1", frozenset(), False),
+        ("::1", frozenset(), False),
+        ("10.0.0.5", frozenset(), False),  # IP literal não passa por DNS
+        (b"redis", frozenset(), True),
+        ("", frozenset(), False),
+        (None, frozenset(), False),
+    ),
+)
+def test_external_classifier(host, allowed, external):
+    from backend.conftest import _is_external_dns_name
+
+    assert _is_external_dns_name(host, allowed) is external
+
+
+def test_hosts_from_the_suite_env_are_allowed(monkeypatch):
+    """O gate ``-m pg`` fala com um container de NOME (``ci_pg_<run>``) pelo DSN."""
+    from backend.conftest import _env_allowed_hosts
+
+    monkeypatch.setenv("CENTRALOPS_TEST_PG_DSN", "postgresql://u:p@ci_pg_42:5432/db")
+    monkeypatch.setenv("CENTRALOPS_TEST_ALLOWED_HOSTS", "minio, Vault.Local")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    assert {"ci_pg_42", "minio", "vault.local"} <= _env_allowed_hosts()

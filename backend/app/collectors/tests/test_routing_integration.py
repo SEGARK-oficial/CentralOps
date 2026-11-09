@@ -3,8 +3,8 @@ the SAME uniform lane.
 
 ``_enqueue_dispatch`` splits each batch per-event into per-destination sub-batches.
 There is NO LONGER a wazuh-default special-case: every destination (including
-wazuh-default) is dispatched via ``dispatch_to_destination`` (default/celery mode)
-or ``produce_delivery`` (kafka mode). A destination only receives events when a
+wazuh-default) is dispatched via ``produce_delivery`` (the Kafka ``deliver`` topic,
+the only data-plane since ADR-0018 Onda 5). A destination only receives events when a
 ROUTE points at it; with NO routes and NO default destination, events go to the DLQ
 (error_kind=unrouted), not a hardcoded sink.
 """
@@ -69,7 +69,7 @@ def test_routing_splits_batch_by_severity(static_db) -> None:
     """severity_id>=4 → dest; else → wazuh-default (end-to-end).
 
     BOTH destinations (d-siem AND wazuh-default) flow through the
-    SAME uniform lane (``dispatch_to_destination``); wazuh-default is no longer a
+    SAME uniform lane (``produce_delivery``); wazuh-default is no longer a
     special-case (the legacy ``dispatch_to_wazuh`` lane was deleted)."""
     SessionLocal, _ = static_db
     _seed_route(SessionLocal, name="hi", condition={"severity_id": {"gte": 4}}, destination_ids=["d-siem"], is_final=True, priority=10, organization_id=None)
@@ -77,18 +77,16 @@ def test_routing_splits_batch_by_severity(static_db) -> None:
 
     from backend.app.collectors import pipeline
 
-    with patch("backend.app.collectors.tasks.dispatch_to_destination.apply_async") as md:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as md:
         pipeline._enqueue_dispatch([_ev(5), _ev(2), _ev(4)])
 
-    # Uniform fan-out: both sub-batches go via dispatch_to_destination.
+    # Uniform fan-out: both sub-batches go via produce_delivery.
     assert md.call_count == 2
-    by_dest = {c.kwargs["kwargs"]["destination_id"]: c for c in md.call_args_list}
-    # dest gets sev 5 + 4 (2 events) on its shard queue
-    assert len(by_dest["d-siem"].kwargs["kwargs"]["batch"]) == 2
-    assert by_dest["d-siem"].kwargs["queue"].startswith("dispatch.destination.")
-    # wazuh-default gets sev 2 (1 event) via the same uniform path/shard queue
-    assert len(by_dest["wazuh-default"].kwargs["kwargs"]["batch"]) == 1
-    assert by_dest["wazuh-default"].kwargs["queue"].startswith("dispatch.destination.")
+    by_dest = {c.args[0]: c.args[1] for c in md.call_args_list}
+    # dest gets sev 5 + 4 (2 events)
+    assert [e["_centralops"]["severity_id"] for e in by_dest["d-siem"]] == [5, 4]
+    # wazuh-default gets sev 2 (1 event) via the same uniform path
+    assert [e["_centralops"]["severity_id"] for e in by_dest["wazuh-default"]] == [2]
 
 
 def test_routing_no_routes_no_fallback_goes_to_dlq(static_db) -> None:
@@ -97,7 +95,7 @@ def test_routing_no_routes_no_fallback_goes_to_dlq(static_db) -> None:
     from backend.app.collectors import pipeline
 
     with (
-        patch("backend.app.collectors.tasks.dispatch_to_destination.apply_async") as md,
+        patch("backend.app.collectors.dataplane.produce_delivery") as md,
         patch("backend.app.collectors.delivery.persist_batch_dlq", return_value=True) as mdlq,
     ):
         pipeline._enqueue_dispatch([_ev(5), _ev(2)])
@@ -114,12 +112,12 @@ def test_routing_drop_discards_events(static_db) -> None:
 
     from backend.app.collectors import pipeline
 
-    with patch("backend.app.collectors.tasks.dispatch_to_destination.apply_async") as md:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as md:
         pipeline._enqueue_dispatch([_ev(0), _ev(0), _ev(5)])
     # 2 dropped (sev 0), only sev 5 reaches wazuh-default — via the uniform lane.
     md.assert_called_once()
-    assert md.call_args.kwargs["kwargs"]["destination_id"] == "wazuh-default"
-    assert len(md.call_args.kwargs["kwargs"]["batch"]) == 1
+    assert md.call_args.args[0] == "wazuh-default"
+    assert len(md.call_args.args[1]) == 1
 
 
 @pytest.mark.asyncio
@@ -170,13 +168,13 @@ def test_routing_zero_canary_routes_nothing_to_canary(static_db) -> None:
 
     from backend.app.collectors import pipeline
 
-    with patch("backend.app.collectors.tasks.dispatch_to_destination.apply_async") as md:
+    with patch("backend.app.collectors.dataplane.produce_delivery") as md:
         pipeline._enqueue_dispatch([_ev(5), _ev(2), _ev(9)])
     # 0% canary → nothing to new-siem; everything falls through to wazuh-default
     # via the uniform lane.
     md.assert_called_once()
-    assert md.call_args.kwargs["kwargs"]["destination_id"] == "wazuh-default"
-    assert len(md.call_args.kwargs["kwargs"]["batch"]) == 3
+    assert md.call_args.args[0] == "wazuh-default"
+    assert len(md.call_args.args[1]) == 3
 
 
 def test_load_routes_db_error_holds_the_batch() -> None:
