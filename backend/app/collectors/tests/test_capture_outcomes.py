@@ -38,7 +38,6 @@ from backend.app.collectors import (
     dataplane,
     observability_store as obs,
     pipeline,
-    tasks,
     tracing,
 )
 from backend.app.collectors.output._fastjson import dumps_bytes
@@ -61,10 +60,14 @@ _W = 180  # janela de leitura (min) = janela da /cost-summary
 
 @pytest.fixture(autouse=True)
 def _clean_capture_cache():
-    """O cache negativo de sessões é estado de MÓDULO — zera entre testes."""
+    """O cache negativo de sessões e o breaker do tap são estado de MÓDULO — zera
+    entre testes. Sem o breaker, um arquivo anterior que rodou o tap sem Redis
+    (ex.: test_fase2_delivery) deixa a captura cega e estes testes leem 0 eventos."""
     cs.reset_session_cache()
+    cs.reset_tap_breaker()
     yield
     cs.reset_session_cache()
+    cs.reset_tap_breaker()
 
 
 @pytest.fixture
@@ -391,8 +394,6 @@ def _wire_enqueue(monkeypatch):
     monkeypatch.setattr(pipeline, "_load_wazuh_loop_destination_ids", lambda ids: frozenset())
     monkeypatch.setattr(pipeline, "_load_fallback_destination_id", lambda org: None)
     monkeypatch.setattr(tracing, "carrier", lambda: {})
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "celery")
-    monkeypatch.setattr(tasks, "dispatch_to_destination", MagicMock())
     monkeypatch.setattr(dataplane, "produce_delivery", lambda *a, **k: None)
 
 
@@ -508,7 +509,7 @@ async def test_capture_failure_does_not_break_enqueue(async_redis, sync_redis, m
     await _start_session(async_redis, sync_redis)
     _wire_enqueue(monkeypatch)
     dispatch = MagicMock()
-    monkeypatch.setattr(tasks, "dispatch_to_destination", dispatch)
+    monkeypatch.setattr(dataplane, "produce_delivery", dispatch)
 
     def _boom(*a, **k):
         raise RuntimeError("captura explodiu")
@@ -517,7 +518,7 @@ async def test_capture_failure_does_not_break_enqueue(async_redis, sync_redis, m
     monkeypatch.setattr(cs, "record_sync", _boom)
 
     pipeline._enqueue_routed([_env("a")], [_route()])  # não deve levantar
-    assert dispatch.apply_async.call_count == 1  # entrega intacta
+    assert dispatch.call_count == 1  # entrega intacta
 
 
 def test_metering_failure_does_not_break_enqueue(monkeypatch):

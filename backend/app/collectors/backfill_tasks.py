@@ -6,9 +6,11 @@ baixa (2 workers) para não competir com o polling normal. Cada job:
 1. Carrega a ``BackfillJob`` do banco.
 2. Para cada stream: executa ``run_backfill_collection_once`` com cursor
    isolado (não toca ``CollectionState`` do polling).
-3. Eventos passam pelo mesmo pipeline (mapping + envelope + dispatch).
-4. Dedupe Redis funciona normalmente — eventos já vistos não são
-   re-enviados ao Wazuh.
+3. Eventos passam pelo MESMO estágio de processamento da coleta ao vivo
+   (ADR-0018 Onda 3d): vão ao tópico raw marcados como históricos e o papel
+   ``processor`` os trata.
+4. Dedupe pela janela da partição do processor — o que ela ainda lembra não é
+   re-enviado.
 5. A cada iteração, recarrega o job e verifica se foi cancelado.
 
 Garantias:
@@ -25,7 +27,6 @@ import hashlib
 import hmac
 import json
 import logging
-import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -117,141 +118,67 @@ async def run_backfill_collection_once(
     from_ts: datetime,
     to_ts: datetime,
     initial_cursor: Optional[Dict[str, Any]] = None,
+    *,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Executa um ciclo de coleta histórica com janela explícita.
+    """Coleta histórica de uma janela explícita, processada pelo MESMO estágio
+    da coleta ao vivo (ADR-0018 Onda 3d).
 
-    Diferenças em relação a ``run_collection_once``:
-    - Usa cursor explícito (``initial_cursor``) em vez do cursor do polling.
-    - Não persiste cursor em ``CollectionState`` — apenas retorna o cursor
-      final para que o worker o salve em ``BackfillJob.current_cursor``.
-    - Passa ``from_ts`` / ``to_ts`` para o collector via
-      ``CollectorContext.cursor`` como metadado de janela.
+    Antes isto era uma cópia parcial do pipeline: mapping, envelope e
+    roteamento, sem validação OCSF, sem enriquecimento, sem classificação em
+    voo, sem supressão, sem amostras de drift e sem soltar as claims de dedupe
+    quando o job falhava. O mesmo evento saía diferente pela coleta ao vivo e
+    pelo backfill. Agora a coleta histórica só BUSCA: os eventos crus vão para o
+    tópico raw (``RawProducer``) marcados como históricos, e o papel
+    ``processor`` os trata como trata a coleta ao vivo — presença de ausência
+    sim, batimento do observador não. ``job_id`` só identifica o job no log.
 
-    Retorna dict com:
-    - ``cursor``: cursor final após a coleta.
-    - ``events_collected``: número de eventos que passaram pelo pipeline.
-    - ``events_dispatched``: número de eventos enviados para a fila de dispatch.
+    Diferenças em relação ao ciclo ao vivo, e só estas:
+    - cursor explícito (``initial_cursor``) com a janela, nunca o
+      ``CollectionState`` — o cursor final volta para ``BackfillJob``;
+    - ``bounded_per_cycle=False``: drena a janela inteira num run.
+
+    Retorna ``cursor``, ``events_collected`` (buscados na fonte) e
+    ``events_dispatched`` (gravados no raw).
     """
     import aiohttp
 
-    import redis.asyncio as redis_async
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
+    # Tudo pelo módulo ``pipeline`` (resolvido na chamada): é o mesmo estágio, as
+    # mesmas dependências e os mesmos pontos de troca que os testes do ciclo usam.
+    from . import pipeline as _pl
+    from .celery_app import get_worker_redis
 
-    from ..core.config import settings
-    from ..db import database, models
-
-    from . import quarantine
-    from .auth.oauth_cache import get_or_refresh_token
-    from .base import CollectorContext
-    from .config_loader import get_collector_config
-    from .domain_limiter import DomainLimiter
-    from .metrics import DEDUPE_DROPS, EVENTS_TOTAL, NORMALIZE_LATENCY, QUARANTINE_TOTAL
-    from .normalize.engine import (
-        MappingError,
-        MappingRequiredFieldError,
-        default_engine,
-    )
-    from .normalize.envelope import EnvelopeContext, build_envelope, has_customer_id
-    from .pipeline import (
-        VendorAuthError,
-        _aiohttp_session,
-        _enqueue_dispatch,
-        _headers_for,
-        _load_collection_filters,
-        _load_current_mapping,
-        _quarantine_async,
-    )
-    from .rate_limit_redis import RedisRateLimiter
-    from .registry import get as registry_get, has as registry_has
-    from .state.dedupe import claim, compute_message_id
-
-    redis = redis_async.from_url(
-        settings.REDIS_URL or "redis://localhost:6379/0",
-        decode_responses=True,
-    )
-
-    events_collected = 0
-    events_dispatched = 0
+    redis = get_worker_redis()
     final_cursor: Dict[str, Any] = initial_cursor or {}
+    events_collected = 0
+    skipped = {"cursor": final_cursor, "events_collected": 0, "events_dispatched": 0}
+
+    sink: Optional[Any] = None
 
     try:
-        # Carrega integration.
-        with database.SessionLocal() as db:
-            integration = db.scalar(
-                select(models.Integration)
-                .where(models.Integration.id == integration_id)
-                .options(selectinload(models.Integration.organization))
-            )
-            if not integration or not integration.is_active:
-                logger.warning(
-                    "integration inativa ou inexistente no backfill",
-                    extra={
-                        "event": "backfill.skip_inactive",
-                        "integration_id": integration_id,
-                    },
-                )
-                return {
-                    "cursor": final_cursor,
-                    "events_collected": 0,
-                    "events_dispatched": 0,
-                }
-            platform = integration.platform
-            organization_id = integration.organization_id
-            organization_name: Optional[str] = (
-                integration.organization.name
-                if integration.organization is not None
-                else None
-            )
-            # Slug (não ``name``) é o rótulo estável do tenant no destino —
-            # ver ``EnvelopeContext.organization_slug``.
-            organization_slug: Optional[str] = (
-                integration.organization.slug
-                if integration.organization is not None
-                else None
-            )
-            # ``customer_id`` do envelope = ``Organization.id`` interno
-            # (mesma semântica do ``pipeline.py`` — backfill é o mesmo fluxo, só
-            # com janela histórica). Sem dependência do IRIS.
-            envelope_customer_id: Optional[int] = organization_id
-            db.expunge(integration)
+        view = _pl._load_cycle_integration(integration_id, stream)
+        if view is None:
+            return skipped
+        registration = _pl._registration_for(view.platform, stream)
+        if registration is None:
+            return skipped
+        integration = view.integration
+        platform = view.platform
+        organization_id = view.organization_id
 
-        if not registry_has(platform, stream):
-            logger.error(
-                "collector não registrado no backfill",
-                extra={
-                    "event": "backfill.unregistered_collector",
-                    "platform": platform,
-                    "stream": stream,
-                },
-            )
-            return {
-                "cursor": final_cursor,
-                "events_collected": 0,
-                "events_dispatched": 0,
-            }
-
-        registration = registry_get(platform, stream)
-        collector_cls = registration.collector_cls
-        event_type = collector_cls.event_type
-
-        # Token OAuth.
-        access_token = await get_or_refresh_token(
+        access_token = await _pl.get_or_refresh_token(
             redis,
             integration_id=integration_id,
             refresh_fn=registration.refresh_fn,
             vendor=platform,
         )
-        headers = _headers_for(platform, integration, access_token)
+        headers = _pl._headers_for(platform, integration, access_token)
 
-        # Config + mapping.
-        config = await get_collector_config(redis)
-        mapping_current = await asyncio.to_thread(
-            _load_current_mapping, platform, event_type
-        )
+        config = await _pl.get_collector_config(redis)
+        sink = _pl.RawProducer(integration_id, stream, config, historical=True)
 
-        rate_limiter = RedisRateLimiter(redis, config.rate_limits_by_vendor)
-        domain_limiter = DomainLimiter(redis, config.domain_concurrency_limits)
+        rate_limiter = _pl.RedisRateLimiter(redis, config.rate_limits_by_vendor)
+        domain_limiter = _pl.DomainLimiter(redis, config.domain_concurrency_limits)
 
         # Cursor de backfill: inclui metadado de janela para que o
         # collector possa filtrar eventos fora da janela.
@@ -261,11 +188,8 @@ async def run_backfill_collection_once(
             "backfill_to_ts": to_ts.isoformat(),
         }
 
-        batch: List[Dict[str, Any]] = []
-        last_flush = time.monotonic()
-
-        async with _aiohttp_session() as session:
-            ctx = CollectorContext(
+        async with _pl._aiohttp_session() as session:
+            ctx = _pl.CollectorContext(
                 integration_id=integration_id,
                 organization_id=organization_id,
                 platform=platform,
@@ -286,183 +210,18 @@ async def run_backfill_collection_once(
                 # roteamento descarta em seguida, gastando o job inteiro com ruído.
                 # Para recuperar de propósito o que foi filtrado, o caminho é
                 # explícito — desligar o filtro, rodar o backfill, religar.
-                filters=_load_collection_filters(integration, registration, stream),
+                filters=_pl._load_collection_filters(integration, registration, stream),
             )
-            collector = collector_cls(ctx)
-
+            collector = registration.collector_cls(ctx)
             try:
                 async for raw_event in collector.collect():
-                    msg_id = collector.extract_message_id(raw_event)
-                    if not msg_id:
-                        msg_id = compute_message_id(raw_event)
-
-                    # Dedupe normal — eventos já vistos pelo polling não
-                    # são re-enviados.
-                    if not await claim(
-                        redis,
-                        integration_id,
-                        msg_id,
-                        ttl_seconds=config.effective_dedupe_ttl_seconds,
-                    ):
-                        DEDUPE_DROPS.labels(
-                            vendor=platform, stream=stream
-                        ).inc()
-                        continue
-
-                    # Normalização.
-                    if mapping_current is None:
-                        await _quarantine_async(
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
-                            error_detail="no current MappingVersion configured (backfill)",
-                        )
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MISSING_MAPPING,
-                        ).inc()
-                        continue
-
-                    mapping_version_id, rules, dsl_version = mapping_current
-                    normalize_started = time.monotonic()
-                    try:
-                        applied = default_engine.apply(
-                            mapping_version_id, rules, raw_event,
-                            dsl_version=dsl_version,
-                        )
-                    except MappingRequiredFieldError as exc:
-                        await _quarantine_async(
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                            error_detail=str(exc),
-                            mapping_version_id=mapping_version_id,
-                        )
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                        ).inc()
-                        continue
-                    except MappingError as exc:
-                        logger.warning(
-                            "backfill_pipeline: mapping error vendor=%s event_type=%s: %s",
-                            platform, event_type, exc,
-                        )
-                        await _quarantine_async(
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                            error_detail=str(exc),
-                            mapping_version_id=mapping_version_id,
-                        )
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MAP,
-                        ).inc()
-                        continue
-
-                    envelope_ctx = EnvelopeContext(
-                        vendor=platform,
-                        integration_id=integration_id,
-                        # = Organization.id interno (resolvido acima).
-                        customer_id=envelope_customer_id,
-                        customer_name=organization_name,
-                        organization_slug=organization_slug,
-                        stream=stream,
-                        event_type=event_type,
-                        mapping_version_id=mapping_version_id,
-                        # ``organization_id`` e ``platform`` faltavam aqui e o
-                        # ``pipeline.py`` sempre os enviou. Sem eles o evento de
-                        # backfill sai com org None e o roteador casa SOMENTE
-                        # rotas globais — o mesmo furo já corrigido em
-                        # ``scheduler_tasks.py``. Coleta ao vivo e backfill do
-                        # MESMO integration precisam sair idênticos.
-                        organization_id=organization_id,
-                        platform=platform,
-                    )
-                    envelope = build_envelope(
-                        raw_event,
-                        applied.output,
-                        envelope_ctx,
-                        vendor_msg_id=msg_id,
-                    )
-                    NORMALIZE_LATENCY.labels(
-                        vendor=platform, event_type=event_type
-                    ).observe(time.monotonic() - normalize_started)
-
-                    # customer_id obrigatório.
-                    if not has_customer_id(envelope):
-                        await _quarantine_async(
-                            integration_id=integration_id,
-                            vendor=platform,
-                            event_type=event_type,
-                            raw=raw_event,
-                            error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                            error_detail="customer_id resolved to empty (backfill)",
-                            mapping_version_id=mapping_version_id,
-                        )
-                        QUARANTINE_TOTAL.labels(
-                            vendor=platform,
-                            event_type=event_type,
-                            error_kind=quarantine.ERROR_KIND_MISSING_CUSTOMER_ID,
-                        ).inc()
-                        continue
-
-                    batch.append(envelope)
                     events_collected += 1
-
-                    if (
-                        len(batch) >= config.collector_batch_size
-                        or (time.monotonic() - last_flush)
-                        >= config.collector_batch_flush_seconds
-                    ):
-                        _enqueue_dispatch(batch)
-                        EVENTS_TOTAL.labels(
-                            vendor=platform,
-                            tenant=str(organization_id),
-                            stream=stream,
-                        ).inc(len(batch))
-                        events_dispatched += len(batch)
-                        batch = []
-                        last_flush = time.monotonic()
-
+                    await sink.process(raw_event, _pl._resolve_message_id(collector, raw_event))
             except aiohttp.ClientResponseError as exc:
-                if exc.status == 401:
-                    from .auth.oauth_cache import invalidate as invalidate_token
-                    logger.warning(
-                        "vendor retornou 401 no backfill; invalidando cache OAuth",
-                        extra={
-                            "event": "backfill.vendor_auth_error",
-                            "integration_id": integration_id,
-                            "stream": stream,
-                        },
-                    )
-                    try:
-                        await invalidate_token(redis, integration_id)
-                    except Exception:
-                        logger.exception(
-                            "backfill_pipeline: falha ao invalidar cache oauth"
-                        )
-                    raise VendorAuthError(integration_id, platform) from exc
-                raise
-
-            if batch:
-                _enqueue_dispatch(batch)
-                EVENTS_TOTAL.labels(
-                    vendor=platform,
-                    tenant=str(organization_id),
-                    stream=stream,
-                ).inc(len(batch))
-                events_dispatched += len(batch)
+                await _pl._raise_vendor_auth_error(exc, redis, integration_id, stream, platform)
+            # Flush TERMINAL: grava o resto no raw. Antes dele o cursor do job
+            # não pode avançar.
+            await sink.flush()
 
         # Captura cursor final do contexto.
         final_cursor = ctx.cursor or {}
@@ -474,7 +233,7 @@ async def run_backfill_collection_once(
                 "integration_id": integration_id,
                 "stream": stream,
                 "events_count": events_collected,
-                "events_dispatched": events_dispatched,
+                "events_dispatched": sink.events_count,
             },
         )
 
@@ -484,7 +243,7 @@ async def run_backfill_collection_once(
     return {
         "cursor": final_cursor,
         "events_collected": events_collected,
-        "events_dispatched": events_dispatched,
+        "events_dispatched": sink.events_count if sink is not None else 0,
     }
 
 
@@ -635,6 +394,7 @@ def collect_backfill_job(self, job_id: str) -> Dict[str, Any]:
                     from_ts=from_ts,
                     to_ts=to_ts,
                     initial_cursor=current_cursor,
+                    job_id=job_id,
                 )
             )
 

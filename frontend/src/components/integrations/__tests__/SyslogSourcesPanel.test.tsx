@@ -14,7 +14,7 @@ import { SyslogSourcesPanel } from "../SyslogSourcesPanel"
 const mocked = vi.mocked(api)
 
 const info = (transport: string, streams: string[]): api.IngestInfo => ({
-  integration_id: 7, platform: "fortinet_fortigate", transport, streams, has_token: true, endpoint_base: "/api/ingest", buffer_depth: 0, icon_id: null,
+  integration_id: 7, platform: "fortinet_fortigate", transport, streams, has_token: true, endpoint_base: "/api/ingest", icon_id: null,
 })
 
 const source: api.SyslogSource = {

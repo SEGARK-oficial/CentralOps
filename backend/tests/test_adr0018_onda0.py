@@ -6,16 +6,18 @@ desenho atual. Estes testes fixam o contrato que os fecha:
 * entrega: erro não classificado do sender (conexão recusada pelo destino
   syslog que reinicia, banco fora ao ler o destino) NUNCA commita o offset —
   é transitório; e o commit só acontece com a DLQ confirmada;
-* lane Celery: a última tentativa vai à DLQ, e a DLQ que falha re-tenta;
-* dedupe: a claim que um ciclo morto (SIGKILL/OOM) deixou pendente é solta pelo
-  próximo ciclo, em vez de descartar como "duplicado" o evento re-buscado;
-* push: o dreno não apaga o buffer antes do ciclo confirmar, e buffer cheio
-  recusa o lote novo em vez de apagar eventos já aceitos;
+* dedupe: a claim de um processamento morto (SIGKILL/OOM) não descarta como
+  "duplicado" o evento relido;
+* push: o evento só é confirmado depois de gravado, e o que não gravou fica
+  retido para a próxima tentativa em vez de sumir;
 * syslog TCP: frames octet-counted colados (RFC 6587) chegam todos;
 * roteamento: supressão vale só para os destinos da rota que suprimiu; rota que
   não compila retém o lote em vez de mandar tudo ao destino default.
 
-Por convenção do projeto, este arquivo é o artefato durável da decisão.
+Por convenção do projeto, este arquivo é o artefato durável da decisão. A Onda 5
+tirou a lane Celery de entrega, a claim Redis por evento e a lista Redis do push;
+os testes daqui que os exercitavam provam agora o mesmo contrato pelo caminho
+que ficou (janela de dedupe do processor, raw com ack).
 """
 
 from __future__ import annotations
@@ -23,12 +25,11 @@ from __future__ import annotations
 import asyncio
 import os
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12345")
 os.environ.setdefault("APP_ENV", "test")
 
-import fakeredis.aioredis
 import pytest
 
 from backend.app.collectors import pipeline
@@ -36,7 +37,7 @@ from backend.app.collectors.dataplane import kafka_transport as kt
 from backend.app.collectors.delivery import TransientDeliveryError
 from backend.app.collectors.routing import CompiledRoute
 from backend.app.collectors.routing.engine import route_batch
-from backend.app.collectors.state import dedupe
+from backend.app.collectors.state.dedupe_window import DedupeWindow
 from backend.app.collectors.tests.test_dataplane_consumer import (
     _FakeConsumer,
     _install,
@@ -64,54 +65,85 @@ def _run(coro):
     ],
 )
 async def test_unknown_delivery_error_never_commits(monkeypatch, error):
+    """Erro desconhecido é transitório: re-tentado, e o offset só anda com a entrega
+    ou o estacionamento confirmados (Ondas 0 e 4a)."""
+    import threading
+
+    stop = threading.Event()
+
     async def _dispatch(dest, batch):
         raise error
 
     fake = _FakeConsumer([_msg(5, "wazuh-default", [{"e": 1}])])
     dlq: list = []
     _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 2)
 
-    await kt.run_dispatch_consumer()
+    from backend.app.collectors.dataplane import parked as _parked
+
+    async def _park_refused(value, destination_id, reason):
+        stop.set()
+        return False
+
+    monkeypatch.setattr(_parked, "park", _park_refused)
+    await kt.run_dispatch_consumer(stop_event=stop)
 
     assert fake.commits == []          # nada commitado: o lote segue no tópico
-    assert len(fake.seeks) == 1        # relido com backoff
-    assert dlq == []                   # ainda não esgotou
+    assert dlq == []                   # transitório nunca vira DLQ
 
 
-async def test_unknown_delivery_error_exhausted_goes_to_dlq(monkeypatch):
+async def test_unknown_delivery_error_exhausted_is_parked(monkeypatch):
+    calls: list = []
+
     async def _dispatch(dest, batch):
+        calls.append(dest)
         raise ConnectionRefusedError("destino fora")
 
-    # A mesma mensagem 3× (o fake não re-enfileira no seek): a 3ª passa do teto.
-    fake = _FakeConsumer([_msg(1, "d", [{"e": 1}]) for _ in range(3)])
+    fake = _FakeConsumer([_msg(1, "d", [{"e": 1}])])
     dlq: list = []
-    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    parked: list = []
+    _install(monkeypatch, fake, _dispatch, dlq_capture=dlq, park_capture=parked)
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 2)
 
     await kt.run_dispatch_consumer()
 
-    assert [d["error_kind"] for d in dlq] == ["exhausted"]
+    # Onda 4a: esgotado ESTACIONA (espera no Kafka), não vai à DLQ do Postgres.
+    assert len(calls) == 3
+    assert dlq == []
+    assert [p["reason"] for p in parked] == ["exhausted"]
     assert len(fake.commits) == 1
 
 
 @pytest.mark.parametrize("kind", ["breaker_open", "exhausted"])
-async def test_dlq_write_failure_blocks_commit(monkeypatch, kind):
+async def test_park_failure_blocks_commit(monkeypatch, kind):
+    import threading
+
     from backend.app.collectors import circuit_breaker
+    from backend.app.collectors.dataplane import parked as _parked
+
+    stop = threading.Event()
 
     async def _dispatch(dest, batch):
         if kind == "breaker_open":
             raise circuit_breaker.BreakerOpen(dest)
         raise TransientDeliveryError(dest)
 
-    n = 1 if kind == "breaker_open" else 2
-    fake = _FakeConsumer([_msg(7, "d", [{"e": 1}]) for _ in range(n)])
-    _install(monkeypatch, fake, _dispatch, dlq_capture=[], dlq_ok=False)
+    fake = _FakeConsumer([_msg(7, "d", [{"e": 1}])])
+    _install(monkeypatch, fake, _dispatch, dlq_capture=[])
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 1)
+    refused: list = []
 
-    await kt.run_dispatch_consumer()
+    async def _park_refused(value, destination_id, reason):
+        refused.append(reason)
+        if len(refused) == 2:          # re-tentou e o broker segue recusando
+            stop.set()
+        return False
 
-    assert fake.commits == []          # DLQ não confirmou → offset NÃO avança
-    assert fake.seeks                  # o lote é relido depois
+    monkeypatch.setattr(_parked, "park", _park_refused)
+    await kt.run_dispatch_consumer(stop_event=stop)
+
+    assert refused == [kind, kind]     # re-tenta estacionar, não desiste
+    assert fake.commits == []          # estacionar não confirmou → offset NÃO avança
 
 
 async def test_sender_connection_error_is_retried_then_transient():
@@ -138,38 +170,6 @@ async def test_sender_connection_error_is_retried_then_transient():
     assert cb.record_failure_for_config.await_count == 3
 
 
-def test_celery_last_retry_goes_to_dlq(monkeypatch):
-    from backend.app.collectors import tasks
-
-    def _boom(*a, **k):
-        raise TransientDeliveryError("d")
-
-    monkeypatch.setattr(tasks, "run_coro_blocking", _boom)
-    sent: list = []
-    monkeypatch.setattr(
-        tasks.dispatch_to_dlq, "apply_async", lambda **kw: sent.append(kw["kwargs"])
-    )
-    task = SimpleNamespace(request=SimpleNamespace(retries=10), max_retries=10)
-
-    tasks._run_dispatch_to_destination(task, "d", [{"e": 1}])   # não levanta
-
-    assert [k["error_kind"] for k in sent] == ["exhausted"]
-
-
-def test_celery_dlq_write_failure_retries(monkeypatch):
-    from backend.app.collectors import delivery, tasks
-
-    monkeypatch.setattr(delivery, "persist_batch_dlq", lambda *a, **k: False)
-
-    class _Retry(Exception):
-        pass
-
-    with patch.object(tasks.dispatch_to_dlq, "retry", side_effect=_Retry) as retry:
-        with pytest.raises(_Retry):
-            tasks.dispatch_to_dlq.run([{"e": 1}], destination_id="d", error_kind="exhausted")
-    assert retry.called
-
-
 def test_unrouted_dlq_failure_holds_the_batch(monkeypatch):
     """Sem rota e sem default, a DLQ é o único destino: se ela falha, o lote falha
     ANTES de qualquer produce (o ciclo volta o cursor)."""
@@ -190,120 +190,52 @@ def test_unrouted_dlq_failure_holds_the_batch(monkeypatch):
 
 
 def test_orphan_claim_is_released_by_the_next_cycle():
-    async def go():
-        r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        pend = dedupe.pending_set_key(42, "alerts")
-        # Ciclo A reivindica 2 eventos, liquida 1 e leva SIGKILL (sem finally).
-        assert await dedupe.claim(r, 42, "e1", ttl_seconds=86400, pending_set=pend)
-        assert await dedupe.claim(r, 42, "e2", ttl_seconds=86400, pending_set=pend)
-        await dedupe.settle_pending(r, pend, ["e1"])
-        # Ciclo B (com a trava) recupera ANTES de reivindicar.
-        recovered = await dedupe.recover_orphan_claims(r, 42, pend)
-        e1_again = await dedupe.claim(r, 42, "e1", ttl_seconds=86400, pending_set=pend)
-        e2_again = await dedupe.claim(r, 42, "e2", ttl_seconds=86400, pending_set=pend)
-        await r.aclose()
-        return recovered, e1_again, e2_again
+    """A claim mora na janela em memória do processor (Onda 5). Um processo
+    morto leva a janela junto, e quem relê o lote do Kafka (o próximo dono da
+    partição) começa com a janela vazia: o evento em voo é processado, não
+    descartado como "duplicado" — não há claim persistente para ficar órfã."""
+    from backend.app.collectors.dataplane import processor as proc
 
-    recovered, e1_again, e2_again = _run(go())
-    assert recovered == 1
-    assert e1_again is False   # liquidado (já saiu): continua duplicado
-    assert e2_again is True    # órfão: reprocessado, não descartado
+    dying = DedupeWindow(max_ids=100, ttl_seconds=86400)
+    assert dying.claim(42, "e1") and dying.claim(42, "e2")
+    dying.settle(42, ["e1"])
+    # SIGKILL aqui: nenhum ``finally`` roda. O novo dono da partição cria a sua.
+    proc._DEDUPE_WINDOWS.pop(7, None)
+    fresh = proc._window_for(7)
+    assert fresh is not dying
+    assert fresh.claim(42, "e2") is True   # em voo: reprocessado
+    proc._DEDUPE_WINDOWS.pop(7, None)
 
 
-def test_duplicate_claim_does_not_enter_pending_set():
-    """O SADD só acontece quando a claim é DESTE ciclo — senão a recuperação
-    soltaria a claim já liquidada de outro ciclo."""
-
-    async def go():
-        r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await dedupe.claim(r, 1, "x", ttl_seconds=86400)                       # outro ciclo
-        pend = dedupe.pending_set_key(1, "s")
-        dup = await dedupe.claim(r, 1, "x", ttl_seconds=86400, pending_set=pend)
-        members = await r.smembers(pend)
-        await r.aclose()
-        return dup, members
-
-    dup, members = _run(go())
-    assert dup is False and not members
+# ── Push: confirmado só depois de gravado ───────────────────────────────────
 
 
-@pytest.mark.source_only  # lê o .py; na imagem Cython o fonte não existe
-def test_cycle_recovers_orphans_before_claiming():
-    import inspect
+def test_push_drain_survives_abort(monkeypatch):
+    """Não há mais dreno de lista Redis: o receptor syslog grava no raw e, se o
+    broker recusa, retém o lote em memória e o grava inteiro na próxima vez —
+    nada se perde e nada é gravado duas vezes."""
+    from backend.app.collectors.dataplane import raw as raw_mod
+    from backend.app.syslog import server as srv
 
-    src = inspect.getsource(pipeline._run_collection_once)
-    assert "recover_orphan_claims(" in src
-    assert src.index("recover_orphan_claims(") < src.index("await claim(")
-    assert "pending_set=_pending_set" in src
+    written: list = []
+    calls = {"n": 0}
 
+    async def _produce(iid, stream, events, ids=None, historical=False):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ConnectionError("broker fora")
+        written.extend(e["i"] for e in events)
+        return len(events)
 
-# ── Push: dreno confiável e backpressure sem apagar dado aceito ─────────────
+    monkeypatch.setattr(raw_mod, "produce_raw_async", _produce)
+    rec = srv.Receiver(sources=srv.SourceTable([]), registry_has=lambda p, s: True,
+                       batch_max=100, flush_ms=10, max_line=1024)
+    rec._queues[(3, "traffic", "fortinet_fortigate")] = [{"i": i} for i in range(4)]
 
-
-def test_push_drain_survives_abort():
-    from backend.app.collectors import ingest_buffer as ib
-
-    async def go():
-        r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await ib.push_events(r, 3, "traffic", [{"i": i} for i in range(4)])
-        first = await ib.drain_events(r, 3, "traffic")
-        # ciclo falhou ou morreu: nada confirmado → o próximo dreno relê tudo
-        again = await ib.drain_events(r, 3, "traffic")
-        await ib.ack_drained(r, 3, "traffic")
-        after_ack = await ib.drain_events(r, 3, "traffic")
-        await r.aclose()
-        return first, again, after_ack
-
-    first, again, after_ack = _run(go())
-    assert [e["i"] for e in first] == [0, 1, 2, 3]
-    assert sorted(e["i"] for e in again) == [0, 1, 2, 3]
-    assert after_ack == []
-
-
-def test_push_collector_acks_only_after_full_drain_and_commit():
-    from backend.app.collectors import ingest_buffer as ib
-    from backend.app.collectors.vendors.push_ingest import FortiGateTrafficCollector
-
-    async def go():
-        r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await ib.push_events(r, 5, "traffic", [{"i": i} for i in range(3)])
-        col = FortiGateTrafficCollector.__new__(FortiGateTrafficCollector)
-        col.ctx = SimpleNamespace(redis=r, integration_id=5)
-
-        gen = col.collect()
-        await gen.__anext__()                 # pipeline parou no 1º evento
-        await gen.aclose()
-        await col.on_cycle_committed()        # não pode confirmar o dreno inteiro
-        partial = await r.llen(ib.inflight_key(5, "traffic"))
-
-        seen = [e async for e in col.collect()]
-        await col.on_cycle_aborted()          # erro: mantém
-        kept = await r.llen(ib.inflight_key(5, "traffic"))
-
-        _ = [e async for e in col.collect()]
-        await col.on_cycle_committed()        # sucesso: apaga
-        done = await r.llen(ib.inflight_key(5, "traffic"))
-        await r.aclose()
-        return partial, len(seen), kept, done
-
-    partial, seen, kept, done = _run(go())
-    assert partial == 3 and seen == 3 and kept == 3 and done == 0
-
-
-def test_push_full_buffer_refuses_new_batch_and_keeps_accepted():
-    from backend.app.collectors import ingest_buffer as ib
-
-    async def go():
-        r = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await ib.push_events(r, 9, "t", [{"i": i} for i in range(3)], max_len=3)
-        res = await ib.push_events(r, 9, "t", [{"i": 99}], max_len=3)
-        drained = await ib.drain_events(r, 9, "t")
-        await r.aclose()
-        return res, drained
-
-    res, drained = _run(go())
-    assert res == (0, 1)
-    assert [e["i"] for e in drained] == [0, 1, 2]
+    assert _run(rec.flush()) == 0          # falhou: retido
+    assert rec.pending() == 4 and written == []
+    assert _run(rec.flush()) == 4          # próxima tentativa grava tudo
+    assert written == [0, 1, 2, 3] and rec.pending() == 0
 
 
 # ── Syslog TCP: framing RFC 6587 ─────────────────────────────────────────────

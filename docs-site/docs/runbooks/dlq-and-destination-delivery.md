@@ -6,7 +6,11 @@ description: Diagnostique e reprocesse eventos que falharam ao serem entregues a
 
 # Fila de reenvio e entrega a destinos
 
-Quando um evento já normalizado não consegue ser entregue a um destino (por exemplo Splunk, Amazon S3 ou Microsoft Sentinel), o CentralOps não o descarta: ele guarda o evento na **fila de reenvio** daquele destino. Esta página mostra como inspecionar essa fila, descobrir por que a entrega falhou e reprocessar os eventos pela interface, sem perder nada.
+Quando um destino (por exemplo Splunk, Amazon S3 ou Microsoft Sentinel) **recusa** um evento de vez — credencial inválida, formato que ele não aceita, evento grande demais —, o CentralOps não o descarta: ele guarda o evento na **fila de reenvio** daquele destino. Esta página mostra como inspecionar essa fila, descobrir por que a entrega falhou e reprocessar os eventos pela interface, sem perder nada.
+
+:::info[Destino fora do ar não usa a fila de reenvio]
+Quando o destino está fora do ar, lento ou recusando conexão, os lotes **esperam no estacionamento** do data-plane e saem sozinhos, na ordem, quando ele volta. A aba **Saúde** do destino mostra o aviso **Esperando o destino voltar**, com quantos lotes e eventos estão parados e desde quando. Não há nada a reprocessar nesse caso. Veja [Destino externo fora do ar](./destination-down.md).
+:::
 
 :::info[Quem tem acesso]
 As telas de **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para administradores da plataforma. Se você não as vê no menu, peça ao administrador para conduzir os passos abaixo.
@@ -16,7 +20,7 @@ As telas de **Destinos**, **Roteamento** e **Fluxo de dados** só aparecem para 
 
 Recorra a esta página quando, na operação do SOC, você perceber alguma destas situações:
 
-- **Um destino ficou fora do ar e voltou.** O Sentinel (ou o coletor Splunk) passou horas indisponível durante a madrugada. Os eventos não se perderam, ficaram na fila de reenvio. Depois que o destino volta, você reprocessa a fila para entregar o que ficou represado.
+- **Um destino começou a recusar eventos.** O Sentinel passou a rejeitar os eventos porque a regra de coleta mudou, ou o Splunk recusa eventos grandes demais. Os eventos não se perderam: ficaram na fila de reenvio, com o motivo. Depois de corrigir a causa, você reprocessa a fila.
 - **Faltam eventos em uma ferramenta de busca externa.** Um analista relata que alertas de um conector pararam de aparecer no Splunk a partir de certo horário. Você verifica a saúde do destino e descobre rejeições acumuladas na fila de reenvio.
 - **Trocou-se uma credencial ou um certificado.** Um token de envio expirou e as entregas começaram a ser recusadas por erro de autenticação. Após o administrador atualizar a credencial, você reprocessa a fila para reenviar o que falhou nesse intervalo.
 
@@ -68,11 +72,10 @@ Todo o trabalho desta página acontece no menu **Roteia -> Destinos**. Abra a te
 | Evento grande demais | O evento ultrapassa o tamanho máximo aceito pelo destino — quase sempre porque o payload bruto do fornecedor é enorme. | Corte o payload bruto no mapeamento (bloco `raw_reduction`) **ou** ligue **Descartar o evento bruto** na rota daquele destino. Veja o aviso logo abaixo da tabela. |
 | Formato recusado | O destino rejeitou o formato do evento (campo com tipo inválido, estrutura inesperada). | Revise o mapeamento e o formato esperado pelo destino. Antes de reativar o tráfego, use o teste de pré-visualização descrito na seção **Prevenção**. |
 | Autenticação | Credencial inválida ou expirada. | Peça ao administrador para atualizar a credencial do destino. Confira também a configuração de certificado/TLS. |
-| Transporte | Problema de rede: tempo esgotado ou conexão recusada. | Valide a conectividade até o destino e use o **teste de conexão** do card. |
-| Proteção acionada | A proteção contra destino instável está aberta porque o destino ficou indisponível por muito tempo. | Aguarde a recuperação automática (em geral poucos minutos) ou faça um novo teste de conexão. |
-| Tentativas esgotadas | O CentralOps tentou reenviar várias vezes e a falha persistiu. | Investigue o lado do destino ou da rede. Quando o problema for resolvido, reprocesse a fila (Sintoma 5). |
 | Sem rota (`unrouted`) | O evento não bateu em nenhuma regra de roteamento e não há catch-all configurado, então não tinha para onde ir. | Em **Roteia -> Rotas**, crie uma regra pega-tudo (condição vazia) ou marque um destino como padrão — qualquer destino pode assumir esse papel. Depois reprocesse a fila (Sintoma 5). Veja [Evento foi para o destino errado (ou nenhum)](./routing-misroute.md). |
 | Não classificado | Erro fora das categorias acima. | Abra o evento para ver o detalhe do erro e ganhar contexto. |
+
+Problemas de rede, tempo esgotado e destino fora do ar **não aparecem aqui**: esses lotes esperam no estacionamento e saem sozinhos (aviso **Esperando o destino voltar** na aba **Saúde**). Registros antigos com os tipos "Transporte", "Proteção acionada" ou "Tentativas esgotadas" são de antes dessa mudança e podem ser reprocessados normalmente.
 
 4. Clique em um evento da fila para ver o conteúdo (já com dados sensíveis ocultos) e o detalhe específico do erro.
 
@@ -121,7 +124,7 @@ Panorama das alavancas em [Redução de volume e custo](../outputs/reducao-de-vo
 - **Problema de rede:** acione a equipe responsável pela rede ou pelo destino.
 - **Certificado inválido:** o pacote de certificados (CA) usado para validar o destino é definido pela equipe de infraestrutura no momento do deploy. Se precisar alterá-lo, fale com o administrador da plataforma.
 
-Depois que a conectividade for restabelecida, siga para o **Sintoma 5** para reprocessar o que ficou retido.
+Depois que a conectividade for restabelecida, os lotes estacionados saem sozinhos — o aviso **Esperando o destino voltar** some quando o último sair. Só o que o destino recusou de vez (a fila de reenvio) precisa do **Sintoma 5**.
 
 ## Sintoma 5: "Preciso reprocessar os eventos da fila de reenvio"
 

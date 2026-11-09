@@ -70,25 +70,22 @@ def test_raw_oversized_event_rejected_before_any_write(monkeypatch):
 # que tem o fixture do app.
 
 
-# ── Syslog no modo kafka ─────────────────────────────────────────────────────
+# ── Syslog grava no raw ──────────────────────────────────────────────────────
 
 
 def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
-    from backend.app.collectors import ingest_buffer
     from backend.app.collectors.dataplane import raw as raw_module
     from backend.app.syslog import server as srv
 
-    monkeypatch.setattr(settings, "EVENT_DATAPLANE", "kafka")
     produced: list = []
 
-    async def _produce(iid, stream, events):
+    async def _produce(iid, stream, events, ids=None, historical=False):
         produced.append((iid, stream, len(events)))
         return len(events)
 
     monkeypatch.setattr(raw_module, "produce_raw_async", _produce)
 
     rec = srv.Receiver.__new__(srv.Receiver)
-    rec.redis = object()  # qualquer uso do Redis quebraria
     rec._queues = {(3, "traffic", "fortinet_fortigate"): [{"m": 1}, {"m": 2}]}
     rec.batch_max = 500
     rec.stats = {}
@@ -96,58 +93,49 @@ def test_syslog_flush_writes_to_raw_in_kafka_mode(monkeypatch):
     total = _run(rec.flush())
     assert total == 2 and produced == [(3, "traffic", 2)]
     assert not rec._queues
-    assert ingest_buffer.push_goes_to_kafka()
 
 
-# ── Coletor push lendo o lote do Kafka ───────────────────────────────────────
+# ── Processor → estágio de processamento (sem ciclo de coleta desde a Onda 3) ──
 
 
-class _NoRedis:
-    def __getattr__(self, name):  # pragma: no cover — qualquer chamada falha o teste
-        raise AssertionError(f"coletor tocou o Redis ({name}) com lote do Kafka")
-
-
-def test_push_collector_reads_raw_batch_and_skips_redis():
-    from backend.app.collectors.vendors.push_ingest import (
-        RAW_BATCH,
-        FortiGateTrafficCollector,
-        RawBatch,
-    )
-
-    async def go():
-        col = FortiGateTrafficCollector.__new__(FortiGateTrafficCollector)
-        col.ctx = types.SimpleNamespace(redis=_NoRedis(), integration_id=5)
-        batch = RawBatch(events=[{"i": 1}, {"i": 2}])
-        tok = RAW_BATCH.set(batch)
-        try:
-            seen = [e["i"] async for e in col.collect()]
-            await col.on_cycle_committed()
-            await col.on_cycle_aborted()
-        finally:
-            RAW_BATCH.reset(tok)
-        return seen, batch.consumed
-
-    assert _run(go()) == ([1, 2], True)
-
-
-def test_processor_cycle_is_partition_scoped(monkeypatch):
+def test_processor_group_goes_straight_to_the_processing_stage(monkeypatch):
+    """O lote do raw vai direto ao ``StreamProcessor`` (``process_raw_events``),
+    com a janela de dedupe da partição e os ids gravados pelo coletor."""
     from backend.app.collectors import pipeline
-    from backend.app.collectors.vendors.push_ingest import RAW_BATCH
 
     seen: dict = {}
 
-    async def _cycle(iid, stream):
-        batch = RAW_BATCH.get()
-        seen.update(iid=iid, stream=stream, scope=pipeline.PENDING_SCOPE.get(), n=len(batch.events))
-        batch.consumed = True
+    async def _stage(iid, stream, events, *, dedupe, ids=None, historical=False):
+        seen.update(iid=iid, stream=stream, n=len(events), ids=ids, historical=historical)
+        seen.setdefault("windows", []).append(dedupe)
+        return True
 
-    monkeypatch.setattr(pipeline, "_run_collection_once", _cycle)
-    consumed = _run(proc.process_group(9, "security", [{"x": 1}], partition=3))
+    def _no_cycle(*a, **k):  # pragma: no cover — qualquer chamada falha o teste
+        raise AssertionError("o processor voltou a rodar o ciclo de coleta")
+
+    monkeypatch.setattr(pipeline, "process_raw_events", _stage)
+    monkeypatch.setattr(pipeline, "_run_collection_once", _no_cycle)
+    consumed = _run(proc.process_group(9, "security", [{"x": 1}], partition=3, ids=["a"]))
+    _run(proc.process_group(9, "security", [{"x": 2}], partition=3, ids=["b"]))
+    _run(proc.process_group(9, "security", [{"x": 3}], partition=4, ids=["c"]))
 
     assert consumed is True
-    assert seen == {"iid": 9, "stream": "security", "scope": "raw-p3", "n": 1}
-    assert pipeline.PENDING_SCOPE.get() == ""      # contexto restaurado
-    assert RAW_BATCH.get() is None
+    windows = seen.pop("windows")
+    assert seen == {"iid": 9, "stream": "security", "n": 1, "ids": ["c"], "historical": False}
+    # Onda 3c: uma janela de dedupe por partição, a MESMA entre lotes dela.
+    from backend.app.collectors.state.dedupe_window import DedupeWindow
+
+    assert all(isinstance(w, DedupeWindow) for w in windows)
+    assert windows[0] is windows[1] and windows[0] is not windows[2]
+
+
+def test_push_collector_no_longer_reads_a_kafka_batch():
+    """O atalho ``RAW_BATCH`` (Onda 2) sumiu com o ciclo no processor: o coletor
+    push só drena a lista Redis do modo sem broker."""
+    from backend.app.collectors.vendors import push_ingest
+
+    assert not hasattr(push_ingest, "RAW_BATCH")
+    assert not hasattr(push_ingest, "RawBatch")
 
 
 # ── Consumer do processor: commit só depois, DLQ quando preciso ──────────────
@@ -172,6 +160,9 @@ class _FakeConsumer:
         self.revoked: set = set()
         self.commits: list = []
         self.seeks: list = []
+
+    def subscribe(self, topics, listener=None):
+        self.topics, self.listener = list(topics), listener
 
     async def start(self):
         pass
@@ -237,7 +228,7 @@ def _install(monkeypatch, batches, *, cycle, dlq_ok=True, dlq=None):
 def test_processor_commits_after_cycle_groups_consecutive(monkeypatch):
     calls: list = []
 
-    async def _cycle(iid, stream, events, partition):
+    async def _cycle(iid, stream, events, partition, ids=None, historical=False):
         calls.append((iid, stream, len(events)))
         return True
 
@@ -326,7 +317,7 @@ def test_processor_survives_rebalance_mid_cycle(monkeypatch):
     tp = _TP(5)
     fake_holder: dict = {}
 
-    async def _cycle(iid, stream, events, partition):
+    async def _cycle(iid, stream, events, partition, ids=None, historical=False):
         fake_holder["fake"].revoked.add(tp)
         return True
 

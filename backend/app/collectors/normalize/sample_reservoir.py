@@ -70,6 +70,38 @@ async def push(
         )
 
 
+async def push_many(
+    redis: "redis_async.Redis",
+    organization_id: int,
+    vendor: str,
+    event_type: str,
+    raws: "list[Mapping[str, Any]]",
+    *,
+    capacity: int = DEFAULT_CAPACITY,
+) -> None:
+    """Versão em lote de :func:`push` (ADR-0018 Onda 3c): UM pipeline por lote em
+    vez de um por evento. Só os ``capacity`` mais novos importam — o ring buffer
+    descartaria o resto no LTRIM —, então só eles são serializados."""
+    if capacity <= 0 or not raws:
+        return
+    key = _key(organization_id, vendor, event_type)
+    serialized = []
+    for raw in raws[-capacity:]:
+        try:
+            serialized.append(json.dumps(raw, default=str, separators=(",", ":")))
+        except (TypeError, ValueError):
+            continue
+    if not serialized:
+        return
+    try:
+        pipe = redis.pipeline()
+        pipe.lpush(key, *serialized)
+        pipe.ltrim(key, 0, capacity - 1)
+        await pipe.execute()
+    except Exception as exc:  # pragma: no cover — best-effort
+        logger.warning("sample_reservoir: falha ao empurrar lote (%s): %s", key, exc)
+
+
 async def peek(
     redis: "redis_async.Redis",
     organization_id: int,

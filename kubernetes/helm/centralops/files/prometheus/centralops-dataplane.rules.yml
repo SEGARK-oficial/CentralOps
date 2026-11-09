@@ -78,6 +78,32 @@ groups:
             o destino e reprocesse pela tela de Destinos.
           runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
 
+      - alert: CentralOpsParkedBacklog
+        expr: sum(collector_parked_lag) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lotes estacionados há 30 min esperando um destino voltar"
+          description: >-
+            Um destino está fora do ar ou recusando há pelo menos 30 minutos e os
+            lotes dele esperam no tópico de estacionamento (nada se perdeu). Eles
+            saem sozinhos quando o destino volta; a tela do destino mostra quantos.
+          runbook: docs-site/docs/runbooks/destination-down.md
+
+      - alert: CentralOpsParkedNearRetention
+        expr: max(collector_parked_head_age_seconds) > 432000
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Lote estacionado há mais de 5 dias — perto da retenção do tópico"
+          description: >-
+            O tópico de estacionamento guarda lotes por 7 dias (KAFKA_PARKED_RETENTION_MS).
+            Passado isso, o Kafka apaga o lote e os eventos se perdem. Recupere o
+            destino ou aumente a retenção do tópico antes disso.
+          runbook: docs-site/docs/runbooks/destination-down.md
+
   - name: centralops-push
     rules:
       - alert: CentralOpsRawProcessingToDLQ
@@ -136,21 +162,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "O Redis de dedupe está evictando chaves"
+          summary: "O Redis está evictando chaves"
           description: >-
-            Com evicção, eventos re-buscados podem ser reentregues em duplicidade,
-            e travas e tokens também podem ser evictados. Aumente a memória do
-            Redis ou reduza o TTL de dedupe (chaves ≈ EPS × TTL).
+            Com evicção, cursores, travas, tokens OAuth e estado do disjuntor
+            podem sumir. O Redis guarda só estado de controle (o dedupe por evento
+            saiu no ADR-0018 Onda 5): aumente a memória dele.
           runbook: docs-site/docs/runbooks/redis-capacity.md
-
-      - alert: CentralOpsPushBufferRefusing
-        expr: sum by (vendor, stream) (rate(collector_ingest_dropped_total[5m])) > 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Buffer push recusando lotes com 503 ({{ $labels.vendor }}/{{ $labels.stream }})"
-          description: >-
-            O edge-collector recebe 503 e re-tenta pelo buffer de disco dele. Se
-            durar, o disco do edge enche: aumente a capacidade de dreno.
-          runbook: docs-site/docs/runbooks/collection-lag-backlog.md

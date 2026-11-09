@@ -27,7 +27,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" . }}-frontend
 {{- end }}
-{{- if and (eq .Values.dataPlane.eventDataplane "kafka") .Values.dataPlane.dispatcher.pdb.enabled }}
+{{- if .Values.dataPlane.dispatcher.pdb.enabled }}
 ---
 # Onda 4 (hardening) — PDB do consumer do data-plane.
 # maxUnavailable:1 (não minAvailable:1) permite drain de nó mesmo quando
@@ -45,7 +45,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ include "centralops.fullname" . }}-kafka-dispatcher
 {{- end }}
-{{- if and (eq .Values.dataPlane.eventDataplane "kafka") .Values.dataPlane.processor.pdb.enabled }}
+{{- if .Values.dataPlane.processor.pdb.enabled }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

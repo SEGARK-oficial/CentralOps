@@ -1,26 +1,15 @@
-"""Idempotência por ``message_id``.
+"""Identidade de evento, supressão por assinatura e saúde do Redis.
 
-Estratégia:
+``compute_message_id`` dá o id de dedupe de um evento: o id nativo do vendor
+quando existe (mais robusto a replays), senão SHA-256 sobre um conjunto
+determinístico de campos — cuidado para não incluir timestamps de coleta ou
+headers que mudem entre reenvios.
 
-    SET dedupe:{integration_id}:{message_id} 1 NX EX <ttl>
-
-O ``NX`` garante atomicidade: só o primeiro worker a ver o evento
-consegue reclamar a chave; os demais recebem ``None`` e devem
-descartar o evento silenciosamente.
-
-``compute_message_id`` tenta usar o id nativo do vendor (mais robusto a
-replays). Quando o evento não tem id natural, cai em SHA-256 sobre um
-conjunto determinístico de campos — cuidado para não incluir timestamps
-de coleta ou headers que mudem entre reenvios.
-
-**Este é o ÚNICO guard de idempotência no hot path** (1 round-trip Redis por
-evento — o gargalo dominante do pipeline, ~2-4k EPS/task). O Redis do compose
-roda ``volatile-lru`` com 512mb (compose/docker-compose.yml) — memória finita.
-Um TTL longo demais contra memória finita = evicção silenciosa: a chave
-``dedupe:*`` some ANTES do TTL lógico expirar, o próximo `claim()` do MESMO
-evento retorna ``True`` (parece novo) e o evento é reentregue como duplicata
-— sem exceção, sem log, sem sinal algum (já houve incidente real com 310k
-chaves evicted). Ver ``sample_redis_health`` abaixo para tornar isso visível.
+O dedupe em si NÃO mora mais aqui: é a janela em memória por partição do raw
+(``state.dedupe_window``, ADR-0018 Onda 3c). A chave Redis por evento com TTL
+(``dedupe:{integração}:{id}``), o conjunto de claims pendentes e o TTL
+configurável saíram na Onda 5 — eram o gargalo do caminho quente (1 round-trip
+por evento) e a fonte de evicção silenciosa do Redis.
 """
 
 from __future__ import annotations
@@ -36,116 +25,6 @@ import redis.asyncio as redis_async
 from .. import metrics
 
 logger = logging.getLogger(__name__)
-
-# TTL default do dedupe (dias) — usado só como fallback do parâmetro de
-# ``claim()``; em produção o valor real vem de settings/config (por-org, ver
-# ``config_loader.CollectorConfigSnapshot.dedupe_ttl_days`` e
-# ``core.config.Settings.DEDUPE_TTL_DAYS``, ambos default 1 dia após esta
-# revisão).
-#
-# Por que 1 dia (era 7): o TTL só precisa cobrir a janela real de REENTREGA
-# possível — não é dedupe de longo prazo (isso é papel do destino, ver
-# docstring de ``release()`` abaixo). Medido neste repo:
-#   - overlap de polling entre ciclos: schedule por vendor é de 1-5 min
-#     (registry.py: sophos=1min; defender/crowdstrike/okta/wazuh=2min;
-#     veeam/ninjaone/aws=5min) — a janela onde o MESMO evento pode aparecer
-#     em dois polls consecutivos é da ordem de minutos.
-#   - retry automático do Celery (tasks.py collect_vendor_logs_*): backoff
-#     exponencial com jitter, teto 120s/600s, max_retries 5/8 — soma do pior
-#     caso (sem contar tempo de execução) < 5 min.
-#   - crash TOTAL do worker ANTES do except de pipeline.py:784-798 rodar
-#     (SIGKILL/OOM — o release() nunca executa, a claim fica ÓRFÃ): o pior
-#     caso de redelivery é limitado pelo broker Redis via
-#     acks_late+task_reject_on_worker_lost+visibility_timeout=3600s (1h),
-#     invariante já documentada em celery_app.py:248-256
-#     (DISPATCH_RESULT_TIMEOUT(600) < soft(720) < hard(900) < visibility(3600)).
-# 24h dá ~24x de folga sobre o pior caso AUTOMÁTICO (1h) e ainda cobre um
-# replay MANUAL do mesmo turno (operador investigando um incidente). E, ao
-# contrário do TTL de 7 dias, uma claim ÓRFÃ (crash que nunca chama release())
-# agora tem raio de silêncio máximo de 24h em vez de 7 dias — ela se
-# auto-cicatriza (expira e volta a ser reclamável) muito mais rápido, E o
-# footprint de memória do keyspace ``dedupe:*`` cai ~7x (chaves vivem 1 dia em
-# vez de 7), aliviando diretamente a pressão que causa evicção sob os 512mb do
-# compose. Isto é seguro reduzir porque o dedupe Redis é OTIMIZAÇÃO, não a
-# única linha de defesa: reentregas além do TTL são absorvidas pelo dedupe no
-# destino por ``event_id`` (at-least-once — ver docstring de ``release()``).
-#
-# NÃO baixe abaixo de ~1h (o teto de visibility_timeout) sem reavaliar a
-# invariante — ver test_dedupe_ttl_invariant.py.
-DEFAULT_TTL_DAYS = 1
-DEFAULT_TTL_SECONDS = DEFAULT_TTL_DAYS * 86400
-
-#: PISO do TTL, em segundos. Derivado da mesma invariante que
-#: ``test_dedupe_ttl_invariant`` ancora: o TTL precisa cobrir 4× o pior caso de
-#: redelivery automático (``visibility_timeout`` = 3600s), senão uma claim ÓRFÃ
-#: expira e é re-reclamada como "evento novo" ANTES de o broker desistir de
-#: redeliverar — dois workers processando o mesmo evento como independentes.
-#: NÃO baixe sem revisitar o teste de invariante.
-MIN_TTL_SECONDS = 4 * 3600
-
-#: TETO — 31 dias. Acima disso o keyspace vira o problema (ver a fórmula de
-#: capacidade em docs-site/docs/operations/): chaves ≈ EPS × TTL_segundos.
-MAX_TTL_SECONDS = 31 * 86400
-
-KEY_TMPL = "dedupe:{integration_id}:{message_id}"
-
-#: Conjunto das claims PENDENTES de um ciclo de (integração, stream): reivindicadas
-#: e ainda não liquidadas pelo hand-off durável. Um ciclo que termina (bem ou mal)
-#: zera o conjunto; só um kill duro (SIGKILL, OOM, hard-timeout) o deixa de pé — e
-#: então o próximo ciclo, já com a trava do stream, solta essas claims órfãs antes
-#: de coletar (:func:`recover_orphan_claims`). Sem isto, a claim órfã vivia até o
-#: TTL (mínimo 4 h, default 24 h) e o re-run descartava os eventos re-buscados
-#: como "duplicados": perda silenciosa (ADR-0018 Onda 0).
-PENDING_SET_TMPL = "dedupe:pending:{integration_id}:{stream}"
-
-#: SET NX + SADD no conjunto de pendentes, atômico e num round-trip só: o membro
-#: só entra quando a claim é DESTE ciclo (um SADD incondicional registraria a
-#: claim já liquidada de outro ciclo, e a recuperação a soltaria).
-_CLAIM_TRACKED_LUA = """
-if redis.call('SET', KEYS[1], '1', 'NX', 'EX', ARGV[1]) then
-  redis.call('SADD', KEYS[2], ARGV[2])
-  redis.call('EXPIRE', KEYS[2], ARGV[1])
-  return 1
-end
-return 0
-"""
-
-_RECOVER_CHUNK = 1000
-
-
-def pending_set_key(integration_id: int, stream: str) -> str:
-    """Chave do conjunto de claims pendentes de um (integração, stream)."""
-    return PENDING_SET_TMPL.format(integration_id=integration_id, stream=stream)
-
-
-def clamp_ttl_seconds(seconds: Any) -> int:
-    """Normaliza um TTL para a faixa suportada [MIN, MAX], em segundos.
-
-    Valor ausente/inválido cai no default. O clamp é SILENCIOSO de propósito no
-    hot path (um valor fora de faixa nunca pode derrubar a coleta); a validação
-    que devolve erro ao operador vive no schema da API."""
-    try:
-        value = int(seconds)
-    except (TypeError, ValueError):
-        return DEFAULT_TTL_SECONDS
-    if value <= 0:
-        return DEFAULT_TTL_SECONDS
-    return max(MIN_TTL_SECONDS, min(value, MAX_TTL_SECONDS))
-
-
-def estimate_dedupe_keys(eps: float, ttl_seconds: int) -> int:
-    """Estimativa do keyspace de dedupe em regime estacionário: ``EPS × TTL``.
-
-    É a fórmula de capacidade que faltava ao operador — o keyspace NÃO depende do
-    volume acumulado, só da taxa e da janela. Usada pela UI para mostrar a
-    consequência da escolha de TTL antes de salvar."""
-    return max(0, int(float(eps) * int(ttl_seconds)))
-
-
-#: Custo médio observado por chave de dedupe no Redis 7 (chave + valor + entrada
-#: no dict principal + entrada no dict de ``expires`` + overhead de bucket).
-#: Usado só para ESTIMATIVA de capacidade na UI/doc — não é medição exata.
-BYTES_PER_DEDUPE_KEY = 115
 
 # Campos comumente presentes como id primário em payloads de vendors.
 _ID_CANDIDATES = ("id", "alertId", "eventId", "uuid", "incidentId")
@@ -168,123 +47,6 @@ def compute_message_id(
         separators=(",", ":"),
     )
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
-
-
-async def claim(
-    redis: redis_async.Redis,
-    integration_id: int,
-    message_id: str,
-    ttl_days: Optional[int] = None,
-    *,
-    ttl_seconds: Optional[int] = None,
-    pending_set: Optional[str] = None,
-) -> bool:
-    """True se o evento é inédito (pode ser despachado). False se duplicado.
-
-    Com ``pending_set`` a claim também entra no conjunto de pendentes do ciclo
-    (ver :data:`PENDING_SET_TMPL`), atomicamente; o ciclo a retira ao liquidar.
-
-    ``ttl_seconds`` é a forma CANÔNICA — o TTL é a alavanca direta sobre o
-    keyspace (``chaves ≈ EPS × TTL``), e expressá-lo só em dias impedia o
-    operador de escolher 4h, que é o piso real desta arquitetura. ``ttl_days``
-    segue aceito para retro-compatibilidade e é convertido; quando os dois vêm,
-    ``ttl_seconds`` vence. O valor é sempre clampado a [MIN, MAX]."""
-    if ttl_seconds is None:
-        ttl_seconds = (
-            ttl_days * 86400 if ttl_days is not None else DEFAULT_TTL_SECONDS
-        )
-    key = KEY_TMPL.format(integration_id=integration_id, message_id=message_id)
-    ttl = clamp_ttl_seconds(ttl_seconds)
-    if pending_set:
-        result = await redis.eval(_CLAIM_TRACKED_LUA, 2, key, pending_set, ttl, message_id)
-        return bool(int(result or 0))
-    result = await redis.set(key, "1", nx=True, ex=ttl)
-    return bool(result)
-
-
-async def settle_pending(
-    redis: redis_async.Redis,
-    pending_set: str,
-    message_ids: Iterable[str],
-) -> None:
-    """Tira do conjunto de pendentes as claims liquidadas (o hand-off durável
-    confirmou). Um round-trip por lote. Falha aqui não perde nada: no pior caso
-    a recuperação solta uma claim já liquidada e o evento, se re-buscado, é
-    reentregue (at-least-once)."""
-    ids = [m for m in message_ids if m]
-    if ids:
-        await redis.srem(pending_set, *ids)
-
-
-async def recover_orphan_claims(
-    redis: redis_async.Redis,
-    integration_id: int,
-    pending_set: str,
-) -> int:
-    """Solta as claims que um ciclo morto deixou pendentes. Devolve quantas.
-
-    Chamar SÓ com a trava do (integração, stream) em mãos e ANTES de reivindicar
-    qualquer evento: o conjunto então só contém claims de um ciclo que não está
-    mais rodando. Os eventos voltam a ser reivindicáveis; o cursor não avançou,
-    então eles são re-buscados e processados em vez de descartados."""
-    raw_ids = await redis.smembers(pending_set)
-    ids = [
-        m.decode("utf-8", "replace") if isinstance(m, (bytes, bytearray)) else str(m)
-        for m in (raw_ids or ())
-    ]
-    if not ids:
-        return 0
-    keys = [KEY_TMPL.format(integration_id=integration_id, message_id=m) for m in ids]
-    for i in range(0, len(keys), _RECOVER_CHUNK):
-        await redis.delete(*keys[i : i + _RECOVER_CHUNK])
-    await redis.delete(pending_set)
-    return len(keys)
-
-
-async def release(
-    redis: redis_async.Redis,
-    integration_id: int,
-    message_id: str,
-) -> None:
-    """Solta uma claim de dedupe (compensação).
-
-    Usado quando o evento foi reclamado mas o hand-off durável (produce no
-    data-plane Kafka) FALHOU: sem soltar a chave, o reprocesso pós-falha
-    (cursor não avança) re-veria o evento, ``claim()`` retornaria False, e ele
-    seria descartado como "duplicado" — PERDA SILENCIOSA. Soltar a claim deixa
-    o retry re-reclamar e re-produzir (at-least-once + dedupe no destino por
-    event_id absorve qualquer reentrega). Best-effort: erro de Redis aqui não
-    deve mascarar a exceção original do produce.
-    """
-    key = KEY_TMPL.format(integration_id=integration_id, message_id=message_id)
-    await redis.delete(key)
-
-
-async def release_many(
-    redis: redis_async.Redis,
-    integration_id: int,
-    message_ids: Iterable[str],
-) -> int:
-    """``DEL`` em lote das claims de ``message_ids``. Devolve quantas soltou.
-
-    Mesma compensação de :func:`release`, em uma única chamada. Pipelinar AQUI é
-    seguro — e é a diferença que importa em relação a pipelinar o ``claim``:
-    nenhuma decisão de "processar ou pular" depende deste resultado. O ``claim``
-    é caminho de DECISÃO (agrupar exigiria bufferizar eventos e criaria uma
-    janela onde chaves são reivindicadas para eventos ainda não processados);
-    o release é caminho de COMPENSAÇÃO, executado quando o run já falhou.
-
-    Best-effort: falha de Redis é engolida pelo chamador. O residual é claim
-    órfã até o TTL — que é exatamente o estado de hoje, então não piora nada.
-    """
-    ids = [m for m in message_ids if m]
-    if not ids:
-        return 0
-    keys = [
-        KEY_TMPL.format(integration_id=integration_id, message_id=m) for m in ids
-    ]
-    await redis.delete(*keys)
-    return len(keys)
 
 
 # ── suppression durável por assinatura ─────────────────────
@@ -350,8 +112,8 @@ async def claim_suppress(
 
 @dataclass(frozen=True)
 class RedisHealth:
-    """Snapshot de ``INFO`` do Redis usado pelo dedupe — o suficiente para
-    detectar evicção antes que vire reentrega silenciosa."""
+    """Snapshot de ``INFO`` do Redis — o suficiente para detectar evicção antes
+    que ela apague estado de controle (cursor, supressão, breaker, OAuth)."""
 
     evicted_keys: int
     used_memory_bytes: int
@@ -373,19 +135,15 @@ async def sample_redis_health(redis: redis_async.Redis) -> Optional[RedisHealth]
     gauges OTel (``collector_dedupe_redis_evicted_keys`` e
     ``collector_dedupe_redis_memory_used_ratio``).
 
-    **NÃO chame isto no hot path de ``claim()``** — seria um 2º round-trip
-    Redis POR EVENTO, dobrando o gargalo dominante do pipeline. Este é um
-    sample de PROCESSO/INSTÂNCIA (não por-evento): chame periodicamente (ex.:
-    1x/min) de um healthcheck ou task de manutenção — o custo é 1 ``INFO`` por
-    ciclo, amortizado sobre milhares de eventos.
+    Sample de PROCESSO/INSTÂNCIA, nunca por evento: chame periodicamente (ex.:
+    1x/min) de uma task de manutenção. Os nomes das métricas guardam o prefixo
+    ``dedupe`` porque as regras de alerta já os usam; desde a Onda 5 do
+    ADR-0018 o Redis não guarda mais chave de dedupe por evento.
 
-    ``evicted_keys`` é o contador cru do Redis inteiro (não filtrado pelo
-    prefixo ``dedupe:``) — o Redis não expõe evicção por-prefixo/por-keyspace,
-    então este é o sinal mais barato e direto disponível: se ele estiver
-    subindo, ALGO está sendo evictado sob pressão de memória, e como o dedupe
-    é o maior consumidor de chaves com TTL deste Redis, é o suspeito primário.
-    ``memory_used_ratio`` alerta ANTES da evicção começar (útil para calibrar
-    ``REDIS_MAXMEMORY``/``DEDUPE_TTL_DAYS`` antes do incidente, não depois).
+    ``evicted_keys`` é o contador cru do Redis inteiro — o Redis não expõe
+    evicção por prefixo, então este é o sinal mais barato disponível: se ele
+    sobe, ALGO está sendo evictado sob pressão de memória. ``memory_used_ratio``
+    alerta ANTES da evicção começar.
 
     Best-effort: erro de Redis aqui é logado e retorna ``None`` — observabilidade
     nunca deve derrubar quem a chama (mesmo espírito de ``claim_suppress``, mas
@@ -407,9 +165,8 @@ async def sample_redis_health(redis: redis_async.Redis) -> Optional[RedisHealth]
     metrics.DEDUPE_REDIS_MEMORY_USED_RATIO.set(health.memory_used_ratio)
     if health.evicted_keys > 0:
         logger.warning(
-            "dedupe: Redis reportou %d chaves evictadas (policy=%s, "
-            "used=%d/%d bytes) — dedupe pode estar deixando reentregas "
-            "passarem como \"novas\" silenciosamente",
+            "redis: %d chaves evictadas (policy=%s, used=%d/%d bytes) — estado "
+            "de controle (cursor, supressão, breaker) pode estar sumindo",
             health.evicted_keys,
             health.maxmemory_policy,
             health.used_memory_bytes,

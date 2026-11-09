@@ -34,30 +34,8 @@ interface FormValues {
   collector_jsonl_dir: string
   collector_batch_size: number
   collector_batch_flush_seconds: number
-  dedupe_ttl_seconds: number
   domain_concurrency_limits: Record<string, number>
   rate_limits_by_vendor: Record<string, CollectorRateLimits>
-}
-
-/** Piso do TTL de dedupe: 4x o `visibility_timeout` do broker (3600s). Abaixo
- *  disso uma claim órfã expira ANTES de o broker desistir de redeliverar, e dois
- *  workers processam o mesmo evento como independentes. Espelha
- *  `state/dedupe.MIN_TTL_SECONDS` — travado por teste de invariante no backend. */
-const DEDUPE_TTL_MIN_HOURS = 4
-/** Teto: 31 dias. Acima disso o keyspace do Redis vira o problema. */
-const DEDUPE_TTL_MAX_HOURS = 31 * 24
-
-function clampTtlHours(hours: number): number {
-  if (!Number.isFinite(hours)) return DEDUPE_TTL_MIN_HOURS
-  return Math.max(DEDUPE_TTL_MIN_HOURS, Math.min(Math.round(hours), DEDUPE_TTL_MAX_HOURS))
-}
-
-/** Keyspace de dedupe em regime estacionário: `chaves ≈ EPS × TTL`. Não depende
- *  do volume acumulado, só da taxa e da janela — é a fórmula que faltava ao
- *  operador para escolher o TTL com consciência do custo em memória. */
-export function estimateDedupeFootprint(eps: number, ttlSeconds: number) {
-  const keys = Math.max(0, Math.round(eps * ttlSeconds))
-  return { keys, bytes: keys * 115 }
 }
 
 function valuesFromConfig(config: CollectorConfig | null): FormValues {
@@ -65,10 +43,6 @@ function valuesFromConfig(config: CollectorConfig | null): FormValues {
     collector_jsonl_dir: config?.collector_jsonl_dir ?? "/var/log/centralops/collectors",
     collector_batch_size: config?.collector_batch_size ?? 200,
     collector_batch_flush_seconds: config?.collector_batch_flush_seconds ?? 5,
-    // Canônico em SEGUNDOS; a UI edita em HORAS. Linha legada (só dias) é
-    // convertida aqui para o operador ver o valor real que está em vigor.
-    dedupe_ttl_seconds:
-      config?.dedupe_ttl_seconds ?? (config?.dedupe_ttl_days ?? 1) * 86400,
     domain_concurrency_limits: { ...(config?.domain_concurrency_limits ?? {}) },
     rate_limits_by_vendor: deepCloneLimits(config?.rate_limits_by_vendor ?? {}),
   }
@@ -86,7 +60,6 @@ function isDirty(a: FormValues, b: FormValues): boolean {
     "collector_jsonl_dir",
     "collector_batch_size",
     "collector_batch_flush_seconds",
-    "dedupe_ttl_seconds",
   ]
   for (const k of keys) {
     if (a[k] !== b[k]) return true
@@ -137,7 +110,6 @@ export const CollectorConfigForm: React.FC<Props> = ({
       collector_jsonl_dir: values.collector_jsonl_dir.trim(),
       collector_batch_size: Number(values.collector_batch_size),
       collector_batch_flush_seconds: Number(values.collector_batch_flush_seconds),
-      dedupe_ttl_seconds: Number(values.dedupe_ttl_seconds),
       domain_concurrency_limits: values.domain_concurrency_limits,
       rate_limits_by_vendor: values.rate_limits_by_vendor,
     }
@@ -176,8 +148,8 @@ export const CollectorConfigForm: React.FC<Props> = ({
       <section className="space-y-4">
         <SectionHeader
           icon={<DatabaseIcon size={18} />}
-          title={t("collector.sections.bufferDedupe.title")}
-          hint={t("collector.sections.bufferDedupe.hint")}
+          title={t("collector.sections.batching.title")}
+          hint={t("collector.sections.batching.hint")}
         />
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -198,23 +170,6 @@ export const CollectorConfigForm: React.FC<Props> = ({
             value={values.collector_batch_flush_seconds}
             onChange={(e) => update("collector_batch_flush_seconds", Number(e.target.value))}
             helperText={t("collector.fields.flushSecondsHelper")}
-          />
-          {/* TTL em HORAS: é a unidade em que o operador raciocina, e o piso
-              real desta arquitetura são 4h (4x o visibility_timeout do broker).
-              Em dias, 4h era inexpressável — o mínimo virava 1 dia, que a 6k
-              ev/min significa ~8,6M chaves de dedupe no Redis. */}
-          <Input
-            label={t("collector.fields.dedupeTtl")}
-            type="number"
-            min={DEDUPE_TTL_MIN_HOURS}
-            max={DEDUPE_TTL_MAX_HOURS}
-            value={Math.round(values.dedupe_ttl_seconds / 3600)}
-            onChange={(e) =>
-              update("dedupe_ttl_seconds", clampTtlHours(Number(e.target.value)) * 3600)
-            }
-            helperText={t("collector.fields.dedupeTtlHelper", {
-              min: DEDUPE_TTL_MIN_HOURS,
-            })}
           />
         </div>
       </section>

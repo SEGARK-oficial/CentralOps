@@ -149,8 +149,8 @@ async def _safe_reset_target() -> None:
     """Fecha os targets de destino cacheados, no loop. Best-effort.
 
     A lane dedicada Wazuh (``wazuh_target``) foi removida. O
-    ``run_coro_blocking`` agora serve só a lane GENÉRICA (``dispatch_to_destination``
-    → ``destination_cache``), então a recuperação de poison-writer descarta os
+    ``run_coro_blocking`` serve o dreno da DLQ (``drain_destination_dlq`` →
+    ``destination_cache``), então a recuperação de poison-writer descarta os
     targets cacheados genéricos (``reset_destinations``) para o próximo lote
     reconstruir sockets limpos."""
     try:
@@ -289,7 +289,6 @@ def warmup_runtime() -> None:
         logger.exception("dispatch_runtime: warmup falhou (lazy cobre)")
 
 
-# Quando ``dispatch_to_destination`` ativar, o drain de
-# ``shutdown_runtime`` deve também chamar
-# ``destination_cache.reset_destinations()`` para fechar o socket do
-# destino. Dormente enquanto o caminho multi-destino é gated.
+# O drain de ``shutdown_runtime`` deve também chamar
+# ``destination_cache.reset_destinations()`` para fechar o socket do destino
+# usado pelo dreno da DLQ.

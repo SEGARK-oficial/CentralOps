@@ -1163,9 +1163,6 @@ export interface CollectorConfig {
 
   collector_batch_size: number
   collector_batch_flush_seconds: number
-  dedupe_ttl_days: number
-  /** TTL canônico em segundos (piso 4h). dedupe_ttl_days fica como legado. */
-  dedupe_ttl_seconds?: number
 
   domain_concurrency_limits: Record<string, number>
   rate_limits_by_vendor: Record<string, CollectorRateLimits>
@@ -1181,8 +1178,6 @@ export interface UpdateCollectorConfigRequest {
   collector_jsonl_dir?: string
   collector_batch_size?: number
   collector_batch_flush_seconds?: number
-  dedupe_ttl_days?: number
-  dedupe_ttl_seconds?: number
   domain_concurrency_limits?: Record<string, number>
   rate_limits_by_vendor?: Record<string, CollectorRateLimits>
 }
@@ -2012,8 +2007,9 @@ export interface DestinationMetrics {
   reason: string | null
   /** série lógica (sent/rejected/latency_avg) → [[minute_epoch, valor], ...]. */
   series: Record<string, [number, number][]>
-  /** gauges instantâneos (queue_depth, backpressure_state). */
-  gauges: Record<string, string | null>
+  /** Lotes esperando no estacionamento do Kafka (destino fora do ar ou
+   *  recusando). Saem sozinhos quando o destino volta. ``since`` em epoch (s). */
+  parked: { batches: number; events: number; since: number | null }
   dlq_total: number
   dlq_24h: number
   by_error_kind: Record<string, number>

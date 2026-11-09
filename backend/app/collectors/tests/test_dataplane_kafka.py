@@ -13,11 +13,10 @@ os.environ.setdefault("APP_MASTER_KEY", "test-master-key-for-centralops-suite-12
 os.environ.setdefault("APP_ENV", "test")
 
 import pytest
-from pydantic import ValidationError
 
 from backend.app.collectors import dataplane
 from backend.app.collectors.dataplane import kafka_transport as kt
-from backend.app.core.config import Settings, settings
+from backend.app.core.config import settings
 
 _KEY = "test-master-key-for-centralops-suite-12345"
 
@@ -63,19 +62,6 @@ def test_client_kwargs_sasl(monkeypatch):
     assert kw["sasl_plain_password"] == "p"
 
 
-# ── EVENT_DATAPLANE validator ──────────────────────────────────────────────────
-
-def test_event_dataplane_accepts_valid():
-    for v in ("celery", "kafka", "KAFKA"):
-        s = Settings(_env_file=None, APP_MASTER_KEY=_KEY, EVENT_DATAPLANE=v)
-        assert s.EVENT_DATAPLANE == v.lower()
-
-
-def test_event_dataplane_rejects_invalid():
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None, APP_MASTER_KEY=_KEY, EVENT_DATAPLANE="bogus")
-
-
 # ── Producer singleton (aiokafka FAKE) ─────────────────────────────────────────
 
 _SENT: list = []
@@ -88,7 +74,11 @@ class _FakeProducer:
     async def start(self):
         return None
 
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def partitions_for(self, topic):
+        # Sub-shards do destino (ADR-0018 Onda 4c) escolhem a partição.
+        return set(range(8))
+
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         _SENT.append((topic, value, key))
         return None
 
@@ -275,7 +265,7 @@ class _BrokerLimitedProducer(_FakeProducer):
 
     broker_limit = 2000
 
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         if len(value) > self.broker_limit:
             from aiokafka.errors import MessageSizeTooLargeError
 
@@ -314,7 +304,7 @@ def test_broker_side_rejection_of_a_single_event_goes_to_dlq(monkeypatch, dlq_ca
 
 
 class _BrokerDownProducer(_FakeProducer):
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         raise ConnectionError("broker down")
 
 

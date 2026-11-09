@@ -118,9 +118,9 @@ class EnrichContext:
     """O que o resolvedor sabe sobre o ciclo corrente.
 
     ``organization_id`` é obrigatório e não-nulo por design: ele entra na chave de
-    cache (L1 e L2). Não há afinidade por tenant no data-plane
-    (``queues.dispatch_dest_shard_queue`` particiona por ``sha1(destination_id)``) e
-    ``worker_max_tasks_per_child=500`` faz o mesmo fork atender centenas de orgs —
+    cache (L1 e L2). Não há afinidade por tenant no data-plane (o raw particiona
+    por integração e o processor atende várias partições) e o mesmo processo
+    atende centenas de orgs —
     uma chave de cache sem org serviria o CMDB da Org A para a Org B no ciclo
     seguinte, dentro do mesmo processo.
 

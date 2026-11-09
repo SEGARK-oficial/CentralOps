@@ -6,8 +6,7 @@ dispatcher. This module makes it a single, validated contract:
 
   - ``breaker``       — circuit breaker thresholds.
   - ``concurrency``   — per-destination concurrency cap (bulkhead).
-  - ``backpressure``  — load-shedding policy: block | drop_newest | persistent_queue.
-  - ``queue_ceiling`` — per-destination queue-depth ceiling (0 = unlimited).
+  - ``ordered``       — deliver in arrival order (one partition, one batch at a time).
   - ``shadow``        — format+validate+measure, do NOT deliver.
   - ``batch``         — batch sizing: max_items (ENFORCED by dispatcher), flush_ms
     (documented; no temporal aggregation yet).
@@ -119,10 +118,11 @@ def backoff_delay_s(retry: RetryConfig, attempt: int) -> float:
     return ms / 1000.0
 
 
-#: load-shedding policy. ``persistent_queue`` = current behaviour (broker
-#: durability, no shedding). ``drop_newest`` = shed at the ceiling. ``block`` =
-#: reserved (pause-collection semantics; treated as persistent_queue until wired).
-BackpressurePolicy = Literal["block", "drop_newest", "persistent_queue"]
+#: Chaves da política de entrega que saíram com a fila Celery de entrega
+#: (ADR-0018 Onda 5): ``backpressure``/``queue_ceiling`` descartavam lote pela
+#: profundidade da fila ``dispatch.destination.N``. Linhas antigas ainda as
+#: trazem — são ignoradas, nunca um 422 nem a perda do resto da política.
+_RETIRED_KEYS = ("backpressure", "queue_ceiling")
 
 
 class CostConfig(BaseModel):
@@ -167,6 +167,13 @@ class DeliveryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict) and any(k in data for k in _RETIRED_KEYS):
+            data = {k: v for k, v in data.items() if k not in _RETIRED_KEYS}
+        return data
+
     batch: BatchConfig = Field(default_factory=BatchConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
     breaker: BreakerConfig = Field(default_factory=BreakerConfig)
@@ -179,14 +186,21 @@ class DeliveryConfig(BaseModel):
     #: process (prefork). NOT a global cap (see ``destination_limiter``).
     concurrency: int = Field(default=4, ge=1, le=256)
 
-    #: load-shedding policy.
-    backpressure: BackpressurePolicy = "persistent_queue"
-
-    #: per-destination broker queue-depth ceiling (0 = unlimited / disabled).
-    queue_ceiling: int = Field(default=0, ge=0, le=10_000_000)
-
     #: shadow mode: run format+validate+metrics but skip the actual send.
     shadow: bool = False
+
+    #: entrega na ORDEM de chegada ao pipeline (ADR-0018 Onda 4e). Ligue só em
+    #: destino que correlaciona pela ordem de chegada (regras de sequência e de
+    #: frequência do Wazuh). Custo: o destino usa uma partição e entrega um lote
+    #: por vez (teto de um dispatcher) e, depois de uma queda, só recebe dado
+    #: novo quando o estacionamento esvaziar. ENFORCED pelo data-plane Kafka.
+    ordered: bool = Field(
+        default=False,
+        description=(
+            "Entrega na ordem de chegada (só p/ destino que correlaciona pela ordem, "
+            "como regras de sequência do Wazuh). Limita a vazão deste destino."
+        ),
+    )
 
     #: tiering hot/cold por destino. **METADADO apenas**:
     #: descreve a intenção (SIEM quente vs. lago frio) e auto-aparece no catálogo

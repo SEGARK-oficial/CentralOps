@@ -557,7 +557,7 @@ def test_backfill_builds_the_context_with_the_integration_filters() -> None:
     from backend.app.collectors import backfill_tasks
 
     src = inspect.getsource(backfill_tasks.run_backfill_collection_once)
-    assert "filters=_load_collection_filters(integration, registration, stream)" in src, (
+    assert "_load_collection_filters(integration, registration, stream)" in src, (
         "run_backfill_collection_once não passa os filtros de coleta para o "
         "CollectorContext — o backfill puxaria o que o polling filtra"
     )

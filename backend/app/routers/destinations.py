@@ -1088,16 +1088,16 @@ async def destination_metrics(
         ["sent", "rejected", "latency_avg"],
         minutes=range_minutes,
     )
-    gauges = await asyncio.to_thread(
-        obs.read_gauges, "dest", destination_id, ["queue_depth", "backpressure_state"]
-    )
+    from ..collectors.dataplane.parked import parked_state
+
+    parked = await asyncio.to_thread(parked_state, destination_id)
 
     return DestinationMetricsResponse(
         destination_id=destination_id,
         available=True,  # native store always present (series may be empty)
         reason=None,
         series=series,
-        gauges=gauges,
+        parked=parked,
         dlq_total=stats["dlq_total"],
         dlq_24h=stats["dlq_24h"],
         by_error_kind=by_kind,

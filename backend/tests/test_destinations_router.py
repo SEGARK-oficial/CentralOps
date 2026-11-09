@@ -1021,7 +1021,9 @@ def test_metrics_endpoint_native_store_self_sufficient(client_factory) -> None:
     # Point the store (writes) + the endpoint (reads) at the same fake redis.
     with patch.object(obs, "_redis", return_value=fake):
         obs.record_counter("dest", dest_id, "sent", 12)
-        obs.set_gauge("dest", dest_id, "queue_depth", 3)
+        from backend.app.collectors.dataplane import parked
+
+        parked.note_parked(dest_id, 40)  # destino fora: 1 lote de 40 eventos esperando
         resp = client.get(f"/api/collectors/destinations/{dest_id}/metrics")
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -1030,7 +1032,9 @@ def test_metrics_endpoint_native_store_self_sufficient(client_factory) -> None:
     assert body["by_error_kind"] == {"schema_rejected": 1}
     # native series present (events this minute)
     assert body["series"]["sent"] and body["series"]["sent"][0][1] == 12
-    assert body["gauges"]["queue_depth"] == "3"
+    assert body["parked"]["batches"] == 1 and body["parked"]["events"] == 40
+    assert body["parked"]["since"] > 0
+    assert "gauges" not in body
 
 
 # ── POST /{id}/dlq/reprocess ───────────────────────

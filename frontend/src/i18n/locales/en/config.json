@@ -252,9 +252,9 @@
       "body": "The values come from <code>{{envFile}}</code>. Save to edit them here; changes apply within 30 seconds."
     },
     "sections": {
-      "bufferDedupe": {
-        "title": "Buffer & Dedupe",
-        "hint": "How batches are accumulated and duplicate events are filtered."
+      "batching": {
+        "title": "Batching",
+        "hint": "How events are grouped before sending. Dedupe is automatic, in processing."
       },
       "domainConcurrency": {
         "title": "Concurrency per domain",
@@ -269,9 +269,7 @@
       "batchSize": "Batch size",
       "batchSizeHelper": "Larger batches make fewer sends, but each event may take longer to arrive.",
       "flushSeconds": "Flush after (seconds)",
-      "flushSecondsHelper": "Sends the batch even if incomplete after this time. It is an event's maximum wait.",
-      "dedupeTtl": "Dedupe TTL (hours)",
-      "dedupeTtlHelper": "Window to filter vendor duplicates; the {{min}}h minimum covers broker redelivery. Redis cost at 100 ev/s: 24h ~1 GB, 4h ~165 MB."
+      "flushSecondsHelper": "Sends the batch even if incomplete after this time. It is an event's maximum wait."
     },
     "table": {
       "vendor": "Vendor",

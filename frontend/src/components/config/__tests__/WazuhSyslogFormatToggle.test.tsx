@@ -1,8 +1,9 @@
 /**
  * Testes do CollectorConfigForm — seções globais mantidas após a migração
  * (remoção da seção "Destino Wazuh" do form global).
- * Cobre: dedupe TTL, rate-limits por vendor, concorrência por domínio,
- * botão Testar (global), acessibilidade via teclado no campo TTL.
+ * Cobre: lote, rate-limits por vendor, concorrência por domínio e a ausência
+ * do botão Testar (global). O TTL de dedupe saiu junto com a chave Redis por
+ * evento (ADR-0018 Onda 5): o dedupe é a janela em memória do processor.
  */
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
@@ -59,7 +60,6 @@ const baseCollectorConfig: CollectorConfig = {
   collector_jsonl_dir: "/var/log/centralops/collectors",
   collector_batch_size: 200,
   collector_batch_flush_seconds: 5,
-  dedupe_ttl_days: 7,
   domain_concurrency_limits: {},
   rate_limits_by_vendor: {},
 }
@@ -122,17 +122,10 @@ describe("CollectorConfigForm — seções globais", () => {
     setupDefaultMocks()
   })
 
-  it("renderiza o campo TTL de dedupe em HORAS", async () => {
-    // O campo passou de DIAS para HORAS: em dias o mínimo era 1, e o piso real
-    // desta arquitetura são 4h (4x o visibility_timeout do broker). A config
-    // mockada traz 7 dias, que a UI mostra como 168h — mesma janela, unidade
-    // em que o operador consegue escolher 4h.
+  it("não expõe mais o TTL de dedupe", async () => {
     await renderConfigCollectorTab()
 
-    const ttlInput = screen.getByLabelText(/TTL de dedupe/i)
-    expect(ttlInput).toBeInTheDocument()
-    expect((ttlInput as HTMLInputElement).value).toBe("168")
-    expect(ttlInput).toHaveAttribute("min", "4")
+    expect(screen.queryByLabelText(/TTL de dedupe/i)).not.toBeInTheDocument()
   })
 
   it("renderiza o campo flush após (segundos)", async () => {
@@ -153,18 +146,6 @@ describe("CollectorConfigForm — seções globais", () => {
     await renderConfigCollectorTab()
 
     expect(screen.getByText("Rate-limits por vendor")).toBeInTheDocument()
-  })
-
-  it("alterar TTL de dedupe habilita o botão Salvar", async () => {
-    await renderConfigCollectorTab()
-
-    const ttlInput = screen.getByLabelText(/TTL de dedupe/i)
-    await act(async () => {
-      fireEvent.change(ttlInput, { target: { value: "14" } })
-    })
-
-    const saveBtn = screen.getByRole("button", { name: /Salvar configuração/i })
-    expect(saveBtn).not.toBeDisabled()
   })
 
   it("salvar envia collector_batch_size corretamente", async () => {
@@ -194,19 +175,6 @@ describe("CollectorConfigForm — seções globais", () => {
     await renderConfigCollectorTab()
 
     expect(screen.queryByRole("button", { name: /^Testar$/i })).not.toBeInTheDocument()
-  })
-
-  it("campo TTL é acessível via teclado (focus/change)", async () => {
-    await renderConfigCollectorTab()
-
-    const ttlInput = screen.getByLabelText(/TTL de dedupe/i)
-    ttlInput.focus()
-    expect(document.activeElement).toBe(ttlInput)
-
-    await act(async () => {
-      fireEvent.change(ttlInput, { target: { value: "30" } })
-    })
-    expect((ttlInput as HTMLInputElement).value).toBe("30")
   })
 
   it("a seção Wazuh não aparece mais no form global", async () => {

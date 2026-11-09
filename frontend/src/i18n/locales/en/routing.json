@@ -191,8 +191,8 @@
       "rejectedPerMin": "rejected/min",
       "avgLatency": "average latency (s)",
       "noRecentTraffic": "No recent traffic on this destination.",
-      "queueDepth": "queue: {{value}}",
-      "backpressure": "backpressure: {{value}}"
+      "parkedTitle": "Waiting for the destination to come back",
+      "parkedBody": "{{batches}} batch(es), {{events}} event(s), parked since {{since}}. The destination is down or refusing; the batches drain on their own, in order, when it comes back. Nothing was lost."
     },
     "statusLabels": {
       "healthy": "Healthy",
@@ -219,7 +219,8 @@
       "reprocessAllDescriptionEmpty": "Reprocess events from this destination's DLQ.",
       "reprocessEntryTitle": "Reprocess event",
       "reprocessEntryDescription": "Reprocess only event {{eventId}}? It will be re-queued for delivery.",
-      "noPayload": "(no payload)"
+      "noPayload": "(no payload)",
+      "onlyRejections": "Only events the destination rejected for good (format, size, permission) end up here. A destination that is down sends nothing here: its batches wait in the parking topic and drain on their own when it comes back."
     },
     "tap": {
       "title": "Live data-tap (recent events, redacted)",
