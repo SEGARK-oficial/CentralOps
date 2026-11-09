@@ -3501,7 +3501,7 @@ async def _send_chunk_with_retry(
             await asyncio.sleep(delay)
 
         # Check breaker before each retry (state may have changed).
-        await circuit_breaker.check_for_config(redis, dest_config)
+        await circuit_breaker.check_for_config(redis, dest_config, send_timeout_s=timeout_s)
 
         started = time.monotonic()
         try:

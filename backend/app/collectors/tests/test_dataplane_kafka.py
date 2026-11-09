@@ -88,7 +88,11 @@ class _FakeProducer:
     async def start(self):
         return None
 
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def partitions_for(self, topic):
+        # Sub-shards do destino (ADR-0018 Onda 4c) escolhem a partição.
+        return set(range(8))
+
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         _SENT.append((topic, value, key))
         return None
 
@@ -275,7 +279,7 @@ class _BrokerLimitedProducer(_FakeProducer):
 
     broker_limit = 2000
 
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         if len(value) > self.broker_limit:
             from aiokafka.errors import MessageSizeTooLargeError
 
@@ -314,7 +318,7 @@ def test_broker_side_rejection_of_a_single_event_goes_to_dlq(monkeypatch, dlq_ca
 
 
 class _BrokerDownProducer(_FakeProducer):
-    async def send_and_wait(self, topic, value=None, key=None):
+    async def send_and_wait(self, topic, value=None, key=None, partition=None):
         raise ConnectionError("broker down")
 
 

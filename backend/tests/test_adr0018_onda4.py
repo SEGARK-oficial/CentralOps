@@ -21,6 +21,8 @@ import threading
 import types
 from typing import Dict, List
 
+import pytest
+
 from backend.app.collectors import circuit_breaker
 from backend.app.collectors import delivery as _delivery
 from backend.app.collectors import pipeline
@@ -405,3 +407,123 @@ def test_inflight_cap_bounds_memory(monkeypatch):
 
     asyncio.run(_run())
     assert sorted(started) == list(range(10))
+
+
+# ── 4c. Destino grande, disjuntor e DLQ só de poison em lote ─────────────────
+
+
+def test_deliver_sub_shards_spread_one_destination(monkeypatch):
+    """Com a chave ``destination_id`` pura, um destino tinha UMA partição e um
+    dispatcher só. Os lotes de um destino agora se espalham por N partições
+    consecutivas a partir da base dele; com 1 shard, volta ao hash da chave."""
+    monkeypatch.setattr(settings, "KAFKA_DELIVER_SHARDS_PER_DEST", 4)
+    spreads = {kt.deliver_spread("dest-big") for _ in range(400)}
+    assert {base for base, _ in spreads} == {kt.zlib.crc32(b"dest-big")}
+    assert {shard for _, shard in spreads} == {0, 1, 2, 3}
+
+    calls: list = []
+    monkeypatch.setattr(kt._producer_thread, "_ensure_started", lambda: None, raising=False)
+    monkeypatch.setattr(
+        kt._producer_thread, "_produce_value",
+        lambda dest, value, key, topic=None, **kw: calls.append(kw.get("spread")),
+        raising=False,
+    )
+    kt._producer_thread.produce("dest-big", [{"_centralops": {"event_id": "e1"}}])
+    assert calls and calls[0][0] == kt.zlib.crc32(b"dest-big")
+
+    monkeypatch.setattr(settings, "KAFKA_DELIVER_SHARDS_PER_DEST", 1)
+    assert kt.deliver_spread("dest-big") is None
+    calls.clear()
+    kt._producer_thread.produce("dest-big", [{"_centralops": {"event_id": "e1"}}])
+    assert calls == [None]
+
+
+def test_breaker_probe_outlives_one_send_attempt():
+    """Defaults timeout_ms=30000 e cooldown_s=30: a sonda expirava junto com o
+    envio dela, e num destino em blackhole outro processo pegava uma sonda nova
+    antes de a falha reabrir o disjuntor — que nunca falhava rápido."""
+    assert circuit_breaker.probe_ttl_for(30, 30.0) > 30
+    assert circuit_breaker.probe_ttl_for(30, 29.2) >= 30 + 1
+    assert circuit_breaker.probe_ttl_for(120, 10.0) == 120   # cooldown maior vale
+    assert circuit_breaker.probe_ttl_for(30, None) == 30
+
+
+def test_check_for_config_uses_the_send_timeout(monkeypatch):
+    seen: dict = {}
+
+    async def _check(redis, destination_id, *, kind, probe_ttl_s):
+        seen["ttl"] = probe_ttl_s
+
+    monkeypatch.setattr(circuit_breaker, "check", _check)
+    cfg = types.SimpleNamespace(destination_id="d", kind="syslog_rfc3164", delivery={})
+    asyncio.run(circuit_breaker.check_for_config(None, cfg, send_timeout_s=30.0))
+    assert seen["ttl"] > 30
+
+
+@pytest.fixture()
+def dlq_db(monkeypatch):
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from backend.app.db import database, models
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    models.DestinationDeadLetter.__table__.create(engine)
+    inserts: list = []
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def _count(conn, cursor, statement, params, context, executemany):
+        if statement.lstrip().upper().startswith("INSERT"):
+            # Linhas na instrução = parâmetros ÷ colunas (8 na DLQ).
+            n = len(params) if isinstance(params, (tuple, list)) else len(params or {})
+            inserts.append(n // 8)
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    return types.SimpleNamespace(engine=engine, inserts=inserts, models=models)
+
+
+def _env(event_id: str, org: int = 7) -> dict:
+    return {"_centralops": {"event_id": event_id, "organization_id": org}, "x": 1}
+
+
+def test_poison_dlq_is_written_in_batch(dlq_db):
+    """DLQ só de poison, gravada EM LOTE: uma instrução por bloco, não um
+    SAVEPOINT + flush por evento. Evento já na DLQ tem o motivo ATUALIZADO (o
+    dreno e o operador dependem do motivo mais recente), sem linha duplicada."""
+    from sqlalchemy.orm import Session
+
+    batch = [_env(f"e{i}") for i in range(120)] + [_env("e0")]  # e0 repetido
+    assert _delivery.persist_batch_dlq(batch, destination_id="d", error_kind="size") is True
+    # UMA instrução, com uma linha por evento DISTINTO: no Postgres a mesma chave
+    # duas vezes num ``ON CONFLICT DO UPDATE`` derruba a instrução inteira.
+    assert dlq_db.inserts == [120]
+
+    assert _delivery.persist_batch_dlq(
+        [_env("e5"), _env("new")], destination_id="d", error_kind="schema"
+    ) is True
+    with Session(dlq_db.engine) as s:
+        rows = s.query(dlq_db.models.DestinationDeadLetter).all()
+        by_id = {r.event_id: r for r in rows}
+    assert len(rows) == 121
+    assert by_id["e5"].error_kind == "schema" and by_id["e1"].error_kind == "size"
+    assert by_id["new"].organization_id is None and by_id["e1"].payload
+
+
+def test_rejected_events_dlq_is_written_in_batch(dlq_db):
+    from backend.app.collectors.output.base import RejectedEvent
+    from sqlalchemy.orm import Session
+
+    cfg = types.SimpleNamespace(destination_id="d", organization_id=None)
+    batch = [_env(f"r{i}", org=9) for i in range(30)]
+    rejected = [
+        RejectedEvent(event_id=f"r{i}", reason="schema", error_kind="schema")
+        for i in range(30)
+    ]
+    assert _delivery.persist_rejected_to_dlq(cfg, rejected, batch) is True
+    assert dlq_db.inserts == [30]
+    with Session(dlq_db.engine) as s:
+        rows = s.query(dlq_db.models.DestinationDeadLetter).all()
+    assert len(rows) == 30 and {r.organization_id for r in rows} == {9}

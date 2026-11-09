@@ -31,6 +31,7 @@ import json
 import logging
 import threading
 import time
+import zlib
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 from ...core.config import settings
@@ -60,6 +61,24 @@ def _touch_health(path: str) -> None:
 
 
 # ── Topic + client config ─────────────────────────────────────────────────────
+
+def deliver_spread(destination_id: str) -> Optional[Tuple[int, int]]:
+    """``(base, shard)`` do lote no tópico de entrega (ADR-0018 Onda 4c), ou None
+    com um shard só (partição pelo hash da chave, como antes).
+
+    Com a chave ``destination_id`` pura, cada destino tinha UMA partição e,
+    portanto, UM dispatcher: um destino grande não passava do que um processo
+    entrega. Com ``KAFKA_DELIVER_SHARDS_PER_DEST`` shards, o lote vai a uma das
+    partições consecutivas a partir da base do destino, e réplicas do
+    dispatcher dividem o destino. A ordem por destino já não era garantida desde
+    a entrega concorrente (Onda 4b)."""
+    shards = int(settings.KAFKA_DELIVER_SHARDS_PER_DEST or 1)
+    if shards <= 1:
+        return None
+    import random
+
+    return (zlib.crc32(str(destination_id).encode("utf-8")), random.randrange(shards))
+
 
 def deliver_topic() -> str:
     """Nome completo do tópico de entrega (``<prefix>.<deliver>``)."""
@@ -507,7 +526,10 @@ class _ProducerThread:
         # KAFKA_MAX_REQUEST_BYTES (== limite do broker).
         limit = max(1, int(settings.KAFKA_MAX_REQUEST_BYTES * 0.9))
         oversized: List[Dict[str, Any]] = []
-        self._produce_framed(destination_id, batch, trace_context, key, limit, oversized)
+        self._produce_framed(
+            destination_id, batch, trace_context, key, limit, oversized,
+            spread=deliver_spread(destination_id),
+        )
         if oversized:
             _divert_oversized_to_dlq(destination_id, oversized, trace_context)
 
@@ -519,6 +541,7 @@ class _ProducerThread:
         key: bytes,
         limit: int,
         oversized: List[Dict[str, Any]],
+        spread: Optional[Tuple[int, int]] = None,
     ) -> None:
         """Produz ``batch`` em registros ≤ ``limit``; o que não cabe vai p/ ``oversized``.
 
@@ -533,7 +556,10 @@ class _ProducerThread:
                 oversized.extend(sub_batch)
                 continue
             try:
-                self._produce_value(destination_id, value, key)
+                if spread is None:
+                    self._produce_value(destination_id, value, key)
+                else:
+                    self._produce_value(destination_id, value, key, spread=spread)
             except Exception as exc:
                 if not _is_message_too_large(exc):
                     raise
@@ -549,7 +575,7 @@ class _ProducerThread:
                 )
                 self._produce_framed(
                     destination_id, sub_batch, trace_context, key,
-                    max(1, len(value) // 2), oversized,
+                    max(1, len(value) // 2), oversized, spread=spread,
                 )
 
     def _produce_value(

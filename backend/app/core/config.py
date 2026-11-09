@@ -342,6 +342,9 @@ class Settings(BaseSettings):
     # SLOW_PARK s pela vez no seu destino vai ao estacionamento: é o que limita
     # a quanto um destino lento atrasa os outros (meta do ADR: 5 s). Por TEMPO, e
     # não por tamanho de fila, para que rajada de destino saudável não estacione.
+    # Partições do tópico de entrega por destino (Onda 4c): réplicas do
+    # dispatcher dividem um destino grande. 1 = uma partição por destino.
+    KAFKA_DELIVER_SHARDS_PER_DEST: int = 4
     KAFKA_DISPATCH_MAX_INFLIGHT: int = 32
     KAFKA_DISPATCH_INFLIGHT_PER_DEST: int = 4
     KAFKA_DISPATCH_SLOW_PARK_SECONDS: float = 5.0

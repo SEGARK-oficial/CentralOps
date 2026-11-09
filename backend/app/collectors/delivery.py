@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy.exc import IntegrityError
 
@@ -156,6 +156,64 @@ def _build_event_map(batch: list[dict]) -> dict[str, dict]:
     return event_map
 
 
+def _upsert_dead_letters(session: Any, rows: list[dict]) -> None:
+    """Grava linhas da DLQ EM LOTE (ADR-0018 Onda 4c): ``INSERT ... ON CONFLICT
+    (destination_id, event_id) DO UPDATE`` do motivo, em blocos de 500.
+
+    Mesma semântica do laço por linha que substitui — inserir ou, se o evento já
+    está na DLQ, ATUALIZAR ``error_kind``/``error_detail`` (o motivo mais recente
+    na tela, e o sinal que o dreno usa) — mas numa instrução por bloco, em vez de
+    um SAVEPOINT + flush + round-trip por evento. Repetição do mesmo evento no
+    lote vale a última (o Postgres recusa o mesmo alvo duas vezes numa instrução).
+    Banco sem upsert nativo segue pelo laço."""
+    if not rows:
+        return
+    import uuid
+    from datetime import datetime
+
+    by_key: dict = {}
+    for row in rows:
+        by_key[(row["destination_id"], row["event_id"])] = row
+    now = datetime.utcnow()
+    unique = [
+        {"id": str(uuid.uuid4()), "created_at": now, **row} for row in by_key.values()
+    ]
+    dialect = session.get_bind().dialect.name
+    if dialect in ("postgresql", "sqlite"):
+        if dialect == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert
+        else:
+            from sqlalchemy.dialects.sqlite import insert
+        table = models.DestinationDeadLetter.__table__
+        for start in range(0, len(unique), 500):
+            stmt = insert(table).values(unique[start:start + 500])
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["destination_id", "event_id"],
+                set_={
+                    "error_kind": stmt.excluded.error_kind,
+                    "error_detail": stmt.excluded.error_detail,
+                },
+            )
+            session.execute(stmt)
+        return
+    for row in unique:  # pragma: no cover — banco sem upsert nativo
+        try:
+            with session.begin_nested():
+                session.add(models.DestinationDeadLetter(**row))
+                session.flush()
+        except IntegrityError:
+            session.query(models.DestinationDeadLetter).filter(
+                models.DestinationDeadLetter.destination_id == row["destination_id"],
+                models.DestinationDeadLetter.event_id == row["event_id"],
+            ).update(
+                {
+                    models.DestinationDeadLetter.error_kind: row["error_kind"],
+                    models.DestinationDeadLetter.error_detail: row["error_detail"],
+                },
+                synchronize_session=False,
+            )
+
+
 def persist_rejected_to_dlq(
     dest_config: "DestinationConfig",
     rejected: list["RejectedEvent"],
@@ -184,74 +242,45 @@ def persist_rejected_to_dlq(
     event_map = _build_event_map(batch)
 
     try:
+        rows: list[dict] = []
+        for rej in rejected:
+            envelope = event_map.get(rej.event_id, {})
+            try:
+                payload_json = json.dumps(envelope)
+            except (TypeError, ValueError):
+                payload_json = "{}"
+
+            # Org-scoping correto = org do EVENTO, não do destino:
+            # num destino global (org=NULL, ex. wazuh-default) carimbar a org
+            # do destino tornaria toda row NULL-orged e visível cross-tenant
+            # se a leitura algum dia for aberta a um caller não-global. Usa a
+            # org do envelope; cai p/ a do destino quando ausente.
+            _meta = envelope.get("_centralops") or {}
+            _evt_org = _meta.get("organization_id")
+            row_org = (
+                int(_evt_org)
+                if isinstance(_evt_org, int)
+                else dest_config.organization_id
+            )
+            # Já existe (destination_id, event_id)? O upsert ATUALIZA o motivo em
+            # vez de pular, por dois motivos. O operador: pular deixava o motivo
+            # VELHO na tela (um evento que falhou por breaker e depois por schema
+            # continuava dizendo "breaker"). O dreno: ele carimba a linha com o
+            # sentinela ``reprocessing`` antes de reenviar e decide o desfecho
+            # olhando se o carimbo sobreviveu — pular faria o dreno apagar um
+            # evento que o destino recusou. Uma linha por (destino, evento).
+            rows.append(
+                {
+                    "destination_id": dest_config.destination_id,
+                    "event_id": rej.event_id,
+                    "organization_id": row_org,
+                    "error_kind": rej.error_kind,
+                    "error_detail": rej.reason,
+                    "payload": payload_json,
+                }
+            )
         with database.SessionLocal() as session:
-            for rej in rejected:
-                envelope = event_map.get(rej.event_id, {})
-                try:
-                    payload_json = json.dumps(envelope)
-                except (TypeError, ValueError):
-                    payload_json = "{}"
-
-                # Org-scoping correto = org do EVENTO, não do destino:
-                # num destino global (org=NULL, ex. wazuh-default) carimbar a org
-                # do destino tornaria toda row NULL-orged e visível cross-tenant
-                # se a leitura algum dia for aberta a um caller não-global. Usa a
-                # org do envelope; cai p/ a do destino quando ausente.
-                _meta = envelope.get("_centralops") or {}
-                _evt_org = _meta.get("organization_id")
-                row_org = (
-                    int(_evt_org)
-                    if isinstance(_evt_org, int)
-                    else dest_config.organization_id
-                )
-
-                row = models.DestinationDeadLetter(
-                    destination_id=dest_config.destination_id,
-                    event_id=rej.event_id,
-                    organization_id=row_org,
-                    error_kind=rej.error_kind,
-                    error_detail=rej.reason,
-                    payload=payload_json,
-                )
-                try:
-                    with session.begin_nested():
-                        session.add(row)
-                        session.flush()
-                except IntegrityError:
-                    # (destination_id, event_id) já existe. ATUALIZA em vez de
-                    # pular, por dois motivos.
-                    #
-                    # O operador: pular deixava o motivo VELHO na tela. Um evento
-                    # que falhou por breaker e depois passou a falhar por schema
-                    # continuava dizendo "breaker", e a investigação começava no
-                    # lugar errado.
-                    #
-                    # O dreno: ele carimba a linha com o sentinela
-                    # ``reprocessing`` antes de reenviar, e decide o desfecho
-                    # olhando se o carimbo sobreviveu. Se aqui a gente pulasse,
-                    # o carimbo sobreviveria a uma REJEIÇÃO e o dreno apagaria
-                    # um evento que o destino recusou.
-                    #
-                    # Continua idempotente: uma linha por (destination_id,
-                    # event_id), agora com o motivo mais recente.
-                    session.query(models.DestinationDeadLetter).filter(
-                        models.DestinationDeadLetter.destination_id
-                        == dest_config.destination_id,
-                        models.DestinationDeadLetter.event_id == rej.event_id,
-                    ).update(
-                        {
-                            models.DestinationDeadLetter.error_kind: rej.error_kind,
-                            models.DestinationDeadLetter.error_detail: rej.reason,
-                        },
-                        synchronize_session=False,
-                    )
-                    logger.debug(
-                        "persist_rejected_to_dlq: (destination_id=%s, event_id=%s) "
-                        "já existia — motivo atualizado",
-                        dest_config.destination_id,
-                        rej.event_id,
-                    )
-
+            _upsert_dead_letters(session, rows)
             session.commit()
         return True
     except Exception:
@@ -324,47 +353,27 @@ def persist_batch_dlq(
     import uuid
 
     try:
+        rows = []
+        for envelope in batch:
+            meta = envelope.get("_centralops") or {}
+            try:
+                payload_json = json.dumps(envelope)
+            except (TypeError, ValueError):
+                payload_json = "{}"
+            # Já existe (destination_id, event_id): o upsert atualiza o motivo
+            # — mesma razão de ``persist_rejected_to_dlq``.
+            rows.append(
+                {
+                    "destination_id": destination_id,
+                    "event_id": str(meta.get("event_id") or uuid.uuid4()),
+                    "organization_id": organization_id,
+                    "error_kind": error_kind,
+                    "error_detail": detalhe,
+                    "payload": payload_json,
+                }
+            )
         with database.SessionLocal() as session:
-            for envelope in batch:
-                meta = envelope.get("_centralops") or {}
-                event_id = str(meta.get("event_id") or uuid.uuid4())
-
-                try:
-                    payload_json = json.dumps(envelope)
-                except (TypeError, ValueError):
-                    payload_json = "{}"
-
-                row = models.DestinationDeadLetter(
-                    destination_id=destination_id,
-                    event_id=event_id,
-                    organization_id=organization_id,
-                    error_kind=error_kind,
-                    error_detail=detalhe,
-                    payload=payload_json,
-                )
-                try:
-                    with session.begin_nested():
-                        session.add(row)
-                        session.flush()
-                except IntegrityError:
-                    # Já existe (destination_id, event_id): atualiza o motivo em
-                    # vez de descartar. Mesma razão de
-                    # ``persist_rejected_to_dlq`` — deixar o motivo velho na tela
-                    # manda a investigação para o lugar errado, e o dreno usa a
-                    # mudança do ``error_kind`` como sinal de que o destino
-                    # recusou de novo.
-                    session.query(models.DestinationDeadLetter).filter(
-                        models.DestinationDeadLetter.destination_id == destination_id,
-                        models.DestinationDeadLetter.event_id == event_id,
-                    ).update(
-                        {
-                            models.DestinationDeadLetter.error_kind: error_kind,
-                            models.DestinationDeadLetter.error_detail: detalhe,
-                        },
-                        synchronize_session=False,
-                    )
-                    continue
-
+            _upsert_dead_letters(session, rows)
             session.commit()
         return True
     except Exception:

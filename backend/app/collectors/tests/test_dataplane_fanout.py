@@ -99,7 +99,10 @@ def test_fanout_kafka_oversize_event_does_not_raise_into_the_collection_cycle(mo
         async def start(self):
             return None
 
-        async def send_and_wait(self, topic, value=None, key=None):
+        async def partitions_for(self, topic):
+            return set(range(8))
+
+        async def send_and_wait(self, topic, value=None, key=None, partition=None):
             if len(key) + len(value) > self._max:
                 raise MessageSizeTooLargeError(
                     "The message is %d bytes when serialized which is larger than "
