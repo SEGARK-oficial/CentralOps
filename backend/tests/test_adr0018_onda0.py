@@ -64,26 +64,41 @@ def _run(coro):
     ],
 )
 async def test_unknown_delivery_error_never_commits(monkeypatch, error):
+    """Erro desconhecido é transitório: re-tentado, e o offset só anda com a entrega
+    ou o estacionamento confirmados (Ondas 0 e 4a)."""
+    import threading
+
+    stop = threading.Event()
+
     async def _dispatch(dest, batch):
         raise error
 
     fake = _FakeConsumer([_msg(5, "wazuh-default", [{"e": 1}])])
     dlq: list = []
     _install(monkeypatch, fake, _dispatch, dlq_capture=dlq)
+    monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 2)
 
-    await kt.run_dispatch_consumer()
+    from backend.app.collectors.dataplane import parked as _parked
+
+    async def _park_refused(value, destination_id, reason):
+        stop.set()
+        return False
+
+    monkeypatch.setattr(_parked, "park", _park_refused)
+    await kt.run_dispatch_consumer(stop_event=stop)
 
     assert fake.commits == []          # nada commitado: o lote segue no tópico
-    assert len(fake.seeks) == 1        # relido com backoff
-    assert dlq == []                   # ainda não esgotou
+    assert dlq == []                   # transitório nunca vira DLQ
 
 
 async def test_unknown_delivery_error_exhausted_is_parked(monkeypatch):
+    calls: list = []
+
     async def _dispatch(dest, batch):
+        calls.append(dest)
         raise ConnectionRefusedError("destino fora")
 
-    # A mesma mensagem 3× (o fake não re-enfileira no seek): a 3ª passa do teto.
-    fake = _FakeConsumer([_msg(1, "d", [{"e": 1}]) for _ in range(3)])
+    fake = _FakeConsumer([_msg(1, "d", [{"e": 1}])])
     dlq: list = []
     parked: list = []
     _install(monkeypatch, fake, _dispatch, dlq_capture=dlq, park_capture=parked)
@@ -92,6 +107,7 @@ async def test_unknown_delivery_error_exhausted_is_parked(monkeypatch):
     await kt.run_dispatch_consumer()
 
     # Onda 4a: esgotado ESTACIONA (espera no Kafka), não vai à DLQ do Postgres.
+    assert len(calls) == 3
     assert dlq == []
     assert [p["reason"] for p in parked] == ["exhausted"]
     assert len(fake.commits) == 1
@@ -99,22 +115,34 @@ async def test_unknown_delivery_error_exhausted_is_parked(monkeypatch):
 
 @pytest.mark.parametrize("kind", ["breaker_open", "exhausted"])
 async def test_park_failure_blocks_commit(monkeypatch, kind):
+    import threading
+
     from backend.app.collectors import circuit_breaker
+    from backend.app.collectors.dataplane import parked as _parked
+
+    stop = threading.Event()
 
     async def _dispatch(dest, batch):
         if kind == "breaker_open":
             raise circuit_breaker.BreakerOpen(dest)
         raise TransientDeliveryError(dest)
 
-    n = 1 if kind == "breaker_open" else 2
-    fake = _FakeConsumer([_msg(7, "d", [{"e": 1}]) for _ in range(n)])
-    _install(monkeypatch, fake, _dispatch, dlq_capture=[], park_capture=[], park_ok=False)
+    fake = _FakeConsumer([_msg(7, "d", [{"e": 1}])])
+    _install(monkeypatch, fake, _dispatch, dlq_capture=[])
     monkeypatch.setattr(kt.settings, "KAFKA_MAX_DELIVERY_ATTEMPTS", 1)
+    refused: list = []
 
-    await kt.run_dispatch_consumer()
+    async def _park_refused(value, destination_id, reason):
+        refused.append(reason)
+        if len(refused) == 2:          # re-tentou e o broker segue recusando
+            stop.set()
+        return False
 
+    monkeypatch.setattr(_parked, "park", _park_refused)
+    await kt.run_dispatch_consumer(stop_event=stop)
+
+    assert refused == [kind, kind]     # re-tenta estacionar, não desiste
     assert fake.commits == []          # estacionar não confirmou → offset NÃO avança
-    assert fake.seeks                  # o lote é relido depois
 
 
 async def test_sender_connection_error_is_retried_then_transient():

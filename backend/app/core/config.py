@@ -337,6 +337,14 @@ class Settings(BaseSettings):
     # (disco ≈ eps do destino × bytes × retenção ÷ compressão). Cada destino cai
     # sempre na mesma partição; HOLD = quanto uma partição fica pausada antes de
     # tentar de novo (≈ cooldown do disjuntor, que deixa passar uma sonda).
+    # Entrega concorrente (ADR-0018 Onda 4b): registros em voo no dispatcher e
+    # lotes de UM destino em voo ao mesmo tempo. Lote que espera mais que
+    # SLOW_PARK s pela vez no seu destino vai ao estacionamento: é o que limita
+    # a quanto um destino lento atrasa os outros (meta do ADR: 5 s). Por TEMPO, e
+    # não por tamanho de fila, para que rajada de destino saudável não estacione.
+    KAFKA_DISPATCH_MAX_INFLIGHT: int = 32
+    KAFKA_DISPATCH_INFLIGHT_PER_DEST: int = 4
+    KAFKA_DISPATCH_SLOW_PARK_SECONDS: float = 5.0
     KAFKA_PARKED_TOPIC: str = "deliver.parked"
     KAFKA_PARKED_PARTITIONS: int = 32
     KAFKA_PARKED_RETENTION_MS: int = 7 * 24 * 3600 * 1000
