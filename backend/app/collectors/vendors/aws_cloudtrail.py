@@ -9,7 +9,19 @@ genéricos):** ``client_id`` = ARN do papel cross-account (recomendado, ver
 ``collectors/auth/aws.py``) OU Access Key ID (legado, com ``secret_access_key`` no
 store); ``base_url`` = nome do bucket S3, ``region`` = região AWS, ``tenant_id`` =
 Account ID (compõe o prefixo; com papel, sai do próprio ARN se vazio). Sem coluna nova
-→ zero-core. (Limite: org trails têm o OU ID no path — config single-account; documentar.)
+→ zero-core.
+
+**Layout descoberto no próprio bucket (a cada ciclo, 1–3 listagens com Delimiter):**
+
+- ``base_url`` aceita ``bucket`` ou ``bucket/prefixo`` (trail com *S3 key prefix*);
+  ``s3://`` e ``arn:aws:s3:::`` também valem.
+- **Trail de Organization**: grava em ``AWSLogs/o-<org>/<conta>/CloudTrail/``. O coletor
+  lista ``AWSLogs/`` e lê os DOIS layouts que existirem para a conta (o de conta e o de
+  org) — uma trail convertida para org deixa backlog no caminho antigo.
+- ``region`` aceita uma região, várias separadas por vírgula, ou ``*`` (todas as que
+  existem no bucket). IAM/STS/login no console caem em ``us-east-1``; com ``*`` vêm junto.
+- Política legada que restringe ``s3:ListBucket`` por prefixo: a listagem de descoberta
+  dá AccessDenied e o coletor volta ao caminho clássico ``AWSLogs/<conta>/CloudTrail/<região>/``.
 
 **Objeto que não dá para ler NÃO é pulado.** Falha de leitura (permissão, KMS, rede)
 derruba o ciclo: o cursor volta e o erro aparece na Saúde. Antes o objeto era pulado
@@ -30,8 +42,9 @@ import asyncio
 import gzip
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from ..auth import aws as aws_auth
 from ..base import BaseCollector
@@ -61,6 +74,8 @@ class AWSCloudTrailCollector(BaseCollector):
     platform = "aws_cloudtrail"
     stream = "events"
     event_type = "aws_cloudtrail.event"
+    #: Prefixo das mensagens de log e de erro (subclasses trocam: ``waf``).
+    _label = "cloudtrail"
 
     def __init__(self, ctx) -> None:
         super().__init__(ctx)
@@ -85,8 +100,8 @@ class AWSCloudTrailCollector(BaseCollector):
                 raise RuntimeError(
                     f"cloudtrail: integração {self.ctx.integration_id} incompleta — {exc}"
                 ) from None
-            bucket = (integ.base_url or "").strip()
-            region = (integ.region or "us-east-1").strip()
+            bucket, key_prefix = split_s3_location(integ.base_url or "")
+            regions = parse_regions(integ.region, default=("us-east-1",))
             account_id = (integ.tenant_id or "").strip() or (
                 aws_auth.role_account_id(auth.role_arn) or ""
             )
@@ -98,8 +113,10 @@ class AWSCloudTrailCollector(BaseCollector):
             return {
                 "auth": auth,
                 "bucket": bucket,
-                "region": region,
-                "prefix_base": f"AWSLogs/{account_id}/CloudTrail/{region}/",
+                "key_prefix": key_prefix,
+                "account_id": account_id,
+                "regions": regions,
+                "region": client_region(regions),
             }
 
     def _s3_client(self, conn: Dict[str, Any], client_kwargs: Dict[str, str]):
@@ -124,16 +141,26 @@ class AWSCloudTrailCollector(BaseCollector):
         resume_prefix: Optional[str] = cursor.get("prefix") or None
         resume_after: Optional[str] = cursor.get("start_after") or None
 
-        # Prefixos de dia do watermark até hoje (antes: só hoje+ontem → um backlog de
-        # >2 dias era silenciosamente PULADO). Do mais ANTIGO p/ o mais novo, p/ drenar
-        # cronologicamente e a posição de retomada fazer sentido.
-        prefixes = _date_prefixes(conn["prefix_base"], last_mod, datetime.now(timezone.utc))
-        if resume_prefix and resume_prefix in prefixes:
-            prefixes = prefixes[prefixes.index(resume_prefix):]  # pula os já drenados
-
         objects_done = 0
         self._skipped = list(cursor.get("skipped_objects") or [])
         async with self._s3_client(conn, client_kwargs) as s3:
+            bases = (
+                [conn["prefix_base"]] if conn.get("prefix_base")
+                else await self._discover_bases(s3, conn)
+            )
+            # Retomada só vale sobre o MESMO conjunto de prefixos-base. Se apareceu
+            # região/conta nova no meio de um backlog, a lista muda de forma e um
+            # prefixo novo ANTES do ponto de retomada seria pulado — e, drenado o
+            # resto, o watermark avançaria por cima dele. Recomeça a passada do
+            # watermark (o dedupe por ID absorve o que for relido).
+            if resume_prefix and cursor.get("bases") is not None and sorted(cursor["bases"]) != bases:
+                resume_prefix = resume_after = None
+            # Prefixos de dia do watermark até hoje, dia a dia e, dentro do dia, base a
+            # base. Do mais ANTIGO p/ o mais novo, p/ drenar cronologicamente e a
+            # posição de retomada fazer sentido.
+            prefixes = _interleave_days(bases, last_mod, datetime.now(timezone.utc))
+            if resume_prefix and resume_prefix in prefixes:
+                prefixes = prefixes[prefixes.index(resume_prefix):]  # pula os já drenados
             for prefix in prefixes:
                 # ``StartAfter`` (chave, lexicográfico) em vez de ContinuationToken
                 # (opaco/expirável): é o que torna a posição PERSISTÍVEL e resumível.
@@ -175,6 +202,7 @@ class AWSCloudTrailCollector(BaseCollector):
                                 "last_modified": last_mod.isoformat(),
                                 "prefix": prefix,
                                 "start_after": key,
+                                "bases": bases,
                             })
                             # Sobrou backlog: sem este sinal, o watermark parado
                             # (justamente porque não avançamos) é indistinguível de
@@ -182,9 +210,10 @@ class AWSCloudTrailCollector(BaseCollector):
                             # continua verde enquanto o atraso cresce.
                             self.mark_cycle_capped()
                             logger.info(
-                                "cloudtrail: teto de %d objetos/ciclo — retomando em "
+                                "%s: teto de %d objetos/ciclo — retomando em "
                                 "prefix=%s start_after=%s (integration=%s)",
-                                _MAX_OBJECTS_PER_CYCLE, prefix, key, self.ctx.integration_id,
+                                self._label, _MAX_OBJECTS_PER_CYCLE, prefix, key,
+                                self.ctx.integration_id,
                             )
                             return
 
@@ -193,6 +222,69 @@ class AWSCloudTrailCollector(BaseCollector):
 
         # Drenou a janela inteira: só AQUI o watermark avança (e a posição é limpa).
         self.ctx.cursor = self._with_skipped({"last_modified": latest.isoformat()})
+
+    # ── Descoberta do layout no bucket ────────────────────────────────────
+
+    async def _list_dirs(self, s3, bucket: str, prefix: str) -> List[str]:
+        """"Subpastas" imediatas de ``prefix`` (``CommonPrefixes`` com ``/``)."""
+        out: List[str] = []
+        token: Optional[str] = None
+        while True:
+            await self.ctx.rate_limiter.acquire(self.ctx.integration_id, self.platform)
+            kwargs: Dict[str, Any] = {"Bucket": bucket, "Prefix": prefix, "Delimiter": "/"}
+            if token:
+                kwargs["ContinuationToken"] = token
+            async with self.ctx.domain_limiter.slot(self.domain):
+                resp = await s3.list_objects_v2(**kwargs)
+            out.extend(
+                cp["Prefix"] for cp in (resp.get("CommonPrefixes") or []) if cp.get("Prefix")
+            )
+            token = resp.get("NextContinuationToken")
+            if not resp.get("IsTruncated") or not token:
+                return out
+
+    async def _list_dirs_or_none(self, s3, bucket: str, prefix: str) -> Optional[List[str]]:
+        """Como ``_list_dirs``, mas ``None`` quando a política nega a listagem
+        (política legada com ``s3:prefix``): o chamador cai no caminho clássico."""
+        try:
+            return await self._list_dirs(s3, bucket, prefix)
+        except Exception as exc:  # noqa: BLE001 — só AccessDenied vira fallback
+            if _error_code(exc) in ("AccessDenied", "AllAccessDisabled"):
+                logger.warning(
+                    "%s: sem permissão para listar %s (integration=%s) — usando o "
+                    "caminho clássico", self._label, prefix, self.ctx.integration_id,
+                )
+                return None
+            raise
+
+    async def _discover_bases(self, s3, conn: Dict[str, Any]) -> List[str]:
+        """Prefixos-base (até a região, inclusive) que existem para a conta."""
+        bucket, kp, acct = conn["bucket"], conn["key_prefix"], conn["account_id"]
+        logs_root = f"{kp}AWSLogs/"
+        classic_root = f"{logs_root}{acct}/CloudTrail/"
+        roots: List[str] = []
+        tops = await self._list_dirs_or_none(s3, bucket, logs_root)
+        if tops is None:
+            roots = [classic_root]
+        else:
+            for top in tops:
+                name = top[len(logs_root):].rstrip("/")
+                if name == acct:
+                    roots.append(classic_root)
+                elif name.startswith("o-"):
+                    accounts = await self._list_dirs_or_none(s3, bucket, top) or []
+                    if f"{top}{acct}/" in accounts:
+                        roots.append(f"{top}{acct}/CloudTrail/")
+            if not roots:  # nada entregue ainda: o caminho clássico é o palpite certo
+                roots = [classic_root]
+        bases: List[str] = []
+        for root in roots:
+            if conn["regions"] == ["*"]:
+                found = await self._list_dirs_or_none(s3, bucket, root)
+                bases.extend(found if found is not None else [f"{root}{conn['region']}/"])
+            else:
+                bases.extend(f"{root}{r}/" for r in conn["regions"])
+        return sorted(set(bases))
 
     def _with_skipped(self, cursor: Dict[str, Any]) -> Dict[str, Any]:
         """Anexa ao cursor os objetos corrompidos pulados (os mais recentes)."""
@@ -220,21 +312,26 @@ class AWSCloudTrailCollector(BaseCollector):
                 raw = await body.read()
         except Exception as exc:  # noqa: BLE001 — reclassificado abaixo
             if _error_code(exc) == "NoSuchKey":
-                logger.warning("cloudtrail: objeto %s sumiu antes da leitura — pulando", key)
+                logger.warning("%s: objeto %s sumiu antes da leitura — pulando", self._label, key)
                 return []
             raise RuntimeError(
-                f"cloudtrail: falha ao ler s3://{bucket}/{key} — "
+                f"{self._label}: falha ao ler s3://{bucket}/{key} — "
                 f"{aws_auth.describe_error(exc, operation='GetObject')}"
             ) from None
         try:
-            payload = json.loads(gzip.decompress(raw))
+            return self._parse_object(raw, bucket, key)
         except Exception as exc:  # noqa: BLE001
             logger.error(
-                "cloudtrail: objeto %s corrompido (%s) — pulado e registrado no cursor "
-                "(integration=%s)", key, type(exc).__name__, self.ctx.integration_id,
+                "%s: objeto %s corrompido (%s) — pulado e registrado no cursor "
+                "(integration=%s)", self._label, key, type(exc).__name__, self.ctx.integration_id,
             )
             self._skipped.append({"key": key, "reason": type(exc).__name__})
             return []
+
+    def _parse_object(self, raw: bytes, bucket: str, key: str) -> List[Dict[str, Any]]:
+        """Bytes do objeto → registros. Levantar = objeto corrompido (pulado e
+        registrado). CloudTrail: ``.json.gz`` com ``{"Records": [...]}``."""
+        payload = json.loads(gzip.decompress(raw))
         records = payload.get("Records") if isinstance(payload, dict) else None
         return records if isinstance(records, list) else []
 
@@ -255,6 +352,48 @@ class AWSCloudTrailCollector(BaseCollector):
         não lido, o atraso reportado é o do ponto realmente consumido.
         """
         return cls.watermark_from_iso(cursor, "last_modified")
+
+
+def split_s3_location(value: str) -> Tuple[str, str]:
+    """``bucket`` | ``bucket/prefixo`` | ``s3://…`` | ``arn:aws:s3:::…`` → (bucket, prefixo).
+
+    O prefixo volta normalizado com ``/`` no fim (ou vazio)."""
+    v = (value or "").strip()
+    for scheme in ("s3://",):
+        if v.lower().startswith(scheme):
+            v = v[len(scheme):]
+    m = re.match(r"^arn:aws[a-z-]*:s3:::(.+)$", v)
+    if m:
+        v = m.group(1)
+    bucket, _, prefix = v.partition("/")
+    prefix = prefix.strip("/")
+    return bucket.strip(), (f"{prefix}/" if prefix else "")
+
+
+def parse_regions(value: Optional[str], *, default: Tuple[str, ...]) -> List[str]:
+    """``us-east-1`` | ``us-east-1, sa-east-1`` | ``*`` → lista (``["*"]`` = todas)."""
+    raw = [r.strip() for r in (value or "").replace(";", ",").split(",") if r.strip()]
+    if not raw:
+        return list(default)
+    if "*" in raw:
+        return ["*"]
+    return sorted(set(raw))
+
+
+def client_region(regions: List[str]) -> str:
+    """Região do client S3: a primeira explícita (o botocore segue o redirect se o
+    bucket estiver em outra)."""
+    concrete = [r for r in regions if r != "*"]
+    return concrete[0] if concrete else "us-east-1"
+
+
+def _interleave_days(bases: List[str], since: datetime, now: datetime) -> List[str]:
+    """Prefixos de dia de TODAS as bases, dia a dia (cronológico entre bases)."""
+    if len(bases) == 1:
+        return _date_prefixes(bases[0], since, now)
+    per_base = [_date_prefixes(b, since, now) for b in bases]
+    days = max((len(p) for p in per_base), default=0)
+    return [p[i] for i in range(days) for p in per_base if i < len(p)]
 
 
 def _error_code(exc: BaseException) -> str:
@@ -312,8 +451,8 @@ async def _cloudtrail_probe(cfg: Dict[str, Any]):
     External ID trocado antes de salvar."""
     from ..output.base import TestResult
 
-    bucket = (cfg.get("base_url") or "").strip()
-    region = (cfg.get("region") or "us-east-1").strip()
+    bucket, key_prefix = split_s3_location(cfg.get("base_url") or "")
+    region = client_region(parse_regions(cfg.get("region"), default=("us-east-1",)))
     if not bucket:
         return TestResult.failed("Informe o bucket S3.")
     t0 = time.perf_counter()
@@ -326,7 +465,7 @@ async def _cloudtrail_probe(cfg: Dict[str, Any]):
         import aioboto3  # noqa: PLC0415
 
         async with aioboto3.Session().client("s3", **client_kwargs) as s3:
-            await s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
+            await s3.list_objects_v2(Bucket=bucket, MaxKeys=1, **({"Prefix": key_prefix} if key_prefix else {}))
         ms = (time.perf_counter() - t0) * 1000.0
         how = "papel assumido" if auth.mode == aws_auth.MODE_ROLE else "chave fixa"
         return TestResult.passed(f"Conexão OK ({how}) — acesso ao bucket validado.", latency_ms=ms)
@@ -369,9 +508,13 @@ def _register() -> None:
                 AuthField(key="secret_access_key", label="Secret Access Key", type="secret", required=False,
                           help_text="Só com Access Key ID. Deixe vazio ao usar papel."),
                 AuthField(key="base_url", label="Bucket S3", type="string", required=True,
-                          help_text="Nome do bucket onde o CloudTrail entrega os logs"),
-                AuthField(key="region", label="Região AWS", type="string", required=True,
-                          help_text="Ex: us-east-1"),
+                          help_text="Bucket onde o CloudTrail entrega os logs. Trail com "
+                                    "prefixo de chave: bucket/prefixo. Trail de Organization "
+                                    "é detectada sozinha."),
+                AuthField(key="region", label="Regiões AWS", type="string", required=True,
+                          help_text="Uma região (us-east-1), várias separadas por vírgula, ou * "
+                                    "para todas as que existem no bucket. IAM e login no "
+                                    "console ficam em us-east-1."),
                 AuthField(key="tenant_id", label="Account ID", type="string", required=False,
                           help_text="Conta dona dos logs (compõe AWSLogs/<conta>/CloudTrail/). "
                                     "Com papel, vazio = a conta do ARN."),

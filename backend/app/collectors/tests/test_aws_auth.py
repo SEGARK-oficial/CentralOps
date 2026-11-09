@@ -276,6 +276,21 @@ def test_template_trust_requires_external_id_and_principal() -> None:
     assert tpl["Outputs"]["RoleArn"]
 
 
+def test_template_has_optional_read_policy_for_each_log_bucket() -> None:
+    tpl = aws_auth.cloudformation_template("centralops-abc", None)
+    conditional = {
+        p["Fn::If"][0]: p["Fn::If"][1]["PolicyName"]
+        for p in tpl["Resources"]["CentralOpsRole"]["Properties"]["Policies"]
+        if "Fn::If" in p
+    }
+    assert conditional == {
+        "HasBucket": "CentralOpsCloudTrailS3Read",
+        "HasWafBucket": "CentralOpsWafLogsS3Read",
+        "HasKms": "CentralOpsLogsKmsDecrypt",
+    }
+    assert set(tpl["Conditions"]) == set(conditional)
+
+
 def test_template_without_principal_leaves_parameter_for_the_customer() -> None:
     tpl = aws_auth.cloudformation_template("centralops-abc", None)
     assert "Default" not in tpl["Parameters"]["TrustedPrincipalArn"]

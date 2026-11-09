@@ -25,7 +25,8 @@ API da AWS ──► CloudTrail (trail) ──► bucket S3 ──list + get (a 
 |---|---|
 | Stream | `events` (tipo de evento `aws_cloudtrail.event`) |
 | Frequência | a cada 5 minutos |
-| Onde lê | `s3://<bucket>/AWSLogs/<Account ID>/CloudTrail/<região>/AAAA/MM/DD/` |
+| Onde lê | `s3://<bucket>/[prefixo/]AWSLogs/<Account ID>/CloudTrail/<região>/AAAA/MM/DD/` e, se a trail for de Organization, `…/AWSLogs/o-<org>/<Account ID>/CloudTrail/<região>/…` |
+| Layout | descoberto a cada ciclo listando o bucket: trail de Organization e regiões (com `*`) não precisam de configuração |
 | Posição da coleta | `LastModified` do último arquivo lido; cada ciclo relê os 15 minutos anteriores para pegar entrega atrasada |
 | Duplicados | descartados pelo `eventID` (a AWS repete o mesmo `eventID` quando entrega duas vezes) |
 | Primeira coleta | arquivos entregues nas últimas 2 horas |
@@ -49,13 +50,14 @@ Cada arquivo traz um `Records[]`. Cada item vira um evento. Um arquivo que **nã
 ## Pré-requisitos
 
 - **Uma trail entregando num bucket S3.** Sem trail, não há arquivo para ler.
-- **Trail sem prefixo de chave S3.** O CentralOps procura os arquivos a partir da raiz do bucket (`AWSLogs/...`). Uma trail criada com *S3 key prefix* (`meu-prefixo/AWSLogs/...`) não é encontrada.
-- **Trail de uma conta, não de organização.** A trail de organização grava em `AWSLogs/<ID da organização>/<conta>/...`, caminho que o coletor não monta. Para uma organização, crie uma integração por conta lendo uma trail daquela conta.
-- **Uma integração por região.** Cada integração lê o prefixo de uma região. Para uma trail multirregião, crie uma integração para cada região que quiser ver.
+- **Prefixo de chave S3.** Se a trail usa *S3 key prefix* (`meu-prefixo/AWSLogs/...`), informe o bucket como `bucket/meu-prefixo`.
+- **Trail de Organization funciona sem configuração.** Ela grava em `AWSLogs/o-<org>/<conta>/...`; o CentralOps encontra esse caminho listando o bucket e lê só a conta informada. Uma trail convertida para Organization deixa arquivos no caminho antigo: os dois são lidos. Para várias contas de uma Organization, crie uma integração por conta.
+- **Regiões.** Uma integração lê uma região, uma lista (`us-east-1, sa-east-1`) ou todas as que existem no bucket (`*`).
+- **Listar o bucket.** A descoberta lista `AWSLogs/` com delimitador. Uma policy antiga que restringe `s3:ListBucket` por prefixo nega essa listagem; o coletor então volta ao caminho clássico `AWSLogs/<conta>/CloudTrail/<região>/` (sem Organization e sem `*`).
 
 :::info[Eventos de IAM chegam em us-east-1]
 
-Numa trail multirregião, os eventos de serviços globais (IAM, STS global, login no console de usuário root) são entregues no prefixo de `us-east-1`. Mesmo que seus recursos estejam em `sa-east-1`, crie uma integração para `us-east-1` se quiser ver mudanças de IAM.
+Numa trail multirregião, os eventos de serviços globais (IAM, STS global, login no console de usuário root) são entregues no prefixo de `us-east-1`. Mesmo que seus recursos estejam em `sa-east-1`, inclua `us-east-1` nas regiões (ou use `*`) se quiser ver mudanças de IAM.
 
 :::
 
@@ -185,8 +187,8 @@ Se o bucket fica em **outra conta** (conta central de logs), a bucket policy des
    |---|---|
    | ARN do papel ou Access Key ID | Opção A: o `RoleArn` do Passo 2 (ex.: `arn:aws:iam::111122223333:role/CentralOpsReadOnly`). Opção B: o `AccessKeyId` (ex.: `AKIAIOSFODNN7EXAMPLE`). O CentralOps reconhece o modo pelo formato. |
    | Secret Access Key | Só na Opção B: o `SecretAccessKey`. Fica guardado cifrado. Com papel, deixe vazio. |
-   | Bucket S3 | Só o nome do bucket, sem `s3://` (ex.: `meu-bucket-cloudtrail`). |
-   | Região AWS | A região cujos eventos você quer (ex.: `us-east-1`). Compõe o prefixo lido. |
+   | Bucket S3 | O nome do bucket (ex.: `meu-bucket-cloudtrail`). Com prefixo de chave: `meu-bucket-cloudtrail/meu-prefixo`. `s3://…` e `arn:aws:s3:::…` também valem. |
+   | Regiões AWS | `us-east-1`, uma lista (`us-east-1, sa-east-1`) ou `*` para todas as regiões do bucket. A primeira região da lista é a do client S3 (o SDK segue o redirecionamento se o bucket estiver em outra). |
    | Account ID | Os 12 dígitos da conta cujos eventos estão no bucket (ex.: `111122223333`). Compõe o prefixo lido. Com papel, pode ficar vazio quando a conta dos logs é a mesma do papel. |
 
 3. Clique em **testar a conexão**. Com papel, o teste assume o papel de verdade (pega trust policy ou External ID errados antes de salvar). Depois lista um objeto do bucket e responde `Conexão OK (papel assumido)…` ou `Conexão OK (chave fixa)…`, ou o motivo da falha (ex.: `AssumeRole: AccessDenied — confira se a trust policy do papel confia no principal do CentralOps e exige o External ID desta organização.`).
@@ -346,7 +348,7 @@ Evento normalizado:
    aws s3 ls s3://meu-bucket-cloudtrail/AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/ | tail -3
    ```
 
-   Vazio? O Account ID ou a região do formulário não batem com a trail, ou a trail usa prefixo de chave ou é de organização (veja [Pré-requisitos](#pré-requisitos)).
+   Vazio? O Account ID ou a região do formulário não batem com a trail, ou a trail usa prefixo de chave não informado no campo Bucket (veja [Pré-requisitos](#pré-requisitos)). Trail de Organization: o caminho é `AWSLogs/o-<org>/<conta>/CloudTrail/…`.
 2. Veja o erro do stream em **Saúde do Pipeline**.
 
 **Erro `cloudtrail: falha ao ler s3://… — AccessDenied`.** O CentralOps lista o bucket, mas não consegue ler um arquivo. Com a dica `kms:Decrypt`, falta permissão na chave KMS que cifra a trail; sem ela, falta `s3:GetObject`. A coleta fica parada nesse ponto, **sem perder nada**: corrigida a permissão, o próximo ciclo lê o arquivo e segue.
@@ -359,14 +361,14 @@ Evento normalizado:
 
 **`Falha ao acessar o bucket: AccessDenied` no teste.** Acesso negado ao `s3:ListBucket` (veja o aviso da Opção B sobre condição de prefixo) ou bucket de outra conta sem bucket policy. `NoSuchBucket`: nome errado ou bucket em outra região.
 
-**Eventos de IAM não aparecem.** Eles estão no prefixo de `us-east-1`. Crie uma integração para essa região.
+**Eventos de IAM não aparecem.** Eles estão no prefixo de `us-east-1`. Inclua essa região no campo Regiões AWS (ou use `*`).
 
 **"Backlog" em Saúde do Pipeline.** Cada ciclo processou 500 arquivos e sobrou fila. É normal na primeira carga e depois de uma parada. Se ficar aceso por muito tempo, o volume da trail passa do que um ciclo de 5 minutos drena.
 
 ## Limitações conhecidas
 
-- **Uma conta e uma região por integração**, sem prefixo de chave e sem trail de organização.
-- **Um papel por integração, sem descoberta.** O bucket e a região são digitados; o CentralOps ainda não descobre trails (`DescribeTrails`) nem contas de uma AWS Organization.
+- **Uma conta por integração.** Numa trail de Organization, cada conta precisa da própria integração; o CentralOps ainda não cria as integrações das contas de uma AWS Organization sozinho.
+- **O bucket é digitado.** O CentralOps descobre o layout dentro do bucket, mas não descobre qual bucket a trail usa (`DescribeTrails`).
 - **Todos os eventos saem como API Activity com `activity_id` 0 e severidade Informational.** O CentralOps não classifica `Create`/`Read`/`Update`/`Delete` pelo nome da API, e o sucesso ou falha está em `status` (texto), não em `status_id`.
 - **Recoleta histórica (backfill) não respeita o período pedido.** O coletor começa da janela padrão (arquivos das últimas 2 horas), não do início do período escolhido.
 - **Arquivo corrompido é pulado** e só fica registrado no estado da coleta (veja Solução de problemas).

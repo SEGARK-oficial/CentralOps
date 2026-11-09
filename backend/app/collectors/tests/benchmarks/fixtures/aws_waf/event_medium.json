@@ -1,0 +1,63 @@
+{
+  "timestamp": 1782036000000,
+  "formatVersion": 1,
+  "webaclId": "arn:aws:wafv2:us-east-1:888:regional/webacl/site/abc",
+  "terminatingRuleId": "AWS-AWSManagedRulesSQLiRuleSet",
+  "terminatingRuleType": "MANAGED_RULE_GROUP",
+  "action": "BLOCK",
+  "terminatingRuleMatchDetails": [
+    {
+      "conditionType": "SQL_INJECTION",
+      "location": "QUERY_STRING",
+      "matchedData": [
+        "1",
+        "OR",
+        "1"
+      ]
+    }
+  ],
+  "httpSourceName": "ALB",
+  "httpSourceId": "888-app/site/50dc6c495c0c9188",
+  "ruleGroupList": [
+    {
+      "ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+      "terminatingRule": {
+        "ruleId": "SQLi_QUERYARGUMENTS",
+        "action": "BLOCK"
+      },
+      "nonTerminatingMatchingRules": [],
+      "excludedRules": null
+    }
+  ],
+  "rateBasedRuleList": [],
+  "nonTerminatingMatchingRules": [],
+  "httpRequest": {
+    "clientIp": "192.0.2.10",
+    "country": "BR",
+    "headers": [
+      {
+        "name": "Host",
+        "value": "site.exemplo.com"
+      },
+      {
+        "name": "User-Agent",
+        "value": "Mozilla/5.0"
+      }
+    ],
+    "uri": "/login",
+    "args": "id=1%20OR%201=1",
+    "httpVersion": "HTTP/1.1",
+    "httpMethod": "GET",
+    "requestId": "1-6510d2f1-medium"
+  },
+  "centralops": {
+    "source": "s3",
+    "region": "us-east-1",
+    "accountId": "888"
+  },
+  "labels": [
+    {
+      "name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments"
+    }
+  ]
+}

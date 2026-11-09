@@ -351,8 +351,8 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
 
     O External ID e o principal entram como DEFAULT dos parâmetros: o cliente
     aplica sem editar nada. Permissões mínimas para as fontes de hoje (CloudTrail
-    no S3 e CloudWatch Logs); bucket e chave KMS são opcionais e, vazios, não
-    geram a política correspondente.
+    e WAF no S3, CloudWatch Logs — onde também cai o WAF entregue em log group);
+    buckets e chave KMS são opcionais e, vazios, não geram a política correspondente.
     """
     principal_param: Dict[str, Any] = {
         "Type": "String",
@@ -379,6 +379,11 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                 "Default": "",
                 "Description": "Bucket onde o CloudTrail entrega os logs (vazio = sem CloudTrail via S3).",
             },
+            "WafLogsBucketName": {
+                "Type": "String",
+                "Default": "",
+                "Description": "Bucket aws-waf-logs-* onde o WAF entrega os logs (vazio = sem WAF via S3).",
+            },
             "KmsKeyArn": {
                 "Type": "String",
                 "Default": "",
@@ -387,6 +392,7 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
         },
         "Conditions": {
             "HasBucket": {"Fn::Not": [{"Fn::Equals": [{"Ref": "CloudTrailBucketName"}, ""]}]},
+            "HasWafBucket": {"Fn::Not": [{"Fn::Equals": [{"Ref": "WafLogsBucketName"}, ""]}]},
             "HasKms": {"Fn::Not": [{"Fn::Equals": [{"Ref": "KmsKeyArn"}, ""]}]},
         },
         "Resources": {
@@ -440,6 +446,30 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                                                 "Effect": "Allow",
                                                 "Action": "s3:GetObject",
                                                 "Resource": {sub: "arn:${AWS::Partition}:s3:::${CloudTrailBucketName}/*"},
+                                            },
+                                        ],
+                                    },
+                                },
+                                {"Ref": "AWS::NoValue"},
+                            ]
+                        },
+                        {
+                            "Fn::If": [
+                                "HasWafBucket",
+                                {
+                                    "PolicyName": "CentralOpsWafLogsS3Read",
+                                    "PolicyDocument": {
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                            {
+                                                "Effect": "Allow",
+                                                "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+                                                "Resource": {sub: "arn:${AWS::Partition}:s3:::${WafLogsBucketName}"},
+                                            },
+                                            {
+                                                "Effect": "Allow",
+                                                "Action": "s3:GetObject",
+                                                "Resource": {sub: "arn:${AWS::Partition}:s3:::${WafLogsBucketName}/*"},
                                             },
                                         ],
                                     },

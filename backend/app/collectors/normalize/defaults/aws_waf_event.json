@@ -1,0 +1,436 @@
+{
+  "_comment": [
+    "AWS WAF (WAFv2, log de cada requisicao avaliada pela web ACL) -> HTTP Activity (4002).",
+    "O mesmo registro chega do S3 (.log.gz NDJSON) e do CloudWatch Logs (message JSON); o",
+    "coletor acrescenta o bloco 'centralops' (origem, conta, regiao). timestamp = epoch ms.",
+    "A chave de classificacao (block/captcha/challenge/count/allow) e repetida em cada regra",
+    "porque value_map so olha a propria expressao."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 4002,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "HTTP Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 4,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Network Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(httpRequest.httpMethod || '')",
+      "value_map": {
+        "GET": 3,
+        "POST": 6,
+        "PUT": 7,
+        "DELETE": 2,
+        "HEAD": 4,
+        "OPTIONS": 5,
+        "TRACE": 8,
+        "PATCH": 9,
+        "CONNECT": 1
+      },
+      "default": 99,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(httpRequest.httpMethod || '')",
+      "value_map": {
+        "GET": "Get",
+        "POST": "Post",
+        "PUT": "Put",
+        "DELETE": "Delete",
+        "HEAD": "Head",
+        "OPTIONS": "Options",
+        "TRACE": "Trace",
+        "PATCH": "Patch",
+        "CONNECT": "Connect"
+      },
+      "default": "Other"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(httpRequest.httpMethod || '')",
+      "value_map": {
+        "GET": 400203,
+        "POST": 400206,
+        "PUT": 400207,
+        "DELETE": 400202,
+        "HEAD": 400204,
+        "OPTIONS": 400205,
+        "TRACE": 400208,
+        "PATCH": 400209,
+        "CONNECT": 400201
+      },
+      "default": 400299,
+      "required": true
+    },
+    {
+      "_comment": "ALLOW sem regra casada = trafego normal (Informational). BLOCK/CAPTCHA/CHALLENGE = contido na borda (Low). ALLOW com regra em modo COUNT = casou regra e CHEGOU a origem (Medium) -- e o que pede olhar.",
+      "target": "normalized.severity_id",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": 1,
+        "block": 2,
+        "captcha": 2,
+        "challenge": 2,
+        "count": 3,
+        "other": 1,
+        "unknown": 0
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": "Informational",
+        "block": "Low",
+        "captcha": "Low",
+        "challenge": "Low",
+        "count": "Medium",
+        "other": "Informational",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Enum disposition_id do OCSF 1.8: 1 Allowed, 2 Blocked, 20 Count, 22 Captcha, 23 Challenge.",
+      "target": "normalized.disposition_id",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": 1,
+        "block": 2,
+        "captcha": 22,
+        "challenge": 23,
+        "count": 20,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.disposition",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": "Allowed",
+        "block": "Blocked",
+        "captcha": "Captcha",
+        "challenge": "Challenge",
+        "count": "Count",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "CAPTCHA/CHALLENGE: a requisicao nao foi nem liberada nem negada ainda -> Other.",
+      "target": "normalized.action_id",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": 1,
+        "count": 1,
+        "block": 2,
+        "captcha": 99,
+        "challenge": 99,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.action",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "allow": "Allowed",
+        "count": "Allowed",
+        "block": "Denied",
+        "captcha": "Other",
+        "challenge": "Other",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.is_alert",
+      "source": "((action || '') == 'BLOCK' && 'block') || ((action || '') == 'CAPTCHA' && 'captcha') || ((action || '') == 'CHALLENGE' && 'challenge') || ((action || '') == 'ALLOW' && length(nonTerminatingMatchingRules || `[]`) > `0` && 'count') || ((action || '') == 'ALLOW' && 'allow') || ((action || '') == '' && 'unknown') || 'other'",
+      "value_map": {
+        "block": true,
+        "captcha": true,
+        "challenge": true,
+        "count": true
+      },
+      "default": false
+    },
+    {
+      "target": "normalized.message",
+      "source": "join('', ['AWS WAF ', action || 'UNKNOWN', ' ', httpRequest.httpMethod || '', ' ', httpRequest.uri || '', ' (', terminatingRuleId || '-', ')'])",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "timestamp",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "AWS WAF"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "httpRequest.requestId",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "source": "centralops.source",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "action",
+      "default": null
+    },
+    {
+      "_comment": "labels do WAF (ate 100) -> metadata.labels (string[]). Pivo para regras: 'awswaf:managed:aws:bot-control:...'.",
+      "target": "normalized.metadata.labels",
+      "source": "labels[].name",
+      "when": {
+        "exists": "labels[0].name"
+      }
+    },
+    {
+      "target": "normalized.cloud.provider",
+      "const": "AWS"
+    },
+    {
+      "target": "normalized.cloud.region",
+      "source": "centralops.region",
+      "default": null
+    },
+    {
+      "target": "normalized.cloud.account.uid",
+      "source": "centralops.accountId",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "httpRequest.clientIp",
+      "default": null
+    },
+    {
+      "_comment": "'-' = pais desconhecido; o filtro devolve null em vez do traco.",
+      "target": "normalized.src_endpoint.location.country",
+      "source": "[httpRequest.country][?@ != '-'] | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.dst_endpoint.hostname",
+      "source": "httpRequest.headers[?name=='Host' || name=='host' || name==':authority'].value | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.uid",
+      "source": "httpRequest.requestId",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.http_method",
+      "source": "httpRequest.httpMethod",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.version",
+      "source": "httpRequest.httpVersion",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "httpRequest.headers[?name=='User-Agent' || name=='user-agent'].value | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.hostname",
+      "source": "httpRequest.headers[?name=='Host' || name=='host' || name==':authority'].value | [0]",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.path",
+      "source": "httpRequest.uri",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.query_string",
+      "source": "httpRequest.args",
+      "default": null
+    },
+    {
+      "target": "normalized.http_response.code",
+      "source": "responseCodeSent",
+      "default": null
+    },
+    {
+      "_comment": "terminatingRuleId = a regra que decidiu (ou 'Default_Action'). Em grupo gerenciado ele e o NOME do grupo; a regra de dentro vai em unmapped.aws_waf_group_rule.",
+      "target": "normalized.firewall_rule.uid",
+      "source": "terminatingRuleId",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.name",
+      "source": "terminatingRuleId",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.type",
+      "source": "terminatingRuleType",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.match_location",
+      "source": "terminatingRuleMatchDetails[0].location",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.match_details",
+      "source": "terminatingRuleMatchDetails[0].matchedData",
+      "when": {
+        "exists": "terminatingRuleMatchDetails[0].matchedData"
+      }
+    },
+    {
+      "target": "normalized.policy.uid",
+      "source": "webaclId",
+      "default": null
+    },
+    {
+      "target": "normalized.ja4_fingerprint_list",
+      "source": "ja4Fingerprint && [{type_id: `1`, type: 'JA4', value: ja4Fingerprint}]",
+      "when": {
+        "exists": "ja4Fingerprint && [{type_id: `1`, type: 'JA4', value: ja4Fingerprint}]"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_group_rule",
+      "source": "ruleGroupList[?terminatingRule].terminatingRule.ruleId | [0]",
+      "when": {
+        "exists": "ruleGroupList[?terminatingRule].terminatingRule.ruleId | [0]"
+      }
+    },
+    {
+      "_comment": "Regras que casaram SEM terminar (modo COUNT): e o que revela ataque que passou.",
+      "target": "normalized.unmapped.aws_waf_count_rules",
+      "source": "nonTerminatingMatchingRules[].ruleId",
+      "when": {
+        "exists": "nonTerminatingMatchingRules[0].ruleId"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_attack_type",
+      "source": "terminatingRuleMatchDetails[0].conditionType",
+      "when": {
+        "exists": "terminatingRuleMatchDetails[0].conditionType"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_rate_limit",
+      "source": "rateBasedRuleList[0].rateBasedRuleName",
+      "when": {
+        "exists": "rateBasedRuleList[0].rateBasedRuleName"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_http_source",
+      "source": "httpSourceName",
+      "when": {
+        "exists": "httpSourceName"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_http_source_id",
+      "source": "httpSourceId",
+      "when": {
+        "exists": "httpSourceId"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_ja3",
+      "source": "ja3Fingerprint",
+      "when": {
+        "exists": "ja3Fingerprint"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_captcha_failure",
+      "source": "captchaResponse.failureReason",
+      "when": {
+        "exists": "captchaResponse.failureReason"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_challenge_failure",
+      "source": "challengeResponse.failureReason",
+      "when": {
+        "exists": "challengeResponse.failureReason"
+      }
+    },
+    {
+      "target": "normalized.unmapped.aws_waf_oversize_fields",
+      "source": "oversizeFields",
+      "when": {
+        "exists": "oversizeFields[0]"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "src_endpoint.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "httpRequest.clientIp",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.url.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "httpRequest.headers[?name=='Host' || name=='host' || name==':authority'].value | [0]",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.user_agent",
+          "type": "HTTP User-Agent",
+          "type_id": 16,
+          "source": "httpRequest.headers[?name=='User-Agent' || name=='user-agent'].value | [0]",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ]
+}

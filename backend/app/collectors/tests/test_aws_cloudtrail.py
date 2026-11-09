@@ -421,3 +421,177 @@ def test_registration_offers_role_onboarding_and_optional_secret() -> None:
         # Com papel não existe secret: o campo não pode ser obrigatório.
         assert fields["secret_access_key"].required is False
         assert fields["client_id"].required is True
+
+
+# ── Fase 2: layout descoberto no bucket ───────────────────────────────────
+
+from .test_aws_waf import FakeS3  # noqa: E402 — fake S3 com Delimiter/StartAfter
+
+
+def _conn(**over) -> Dict[str, Any]:
+    base = {
+        "auth": AwsAuth.access_key("AKIA_TEST", "secret-test"),
+        "bucket": "trail-bucket",
+        "key_prefix": "",
+        "account_id": "888",
+        "regions": ["us-east-1"],
+        "region": "us-east-1",
+    }
+    base.update(over)
+    return base
+
+
+def _ct_key(root: str, region: str, name: str = "a") -> str:
+    return f"{root}{region}/2026/11/09/888_CloudTrail_{region}_{name}.json.gz"
+
+
+async def _collect_discovering(fake, conn, cursor=None):
+    ctx = _ctx(cursor=cursor)
+    with patch.object(AWSCloudTrailCollector, "_load_conn", return_value=conn), \
+         patch.object(AWSCloudTrailCollector, "_s3_client", return_value=fake), \
+         patch.object(ct, "_date_prefixes", side_effect=lambda base, since, now: [f"{base}2026/11/09/"]):
+        out = [ev async for ev in AWSCloudTrailCollector(ctx).collect()]
+    return ctx, out
+
+
+@pytest.mark.asyncio
+async def test_organization_trail_is_found_without_configuration() -> None:
+    now = datetime.now(timezone.utc)
+    org_root = "AWSLogs/o-abc123/888/CloudTrail/"
+    fake = FakeS3({
+        _ct_key(org_root, "us-east-1"): _gz([_event("ev-org")]),
+        _ct_key("AWSLogs/o-abc123/999/CloudTrail/", "us-east-1"): _gz([_event("de-outra-conta")]),
+    }, now)
+
+    ctx, out = await _collect_discovering(fake, _conn())
+
+    assert [e["eventID"] for e in out] == ["ev-org"]  # só a conta configurada
+
+
+@pytest.mark.asyncio
+async def test_trail_converted_to_organization_reads_both_layouts() -> None:
+    """Backlog no caminho antigo + entregas novas no caminho da org: os dois."""
+    now = datetime.now(timezone.utc)
+    fake = FakeS3({
+        _ct_key("AWSLogs/888/CloudTrail/", "us-east-1"): _gz([_event("ev-velho")]),
+        _ct_key("AWSLogs/o-abc123/888/CloudTrail/", "us-east-1"): _gz([_event("ev-novo")]),
+    }, now)
+    _, out = await _collect_discovering(fake, _conn())
+    assert sorted(e["eventID"] for e in out) == ["ev-novo", "ev-velho"]
+
+
+@pytest.mark.asyncio
+async def test_key_prefix_and_all_regions() -> None:
+    now = datetime.now(timezone.utc)
+    root = "meu-prefixo/AWSLogs/888/CloudTrail/"
+    fake = FakeS3({
+        _ct_key(root, "us-east-1"): _gz([_event("ev-iam")]),
+        _ct_key(root, "sa-east-1"): _gz([_event("ev-sp")]),
+    }, now)
+    _, out = await _collect_discovering(fake, _conn(key_prefix="meu-prefixo/", regions=["*"]))
+    assert sorted(e["eventID"] for e in out) == ["ev-iam", "ev-sp"]
+
+
+@pytest.mark.asyncio
+async def test_listing_denied_falls_back_to_the_classic_path() -> None:
+    """Política antiga restringe ListBucket por prefixo: a descoberta não pode
+    derrubar a integração que funcionava."""
+
+    class _Denied(Exception):
+        response = {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}
+
+    now = datetime.now(timezone.utc)
+    fake = FakeS3({_ct_key("AWSLogs/888/CloudTrail/", "us-east-1"): _gz([_event("ev-1")])}, now)
+    real_list = fake.list_objects_v2
+
+    async def _list(**kw):
+        if kw.get("Delimiter"):
+            raise _Denied()
+        return await real_list(**kw)
+
+    fake.list_objects_v2 = _list  # type: ignore[method-assign]
+    _, out = await _collect_discovering(fake, _conn())
+    assert [e["eventID"] for e in out] == ["ev-1"]
+
+
+@pytest.mark.asyncio
+async def test_other_listing_errors_are_not_swallowed() -> None:
+    class _Slow(Exception):
+        response = {"Error": {"Code": "SlowDown", "Message": "reduce rate"}}
+
+    now = datetime.now(timezone.utc)
+    fake = FakeS3({}, now)
+
+    async def _list(**kw):
+        raise _Slow()
+
+    fake.list_objects_v2 = _list  # type: ignore[method-assign]
+    with pytest.raises(_Slow):
+        await _collect_discovering(fake, _conn())
+
+
+@pytest.mark.asyncio
+async def test_resume_is_dropped_when_the_set_of_bases_changed() -> None:
+    """Região nova no meio de um backlog: retomar pularia o prefixo novo que fica
+    ANTES do ponto salvo. Recomeça a passada do watermark (dedupe absorve)."""
+    now = datetime.now(timezone.utc)
+    root = "AWSLogs/888/CloudTrail/"
+    fake = FakeS3({
+        _ct_key(root, "ap-south-1"): _gz([_event("ev-regiao-nova")]),
+        _ct_key(root, "us-east-1", "b"): _gz([_event("ev-us")]),
+    }, now)
+    cursor = {
+        "last_modified": datetime(2026, 11, 1, tzinfo=timezone.utc).isoformat(),
+        "prefix": f"{root}us-east-1/2026/11/09/",
+        "start_after": _ct_key(root, "us-east-1", "a"),
+        "bases": [f"{root}us-east-1/"],
+    }
+    _, out = await _collect_discovering(fake, _conn(regions=["*"]), cursor=cursor)
+    assert sorted(e["eventID"] for e in out) == ["ev-regiao-nova", "ev-us"]
+
+
+@pytest.mark.asyncio
+async def test_resume_kept_when_bases_are_the_same() -> None:
+    now = datetime.now(timezone.utc)
+    root = "AWSLogs/888/CloudTrail/"
+    fake = FakeS3({
+        _ct_key(root, "us-east-1", "a"): _gz([_event("ja-lido")]),
+        _ct_key(root, "us-east-1", "b"): _gz([_event("ev-b")]),
+    }, now)
+    cursor = {
+        "last_modified": datetime(2026, 11, 1, tzinfo=timezone.utc).isoformat(),
+        "prefix": f"{root}us-east-1/2026/11/09/",
+        "start_after": _ct_key(root, "us-east-1", "a"),
+        "bases": [f"{root}us-east-1/"],
+    }
+    _, out = await _collect_discovering(fake, _conn(), cursor=cursor)
+    assert [e["eventID"] for e in out] == ["ev-b"]
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("trail-bucket", ("trail-bucket", "")),
+        ("trail-bucket/meu/prefixo/", ("trail-bucket", "meu/prefixo/")),
+        ("s3://trail-bucket/p", ("trail-bucket", "p/")),
+        ("arn:aws:s3:::trail-bucket", ("trail-bucket", "")),
+        ("  ", ("", "")),
+    ],
+)
+def test_split_s3_location(value, expected) -> None:
+    assert ct.split_s3_location(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("us-east-1", ["us-east-1"]),
+        ("sa-east-1, us-east-1", ["sa-east-1", "us-east-1"]),
+        ("*", ["*"]),
+        ("us-east-1,*", ["*"]),
+        ("", ["us-east-1"]),
+        (None, ["us-east-1"]),
+    ],
+)
+def test_parse_regions(value, expected) -> None:
+    assert ct.parse_regions(value, default=("us-east-1",)) == expected

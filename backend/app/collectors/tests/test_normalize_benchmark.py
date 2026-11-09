@@ -206,6 +206,37 @@ _FIXTURES = {
         "awsAccountId": "888",
         "eventTime": "2026-06-21T10:00:00.000Z",
     },
+    # AWS WAF: registro da web ACL como o coletor emite (S3 ou CloudWatch), com o
+    # bloco ``centralops`` de origem.
+    ("aws_waf", "aws_waf.event"): {
+        "timestamp": 1782036000000,
+        "formatVersion": 1,
+        "webaclId": "arn:aws:wafv2:us-east-1:888:regional/webacl/site/abc",
+        "terminatingRuleId": "AWS-AWSManagedRulesSQLiRuleSet",
+        "terminatingRuleType": "MANAGED_RULE_GROUP",
+        "action": "BLOCK",
+        "terminatingRuleMatchDetails": [
+            {"conditionType": "SQL_INJECTION", "location": "QUERY_STRING", "matchedData": ["1", "OR", "1"]}
+        ],
+        "httpSourceName": "ALB",
+        "httpSourceId": "888-app/site/50dc6c495c0c9188",
+        "ruleGroupList": [
+            {"ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+             "terminatingRule": {"ruleId": "SQLi_QUERYARGUMENTS", "action": "BLOCK"}}
+        ],
+        "rateBasedRuleList": [],
+        "nonTerminatingMatchingRules": [],
+        "httpRequest": {
+            "clientIp": "192.0.2.10", "country": "BR",
+            "headers": [{"name": "Host", "value": "site.exemplo.com"},
+                        {"name": "User-Agent", "value": "sqlmap/1.7"}],
+            "uri": "/login", "args": "id=1%20OR%201=1", "httpVersion": "HTTP/1.1",
+            "httpMethod": "GET", "requestId": "1-6510d2f1-3c5e2a1b4d6f7e8a9b0c1d2e",
+        },
+        "labels": [{"name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments"}],
+        "ja4Fingerprint": "t13d1516h2_8daaf6152771_02713d6af862",
+        "centralops": {"source": "s3", "region": "us-east-1", "accountId": "888"},
+    },
     # Google Cloud via Pub/Sub — o LogEntry já decodificado (é o que o coletor emite).
     ("gcp_pubsub", "gcp.audit"): _gcp.SET_IAM_POLICY,
     ("gcp_pubsub", "gcp.gke_audit"): _gcp.GKE_EXEC,
