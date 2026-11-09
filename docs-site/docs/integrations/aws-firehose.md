@@ -46,32 +46,45 @@ Os mappings são os mesmos das integrações de pull. O CentralOps desfaz, no re
 
 ## Pré-requisitos
 
-- O CentralOps acessível pela internet em **HTTPS na porta 443**, que é o único destino que o Firehose aceita.
-- Na conta AWS, permissão para criar o stream do Firehose, o papel que ele assume e o bucket de backup.
+- **O CentralOps acessível pela internet em HTTPS, na porta 443.** O Firehose só entrega nesse tipo de endereço.
+- **Na conta AWS, permissão para criar** o stream do Firehose, um bucket S3 de backup e os papéis IAM que a AWS usa para entregar no stream. O console cria esses papéis sozinho; a CLI precisa deles prontos (veja [Papéis que a AWS usa](#papéis-que-a-aws-usa)).
+- **Nenhum acesso do CentralOps à conta.** Aqui é a AWS que envia: não há papel do CentralOps nem External ID.
 
 ## Configuração
 
-### 1. Criar a integração e emitir o token
+O caminho é sempre o mesmo: **(1)** criar a integração e pegar o token, **(2)** criar um stream do Firehose que entrega no CentralOps, **(3)** mandar o log para esse stream.
 
-1. Em **Integrações**, adicione **AWS via Firehose (push)**. Não há credencial AWS para informar.
-2. No painel **Ingestão** da integração, clique em **Emitir token** e copie o token. Ele aparece uma vez só.
-3. O painel lista a URL de cada stream.
+### 1. Criar a integração e pegar o token
+
+1. No CentralOps, vá em **Coleta -> Integrações** e adicione **AWS via Firehose (push)**. Não há credencial AWS para informar.
+2. Abra a integração. No painel **Ingestão push**, clique em **Emitir token** e copie o token na hora: ele aparece uma vez só.
+3. O mesmo painel lista a **URL de cada tipo de log** (`…/api/ingest/firehose/waf`, `…/cloudtrail` e as outras). Você usa uma URL por stream.
+
+Um token só serve para todos os streams da integração. Se ele vazar, clique em **Rotacionar token** e atualize a access key dos streams.
 
 ### 2. Criar o stream do Firehose
 
-Crie um stream por tipo de log, com destino **HTTP endpoint**:
+Crie **um stream para cada tipo de log**. Pelo console:
 
-| Campo | Valor |
-|---|---|
-| Source | **Direct PUT** |
-| HTTP endpoint URL | a URL do stream, copiada do painel |
-| Access key | o token de ingestão (ou um segredo do Secrets Manager no formato `{"api_key": "<token>"}`) |
-| Content encoding | **GZIP** |
-| Retry duration | 3600 segundos (o máximo é 7200) |
-| Buffer hints | **1 a 5 MiB** e 60 segundos |
-| S3 backup | **Failed data only**, num bucket seu |
+1. Abra **Amazon Data Firehose** e clique em **Create Firehose stream**.
+2. Em **Source**, escolha **Direct PUT**. Em **Destination**, escolha **HTTP Endpoint**.
+3. Em **Firehose stream name**, dê um nome. **Para o WAF, o nome precisa começar com `aws-waf-logs-`** (ex.: `aws-waf-logs-centralops`).
+4. Em **Destination settings**, preencha:
 
-Pela AWS CLI, o stream do WAF fica assim. O painel da integração mostra o mesmo comando já com a URL:
+   | Campo | Valor |
+   |---|---|
+   | HTTP endpoint name | `CentralOps` |
+   | HTTP endpoint URL | a URL do tipo de log, copiada do painel **Ingestão push** |
+   | Authentication | **Use access key**, e cole o token. (Ou **Use AWS Secrets Manager**, com um segredo no formato `{"api_key": "<token>"}`.) |
+   | Content encoding | **GZIP** |
+   | Retry duration | `3600` segundos (o máximo é 7200) |
+   | Buffer hints | **Buffer size** de 1 a 5 MiB e **Buffer interval** de 60 segundos |
+
+5. Em **Backup settings**, escolha **Failed data only** e um bucket S3 seu (ou crie um ali mesmo). Esse bucket guarda o que o CentralOps não conseguir receber depois de esgotar o retry. Nada se perde.
+6. Em **Advanced settings → Service access**, deixe **Create or update IAM role**. O console cria o papel que o Firehose usa para gravar no bucket de backup.
+7. Clique em **Create Firehose stream** e espere o status **Active**.
+
+Pela AWS CLI, o stream do WAF fica assim. O painel da integração mostra o mesmo comando, já com a URL:
 
 ```bash
 aws firehose create-delivery-stream \
@@ -91,35 +104,109 @@ aws firehose create-delivery-stream \
   }'
 ```
 
-### 3. Ligar a origem ao stream
+### 3. Mandar o log para o stream
 
-**WAF.** O nome do stream precisa começar com `aws-waf-logs-`, e o stream precisa estar na mesma conta e na mesma região da web ACL (para CloudFront, `us-east-1`):
+**WAF** (stream `waf`). O stream precisa estar na mesma conta e na mesma região da web ACL. Para CloudFront, use `us-east-1`.
+
+1. Abra **WAF & Shield → Web ACLs**, escolha a região e a web ACL.
+2. Na aba **Logging and metrics**, clique em **Enable** (ou **Edit**) em **Logging**.
+3. Em **Logging destination**, escolha **Amazon Data Firehose stream** e selecione o stream `aws-waf-logs-…`.
+4. Salve. O WAF cria sozinho o papel de serviço `AWSServiceRoleForWAFV2Logging`. Para isso, quem salva precisa da permissão `iam:CreateServiceLinkedRole`.
+
+Pela CLI:
 
 ```bash
 aws wafv2 put-logging-configuration --logging-configuration \
   ResourceArn=<arn-da-web-acl>,LogDestinationConfigs=<arn-do-stream>
 ```
 
-**CloudTrail ou qualquer log group.** Crie uma assinatura do log group para o stream. O CloudWatch Logs precisa de um papel que ele assuma para gravar no Firehose:
+**CloudTrail** (stream `cloudtrail`). O CloudTrail não grava direto no Firehose: ele precisa mandar os eventos para um log group do CloudWatch Logs, que repassa ao stream.
+
+1. Abra **CloudTrail → Trails → sua trail**. Em **CloudWatch Logs**, clique em **Edit**, ligue **Enabled** e deixe o console criar o log group e o papel. Salve.
+2. Abra **CloudWatch → Log groups** e marque o log group da trail.
+3. Em **Actions → Subscription filters**, escolha **Create Amazon Data Firehose subscription filter**.
+4. Selecione o stream do Firehose. Em **Grant permission**, escolha o papel que deixa o CloudWatch Logs gravar no stream (veja [Papéis que a AWS usa](#papéis-que-a-aws-usa)).
+5. Em **Subscription filter pattern**, deixe vazio (manda tudo). Dê um nome ao filtro e clique em **Start streaming**.
+
+Outra opção é uma regra do EventBridge com o padrão `{ "detail-type": ["AWS API Call via CloudTrail"] }` e o stream como alvo, como no GuardDuty abaixo. Ela só recebe os eventos de escrita (as chamadas de leitura não passam pelo EventBridge).
+
+**Qualquer outro log group** (stream `cloudwatch_logs`). Os passos 2 a 5 do CloudTrail, no log group que você quer.
+
+Pela CLI, a assinatura de um log group fica assim:
 
 ```bash
 aws logs put-subscription-filter \
-  --log-group-name <log-group-da-trail> \
+  --log-group-name <log-group> \
   --filter-name centralops \
   --filter-pattern "" \
   --destination-arn <arn-do-stream> \
   --role-arn arn:aws:iam::<conta>:role/<papel-do-cloudwatch-logs>
 ```
 
-**GuardDuty e Security Hub.** Crie uma regra do EventBridge com o stream como alvo:
+**GuardDuty e Security Hub** (streams `guardduty` e `securityhub`). Os achados passam pelo EventBridge:
+
+1. Abra **Amazon EventBridge → Rules** e clique em **Create rule**. Escolha **Rule with an event pattern**.
+2. Em **Event pattern**, escolha **Custom pattern (JSON editor)** e cole o padrão do serviço:
+
+   ```json
+   { "source": ["aws.guardduty"], "detail-type": ["GuardDuty Finding"] }
+   ```
+
+   ```json
+   { "source": ["aws.securityhub"], "detail-type": ["Security Hub Findings - Imported"] }
+   ```
+
+3. Em **Target**, escolha **AWS service → Firehose stream** e selecione o stream do serviço.
+4. Em **Execution role**, deixe **Create a new role for this specific resource**. Crie a regra.
+
+Crie a regra em cada região onde o serviço está ligado. Com a agregação entre regiões do Security Hub, basta a região de agregação.
+
+### 4. Conferir
+
+- Depois de 1 a 2 minutos, os eventos aparecem em **Coleta -> Coletores**, no stream da integração.
+- No Firehose, a aba **Monitoring** do stream mostra as entregas. Se algo falhar, a aba **Destination error logs** mostra a mensagem do CentralOps (por exemplo, token inválido ou lote grande demais).
+
+### Papéis que a AWS usa
+
+O console cria os papéis abaixo sozinho. Pela CLI, crie-os antes. Nenhum deles dá acesso ao CentralOps: são permissões da própria AWS para entregar os logs no stream.
+
+| Quem grava | Confia em | Permissões |
+|---|---|---|
+| O Firehose, no bucket de backup | `firehose.amazonaws.com` | `s3:AbortMultipartUpload`, `s3:GetBucketLocation`, `s3:GetObject`, `s3:ListBucket`, `s3:ListBucketMultipartUploads` e `s3:PutObject` no bucket de backup |
+| O CloudWatch Logs, no stream | `logs.amazonaws.com` | `firehose:PutRecord` e `firehose:PutRecordBatch` no stream |
+| O EventBridge, no stream | `events.amazonaws.com` | `firehose:PutRecord` e `firehose:PutRecordBatch` no stream |
+| O WAF, no stream | papel de serviço `AWSServiceRoleForWAFV2Logging` | criado pelo WAF |
+
+Exemplo do papel do CloudWatch Logs (troque região, conta e stream):
 
 ```json
-{ "source": ["aws.guardduty"], "detail-type": ["GuardDuty Finding"] }
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "Service": "logs.amazonaws.com" },
+      "Action": "sts:AssumeRole",
+      "Condition": { "StringLike": { "aws:SourceArn": "arn:aws:logs:us-east-1:111122223333:*" } }
+    }
+  ]
+}
 ```
 
 ```json
-{ "source": ["aws.securityhub"], "detail-type": ["Security Hub Findings - Imported"] }
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["firehose:PutRecord", "firehose:PutRecordBatch"],
+      "Resource": "arn:aws:firehose:us-east-1:111122223333:deliverystream/centralops-cloudtrail"
+    }
+  ]
+}
 ```
+
+O primeiro documento é a *trust policy* do papel. O segundo é a permissão.
 
 ## Entrega, retry e o que acontece numa falha
 

@@ -95,6 +95,7 @@ const sidebars: SidebarsConfig = {
         'integrations/akamai',
         'integrations/google-workspace',
         'integrations/microsoft-365',
+        'integrations/aws-acesso',
         'integrations/aws-cloudtrail',
         'integrations/aws-cloudwatch',
         'integrations/aws-waf',

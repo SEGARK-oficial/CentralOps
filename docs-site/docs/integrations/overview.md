@@ -52,6 +52,7 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração Akamai (WAF)](./akamai.md)
 - [Integração Google Workspace](./google-workspace.md)
 - [Integração Microsoft 365](./microsoft-365.md)
+- [AWS: dar acesso ao CentralOps (papel de serviço e permissões mínimas)](./aws-acesso.md)
 - [Integração AWS CloudTrail](./aws-cloudtrail.md)
 - [Integração AWS CloudWatch Logs](./aws-cloudwatch.md)
 - [Integração AWS WAF](./aws-waf.md)

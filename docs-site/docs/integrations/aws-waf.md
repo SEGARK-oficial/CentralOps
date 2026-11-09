@@ -72,7 +72,7 @@ O WAF registra também as requisições liberadas, que são a maioria. Para mand
 
 ## Passo 2: Dar acesso de leitura ao CentralOps
 
-Use o mesmo **papel cross-account** do CloudTrail. No formulário da integração, o painel **Acesso por papel AWS** mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O passo a passo está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
+Use o mesmo **papel cross-account** do CloudTrail. O passo a passo pelo console está em [AWS: dar acesso ao CentralOps](./aws-acesso.md). No formulário da integração, o painel **Acesso por papel AWS** mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O passo a passo está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
 
 Ao criar a stack, informe o bucket do WAF:
 
@@ -86,7 +86,33 @@ aws cloudformation deploy \
 
 O template dá `s3:ListBucket`/`s3:GetObject` no bucket do WAF e leitura de CloudWatch Logs (`logs:FilterLogEvents`). Se o bucket do CloudTrail também for lido, passe os dois parâmetros na mesma stack. Com SSE-KMS, informe também `KmsKeyArn`.
 
-Com **access key** (legado), a policy do usuário precisa de `s3:ListBucket` e `s3:GetObject` no bucket, ou de `logs:FilterLogEvents` no log group.
+Com **access key** (legado), ou com o papel criado à mão, a policy mínima é esta. Troque o bucket (S3) ou a região, a conta e o log group (CloudWatch), e use só o bloco do destino que você usa:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WafNoS3Listar",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::aws-waf-logs-minha-empresa"
+    },
+    {
+      "Sid": "WafNoS3Ler",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::aws-waf-logs-minha-empresa/*"
+    },
+    {
+      "Sid": "WafNoCloudWatch",
+      "Effect": "Allow",
+      "Action": "logs:FilterLogEvents",
+      "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:aws-waf-logs-api:*"
+    }
+  ]
+}
+```
 
 ## Passo 3: Criar a integração no CentralOps
 
