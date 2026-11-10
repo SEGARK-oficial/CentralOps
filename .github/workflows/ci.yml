@@ -158,10 +158,20 @@ jobs:
       # ficava na máquina e todo build dependia de importar cache remoto.
       # O GC limita o estado (a poda de host não alcança o volume deste builder):
       # teto de uso e o MESMO piso de disco livre que o preflight exige.
+      #
+      # cleanup DESLIGADO no self-hosted: o container ``buildx_buildkit_centralops-ci0``
+      # é UM SÓ no Docker da máquina, dividido por este job, pelo build-frontend e
+      # pelo de qualquer outro run (o DOCKER_CONFIG isolado esconde a instância,
+      # não o container). O post-step padrão roda ``buildx rm`` e derrubava o build
+      # alheio no meio ("graceful_stop", "container is marked for removal"): a main
+      # ficou vermelha desde o #125, com o build da API morrendo quando o do
+      # frontend terminava. Sem o rm, o próximo job reaproveita o container vivo.
+      # Guard: backend/tests/test_workflow_buildx_builder_compartilhado.py
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           name: ${{ runner.environment == 'self-hosted' && 'centralops-ci' || '' }}
           keep-state: ${{ runner.environment == 'self-hosted' }}
+          cleanup: ${{ runner.environment != 'self-hosted' }}
           buildkitd-config-inline: |
             [worker.oci]
               gc = true
@@ -272,10 +282,12 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/docker-config"
           echo "DOCKER_CONFIG=$RUNNER_TEMP/docker-config" >> "$GITHUB_ENV"
+      # Mesmo builder do job build, sem cleanup — ver o comentário lá.
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           name: ${{ runner.environment == 'self-hosted' && 'centralops-ci' || '' }}
           keep-state: ${{ runner.environment == 'self-hosted' }}
+          cleanup: ${{ runner.environment != 'self-hosted' }}
           buildkitd-config-inline: |
             [worker.oci]
               gc = true
