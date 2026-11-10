@@ -1,0 +1,45 @@
+{
+  "AccountId": "111122223333",
+  "Arn": "arn:aws:guardduty:us-east-1:111122223333:detector/abc/finding/def",
+  "CreatedAt": "2026-11-09T09:05:00.000Z",
+  "Description": "A API ListBuckets foi chamada de um IP de saída Tor.",
+  "Id": "def",
+  "Partition": "aws",
+  "Region": "us-east-1",
+  "Resource": {
+    "ResourceType": "AccessKey",
+    "AccessKeyDetails": {
+      "AccessKeyId": "ASIAEXAMPLE",
+      "PrincipalId": "AROAEXAMPLE",
+      "UserName": "deploy-bot",
+      "UserType": "AssumedRole"
+    }
+  },
+  "SchemaVersion": "2.0",
+  "Service": {
+    "Action": {
+      "ActionType": "AWS_API_CALL",
+      "AwsApiCallAction": {
+        "Api": "ListBuckets",
+        "ServiceName": "s3.amazonaws.com",
+        "CallerType": "Remote IP",
+        "RemoteIpDetails": {
+          "IpAddressV4": "198.51.100.7",
+          "Country": {
+            "CountryCode": "NL"
+          }
+        }
+      }
+    },
+    "Archived": false,
+    "Count": 3,
+    "DetectorId": "abc",
+    "EventFirstSeen": "2026-11-09T09:00:00.000Z",
+    "EventLastSeen": "2026-11-09T10:00:00.000Z",
+    "ServiceName": "guardduty"
+  },
+  "Severity": 8,
+  "Title": "Chamada de API a partir de nó Tor",
+  "Type": "UnauthorizedAccess:IAMUser/TorIPCaller",
+  "UpdatedAt": "2026-11-09T10:05:00.000Z"
+}

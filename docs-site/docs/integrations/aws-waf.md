@@ -37,7 +37,7 @@ O WAF não tem API que devolva o log completo; ele só existe depois que o loggi
 
 Os dois caminhos entregam o mesmo registro. Um arquivo do S3 que **não dá para ler** (sem `s3:GetObject`, sem `kms:Decrypt`) para o ciclo sem avançar a posição, e o erro aparece em **Saúde do Pipeline**. Um arquivo **corrompido** é pulado e fica registrado em `skipped_objects` no estado da coleta. Uma linha inválida dentro de um arquivo bom é descartada sozinha.
 
-O destino **Firehose** do WAF não é lido.
+Para receber o log do WAF **em quase tempo real**, com o destino **Firehose** da web ACL, use a integração [AWS via Firehose](./aws-firehose.md).
 
 ## Pré-requisitos
 
@@ -72,7 +72,7 @@ O WAF registra também as requisições liberadas, que são a maioria. Para mand
 
 ## Passo 2: Dar acesso de leitura ao CentralOps
 
-Use o mesmo **papel cross-account** do CloudTrail. No formulário da integração, o painel **Acesso por papel AWS** mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O passo a passo está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
+Use o mesmo **papel cross-account** do CloudTrail. O passo a passo pelo console está em [AWS: dar acesso ao CentralOps](./aws-acesso.md). No formulário da integração, o painel **Acesso por papel AWS** mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O passo a passo está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
 
 Ao criar a stack, informe o bucket do WAF:
 
@@ -86,7 +86,33 @@ aws cloudformation deploy \
 
 O template dá `s3:ListBucket`/`s3:GetObject` no bucket do WAF e leitura de CloudWatch Logs (`logs:FilterLogEvents`). Se o bucket do CloudTrail também for lido, passe os dois parâmetros na mesma stack. Com SSE-KMS, informe também `KmsKeyArn`.
 
-Com **access key** (legado), a policy do usuário precisa de `s3:ListBucket` e `s3:GetObject` no bucket, ou de `logs:FilterLogEvents` no log group.
+Com **access key** (legado), ou com o papel criado à mão, a policy mínima é esta. Troque o bucket (S3) ou a região, a conta e o log group (CloudWatch), e use só o bloco do destino que você usa:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WafNoS3Listar",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::aws-waf-logs-minha-empresa"
+    },
+    {
+      "Sid": "WafNoS3Ler",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::aws-waf-logs-minha-empresa/*"
+    },
+    {
+      "Sid": "WafNoCloudWatch",
+      "Effect": "Allow",
+      "Action": "logs:FilterLogEvents",
+      "Resource": "arn:aws:logs:us-east-1:111122223333:log-group:aws-waf-logs-api:*"
+    }
+  ]
+}
+```
 
 ## Passo 3: Criar a integração no CentralOps
 
@@ -158,7 +184,7 @@ Vazio? O logging não está ligado, ou o Account ID não é a conta das web ACLs
 
 ## Limitações conhecidas
 
-- **Firehose não é lido.** Entrega via Kinesis Data Firehose tem outro formato de caminho.
+- **Esta integração não lê o Firehose.** Para o destino Firehose da web ACL, use a integração [AWS via Firehose](./aws-firehose.md): o WAF entrega direto no CentralOps, sem bucket.
 - **Uma conta por integração no S3.** Um bucket central com logs de várias contas precisa de uma integração por conta.
 - **Sem descoberta pela API do WAF.** As web ACLs são descobertas pelas pastas do bucket, não por `wafv2:ListWebACLs`.
 - **Volume.** Web ACL com muito tráfego liberado passa do teto de 500 arquivos por ciclo. Filtre na origem (veja o Passo 1).

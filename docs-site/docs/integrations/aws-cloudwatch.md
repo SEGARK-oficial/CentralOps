@@ -46,7 +46,7 @@ A resposta do `FilterLogEvents` não traz log group, região, conta nem horário
 
 ## Passo 1: Dar acesso de leitura ao CentralOps
 
-**Recomendado: papel cross-account.** É o mesmo papel do CloudTrail: o painel **Acesso por papel AWS**, no formulário da integração, mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O template já inclui `logs:DescribeLogGroups` e `logs:FilterLogEvents`. O passo a passo, incluindo a identidade do servidor em instalação própria, está em [AWS CloudTrail — Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account). Guarde o `RoleArn` da stack.
+**Recomendado: papel cross-account.** O passo a passo pelo console está em [AWS: dar acesso ao CentralOps](./aws-acesso.md). É o mesmo papel do CloudTrail: o painel **Acesso por papel AWS**, no formulário da integração, mostra o External ID da organização, o principal do CentralOps e o template CloudFormation. O template já inclui `logs:DescribeLogGroups` e `logs:FilterLogEvents` em todos os log groups da conta. Para limitar a um log group só, crie o papel à mão ([Caminho C](./aws-acesso.md#caminho-c-à-mão-no-console-do-iam)) com a policy abaixo. O passo a passo, incluindo a identidade do servidor em instalação própria, está em [AWS CloudTrail — Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account). Guarde o `RoleArn` da stack.
 
 **Legado: access key de usuário IAM.** A única permissão usada é `logs:FilterLogEvents` no log group. Troque região, conta e nome:
 

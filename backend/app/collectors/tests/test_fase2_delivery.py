@@ -846,15 +846,27 @@ async def test_dispatch_chaos_isolation_e5(static_db) -> None:
         batch_a = [_make_envelope("evt-a-001")]
         batch_b = [_make_envelope("evt-b-001"), _make_envelope("evt-b-002")]
 
-        # CONCURRENT: A (hangs → times out at 0.05s) and B run together. B must
-        # complete on its own while A is still blocked in send_batch.
-        results = await asyncio.gather(
-            asyncio.wait_for(
-                dispatch_batch_to_destination(dest_a, batch_a), timeout=0.05
-            ),
-            dispatch_batch_to_destination(dest_b, batch_b),
-            return_exceptions=True,
+        # CONCURRENT: A goes first and hangs inside send_batch; only then B is
+        # dispatched, and it must complete while A is still blocked.
+        #
+        # The ordering is driven by events, not by a wall-clock budget: A loads
+        # its config on a worker thread (``asyncio.to_thread``) before reaching
+        # send_batch, and a 50 ms timeout around the whole dispatch expired
+        # before A got there whenever the CPU was busy (xdist in the CI image),
+        # so the test failed without exercising isolation at all.
+        task_a = asyncio.create_task(dispatch_batch_to_destination(dest_a, batch_a))
+        await asyncio.wait_for(a_started.wait(), timeout=30)
+        # Generous bound so a stall shows up as a failure, not a hung suite.
+        result_b = await asyncio.wait_for(
+            dispatch_batch_to_destination(dest_b, batch_b), timeout=30
         )
+        assert not task_a.done(), "A must still be hung while B delivers"
+        # A's caller gives up on it: wait_for cancels the hung send and surfaces
+        # the TimeoutError a real per-send timeout produces.
+        results = await asyncio.gather(
+            asyncio.wait_for(task_a, timeout=0.05), return_exceptions=True
+        )
+        results.append(result_b)
 
     # A timed out with a retryable TimeoutError; B returned cleanly with both
     # events accepted (the DispatchOutcome the caller's span records).

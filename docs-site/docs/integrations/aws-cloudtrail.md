@@ -51,7 +51,7 @@ Cada arquivo traz um `Records[]`. Cada item vira um evento. Um arquivo que **nã
 
 - **Uma trail entregando num bucket S3.** Sem trail, não há arquivo para ler.
 - **Prefixo de chave S3.** Se a trail usa *S3 key prefix* (`meu-prefixo/AWSLogs/...`), informe o bucket como `bucket/meu-prefixo`.
-- **Trail de Organization funciona sem configuração.** Ela grava em `AWSLogs/o-<org>/<conta>/...`; o CentralOps encontra esse caminho listando o bucket e lê só a conta informada. Uma trail convertida para Organization deixa arquivos no caminho antigo: os dois são lidos. Para várias contas de uma Organization, crie uma integração por conta.
+- **Trail de Organization funciona sem configuração.** Ela grava em `AWSLogs/o-<org>/<conta>/...`; o CentralOps encontra esse caminho listando o bucket e lê só a conta informada. Uma trail convertida para Organization deixa arquivos no caminho antigo: os dois são lidos. Para várias contas de uma Organization, crie uma integração por conta ou use o [modo AWS Organization](./aws-acesso.md#várias-contas-de-uma-aws-organization) (Enterprise), que cria uma integração por conta sozinho.
 - **Regiões.** Uma integração lê uma região, uma lista (`us-east-1, sa-east-1`) ou todas as que existem no bucket (`*`).
 - **Listar o bucket.** A descoberta lista `AWSLogs/` com delimitador. Uma policy antiga que restringe `s3:ListBucket` por prefixo nega essa listagem; o coletor então volta ao caminho clássico `AWSLogs/<conta>/CloudTrail/<região>/` (sem Organization e sem `*`).
 
@@ -63,7 +63,16 @@ Numa trail multirregião, os eventos de serviços globais (IAM, STS global, logi
 
 ## Passo 1: Ter uma trail entregando no S3
 
-Se você já tem uma trail, anote o nome do bucket e se ela usa prefixo de chave (**CloudTrail → Trails → sua trail → General details**). Se não tem:
+Se você já tem uma trail, anote o nome do bucket e se ela usa prefixo de chave (**CloudTrail → Trails → sua trail → General details**).
+
+Se não tem, pelo console:
+
+1. Abra **CloudTrail → Trails** e clique em **Create trail**.
+2. Dê um nome (ex.: `centralops`), escolha **Create new S3 bucket** e anote o nome do bucket. O console cria o bucket já com a policy que a trail precisa.
+3. **Log file SSE-KMS encryption** vem ligada no console. Se deixar ligada, anote o ARN da chave (**AWS KMS alias**/**New**): o CentralOps vai precisar de `kms:Decrypt` nela, e você informa a chave no parâmetro `KmsKeyArn` do papel.
+4. Clique em **Next**. Em **Event type**, deixe **Management events** marcado. Clique em **Next** e depois em **Create trail**.
+
+Pela CLI:
 
 ```bash
 aws s3api create-bucket --bucket meu-bucket-cloudtrail --region us-east-1
@@ -80,6 +89,12 @@ A AWS entrega o primeiro arquivo alguns minutos depois de a trail começar a reg
 ## Passo 2: Dar acesso de leitura ao CentralOps
 
 Há dois jeitos. Prefira o **papel**: o CentralOps não guarda nenhuma chave de longa duração, e o cliente pode revogar o acesso apagando o papel.
+
+:::tip[Passo a passo pelo console]
+
+A página [AWS: dar acesso ao CentralOps](./aws-acesso.md) mostra a criação do papel clique a clique (pelo CloudFormation ou à mão no IAM), as permissões mínimas de cada integração e o que fazer quando o bucket está em outra conta. Aqui fica o resumo.
+
+:::
 
 ### Opção A (recomendada): papel cross-account
 
@@ -103,7 +118,7 @@ O cliente cria, na conta AWS dele, um papel só-leitura que confia na identidade
      --query "Stacks[0].Outputs[?OutputKey=='RoleArn'].OutputValue" --output text
    ```
 
-   O template cria o papel `CentralOpsReadOnly` com `s3:ListBucket`/`s3:GetObject` no bucket, `kms:Decrypt` na chave (se informada) e leitura de CloudWatch Logs. Nenhuma permissão de escrita.
+   O template cria o papel `CentralOpsReadOnly` com `s3:ListBucket`/`s3:GetObject` no bucket, `kms:Decrypt` na chave (se informada) e a leitura que as outras integrações AWS usam (CloudWatch Logs, Security Hub, GuardDuty). Nenhuma permissão de escrita. A lista completa está em [permissões mínimas](./aws-acesso.md#permissões-mínimas-de-cada-integração).
 3. Guarde o `RoleArn` da saída para o Passo 3.
 
 Prefere criar o papel à mão? O painel mostra a trust policy pronta. A condição que importa é esta, com o External ID da organização:

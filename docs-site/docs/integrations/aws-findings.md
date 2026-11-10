@@ -36,10 +36,34 @@ Com os dois ligados, os achados do GuardDuty chegam duas vezes (pelo Security Hu
 
 ## Pré-requisitos
 
-- O serviço habilitado na conta e nas regiões que você vai listar.
-- Leitura pelo **papel cross-account** do CentralOps. O template do painel **Acesso por papel AWS** já inclui `securityhub:GetFindings`, `guardduty:ListDetectors`, `guardduty:ListFindings`, `guardduty:GetFindings` e `ec2:DescribeRegions`. O passo a passo do papel está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
+- **O serviço ligado na conta e nas regiões que você vai listar.** No console: **Security Hub → Go to Security Hub → Enable Security Hub**, ou **GuardDuty → Get Started → Enable GuardDuty**, em cada região. O GuardDuty só gera achados depois de ligado; não há histórico anterior.
+- Leitura pelo **papel cross-account** do CentralOps. O passo a passo pelo console está em [AWS: dar acesso ao CentralOps](./aws-acesso.md). O template do painel **Acesso por papel AWS** já inclui `securityhub:GetFindings`, `guardduty:ListDetectors`, `guardduty:ListFindings`, `guardduty:GetFindings` e `ec2:DescribeRegions`. O passo a passo do papel está em [AWS CloudTrail: Opção A](./aws-cloudtrail.md#opção-a-recomendada-papel-cross-account).
+
+Com o papel criado à mão (ou com access key, legado), a policy mínima é esta. `ec2:DescribeRegions` só é usado com regiões `*`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LerAchados",
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:GetFindings",
+        "guardduty:ListDetectors",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ### Várias contas de uma AWS Organization
+
+O passo a passo completo, pelo console e pela CLI, está em [AWS: dar acesso ao CentralOps](./aws-acesso.md#várias-contas-de-uma-aws-organization). Resumo:
 
 O mesmo template serve como **StackSet**: o External ID é por organização do CentralOps, não por conta AWS, então todas as contas de um cliente usam o mesmo papel com o mesmo External ID. Na conta de gerenciamento (ou administradora delegada do CloudFormation):
 
