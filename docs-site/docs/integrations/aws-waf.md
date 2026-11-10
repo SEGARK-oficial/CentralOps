@@ -184,7 +184,7 @@ Vazio? O logging não está ligado, ou o Account ID não é a conta das web ACLs
 
 ## Limitações conhecidas
 
-- **Firehose não é lido.** Entrega via Kinesis Data Firehose tem outro formato de caminho.
+- **Esta integração não lê o Firehose.** Para o destino Firehose da web ACL, use a integração [AWS via Firehose](./aws-firehose.md): o WAF entrega direto no CentralOps, sem bucket.
 - **Uma conta por integração no S3.** Um bucket central com logs de várias contas precisa de uma integração por conta.
 - **Sem descoberta pela API do WAF.** As web ACLs são descobertas pelas pastas do bucket, não por `wafv2:ListWebACLs`.
 - **Volume.** Web ACL com muito tráfego liberado passa do teto de 500 arquivos por ciclo. Filtre na origem (veja o Passo 1).
