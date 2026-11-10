@@ -634,21 +634,34 @@ def test_slow_destination_is_parked_at_fetch_while_marked(monkeypatch):
     monkeypatch.setattr(settings, "KAFKA_DISPATCH_INFLIGHT_PER_DEST", 1)
     monkeypatch.setattr(settings, "KAFKA_DISPATCH_MAX_INFLIGHT", 4)
     monkeypatch.setattr(settings, "KAFKA_DISPATCH_SLOW_PARK_SECONDS", 0.2)
-    monkeypatch.setattr(settings, "KAFKA_PARKED_HOLD_SECONDS", 5.0)
+    # A marca dura o ciclo do estacionamento. Aqui ela precisa cobrir o teste
+    # inteiro, e o teste não tem duração fixa: com a CPU disputada (xdist na
+    # imagem de CI) 120 registros levam bem mais que os ~0,5 s de uma máquina
+    # ociosa, e uma marca de 5 s expirava no meio, devolvendo o lento à fila.
+    # Uma regressão para marcar só pela janela de espera (0,2 s) continua
+    # aparecendo na contagem de esperas abaixo.
+    monkeypatch.setattr(settings, "KAFKA_PARKED_HOLD_SECONDS", 600.0)
 
     async def _run():
         task = asyncio.create_task(kt.run_dispatch_consumer())
-        t0 = _time.monotonic()
-        while len(fast) < 60 and _time.monotonic() - t0 < 20:
+        # Guarda contra travamento, não medida de vazão: falha só se o saudável
+        # ficar 30 s sem entregar nada. Um prazo total media a máquina, não o
+        # código: o relógio começava antes de o consumer subir (imports
+        # preguiçosos) e, com a CPU disputada, 20 s não bastavam.
+        t0 = last_progress = _time.monotonic()
+        seen = 0
+        while len(fast) < 60 and _time.monotonic() - last_progress < 30:
             await _real_sleep(0.005)
-        took = _time.monotonic() - t0
+            if len(fast) != seen:
+                seen, last_progress = len(fast), _time.monotonic()
+        from collections import Counter as _C
+        _diag = (len(fast), round(_time.monotonic() - t0, 2), dict(_C(outcomes)), len(parked_))
+        assert len(fast) == 60, _diag
         # Uma janela de espera (0,2 s) para marcar o lento; depois tudo flui.
-        # Sem a marca, cada janela deixava passar só algumas vagas.
-        assert len(fast) == 60, len(fast)
-        assert took < 10.0, took  # sanidade; a prova é a contagem de esperas abaixo
         # Só os lotes da PRIMEIRA janela esperaram a vez (o teto de 4 vagas menos
-        # o travado em voo); a marca durou o teste inteiro.
-        assert 1 <= outcomes.count("parked_slow_wait") <= 3, outcomes.count("parked_slow_wait")
+        # o travado em voo); a marca durou o teste inteiro. Sem a marca, cada
+        # janela deixava mais lotes do lento esperando a vez, ocupando vagas.
+        assert 1 <= outcomes.count("parked_slow_wait") <= 3, _diag
         # Do lento: 1 em voo (travado), o resto estacionou (na espera ou na busca).
         assert len(parked_) == 59 and {p["reason"] for p in parked_} == {"slow"}
         release.set()
