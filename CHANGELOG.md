@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.18.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.17.1...v2.18.0) (2026-11-10)
+
+
+### Features
+
+* **aws:** integração AWS — papel cross-account, WAF e CloudTrail de Organization, achados Security Hub/GuardDuty e modo Organization ([#121](https://github.com/SEGARK-oficial/CentralOps/issues/121)) ([bd6b590](https://github.com/SEGARK-oficial/CentralOps/commit/bd6b590f9df5666832723f19a15e32d238873891))
+* **aws:** recebimento via Firehose + docs de acesso e permissões mínimas ([#127](https://github.com/SEGARK-oficial/CentralOps/issues/127)) ([7bcfd5a](https://github.com/SEGARK-oficial/CentralOps/commit/7bcfd5a035c72d449a27e0070f8414dceac67a18))
+* **dataplane:** ingestão push no log — raw, HEC e OTLP (ADR-0018 Onda 2) ([#116](https://github.com/SEGARK-oficial/CentralOps/issues/116)) ([518dd7e](https://github.com/SEGARK-oficial/CentralOps/commit/518dd7e44c158a21e61db0368570982fc3a506f8))
+* **dataplane:** log de ponta a ponta — coleta só coleta, store-and-forward e limpeza (ADR-0018 Ondas 3–5) ([#118](https://github.com/SEGARK-oficial/CentralOps/issues/118)) ([4ce5231](https://github.com/SEGARK-oficial/CentralOps/commit/4ce52310521aa2cc48a23012403a2df9a7182869))
+* **helm:** PgBouncer opcional e PrometheusRule do data-plane (ADR-0018 Onda 1) ([#114](https://github.com/SEGARK-oficial/CentralOps/issues/114)) ([eb878e6](https://github.com/SEGARK-oficial/CentralOps/commit/eb878e6d8fc4a7b02f55002f306aef9cd897c4a0))
+
+
+### Bug Fixes
+
+* **ci:** builder buildx compartilhado não é removido no fim do job ([#128](https://github.com/SEGARK-oficial/CentralOps/issues/128)) ([92643f6](https://github.com/SEGARK-oficial/CentralOps/commit/92643f6ce7837caad05ff7c167aa9024dd5b2e41))
+* **dataplane:** ADR-0018 Ondas 0 e 1 — fim da perda silenciosa e deploy de produção ([#113](https://github.com/SEGARK-oficial/CentralOps/issues/113)) ([08673be](https://github.com/SEGARK-oficial/CentralOps/commit/08673be68660608df418d52b11721fc982a838dd))
+* **otel:** export direto ou via Collector sem vazar segredo nem perder telemetria ([#112](https://github.com/SEGARK-oficial/CentralOps/issues/112)) ([485daff](https://github.com/SEGARK-oficial/CentralOps/commit/485daffdac5f703605b1746240d47090f279e705))
+* **security:** escopo de tenant em test-connection, DELETE de integração e reset de cursor ([#115](https://github.com/SEGARK-oficial/CentralOps/issues/115)) ([47b38c2](https://github.com/SEGARK-oficial/CentralOps/commit/47b38c23466fe8d13eec058264e859133142151e))
+
 ## [2.17.1](https://github.com/SEGARK-oficial/CentralOps/compare/v2.17.0...v2.17.1) (2026-11-06)
 
 
