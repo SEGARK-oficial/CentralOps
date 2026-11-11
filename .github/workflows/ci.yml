@@ -778,27 +778,28 @@ jobs:
   # if: success() (NÃO always): em FALHA a imagem é PRESERVADA p/ permitir
   # `gh run rerun --failed` do shard E2E (que PUXA a mesma imagem). As imagens
   # de runs falhos são podadas pela retenção (ci-* com TTL) — ver ghcr-retention.
+  #
+  # NUNCA apaga imagem publicada. Na main o `publish` promove a ci-<run_id> por
+  # imagetools: `latest`, `sha-<commit>` (e a `vX.Y.Z` do release-please) ficam no
+  # MESMO digest, e no GHCR um digest é UMA versão de pacote. Apagar a versão pela
+  # tag ci-<run_id> levava todas junto — a v2.18.0 saiu assim, sem imagem. O
+  # script só apaga quando TODAS as tags da versão são ci-*.
+  # Guard: backend/tests/test_ghcr_cleanup_ci_tag.py
   cleanup:
     name: Cleanup ci image
     needs: [build, build-frontend, pg-migrations, e2e, publish]
     if: success()
     runs-on: ubuntu-latest  # API pura (deleta tag efêmera) — não precisa do pool
     permissions:
+      contents: read
       packages: write
     steps:
-      - name: Delete ephemeral ci-<run_id> versions
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          sparse-checkout: scripts/ci
+      - name: Delete ephemeral ci-<run_id> versions (só as que não foram publicadas)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          owner="${{ github.repository_owner }}"
-          tag="ci-${{ github.run_id }}"
-          for pkg in centralops centralops-frontend; do
-            vid=$(gh api "/users/${owner}/packages/container/${pkg}/versions" \
-              --jq ".[] | select(.metadata.container.tags[]? == \"${tag}\") | .id" 2>/dev/null | head -1 || true)
-            if [ -n "${vid:-}" ]; then
-              gh api --method DELETE "/users/${owner}/packages/container/${pkg}/versions/${vid}" || true
-              echo "apagado ${pkg} ${tag} (version ${vid})"
-            else
-              echo "nada a apagar p/ ${pkg} ${tag}"
-            fi
-          done
+          python3 scripts/ci/ghcr_cleanup_ci_tag.py "${{ github.repository_owner }}" \
+            "ci-${{ github.run_id }}" centralops centralops-frontend
