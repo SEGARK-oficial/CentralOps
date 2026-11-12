@@ -18,6 +18,7 @@ os.environ.setdefault("SESSION_SECURE_COOKIE", "false")
 
 import asyncio
 import threading
+import time
 import types
 from typing import Dict, List
 
@@ -903,17 +904,39 @@ def test_ordered_slow_delivery_is_cut_and_parked(monkeypatch):
 def test_ordered_batch_that_waited_too_long_parks_without_trying(monkeypatch):
     """Cada entrega leva 0,3 s com teto de 0,5 s: o 2º lote esperou 0,3 s e vai
     direto; o 3º esperou 0,6 s e estaciona sem tentar — a fila do destino não
-    cresce sem fim atrás de um destino mais lento que a entrada."""
+    cresce sem fim atrás de um destino mais lento que a entrada.
+
+    Relógio VIRTUAL: com sleep real de 0,3 s contra o teto de 0,5 s, a folga do
+    2º lote era 0,2 s, e um runner carregado (xdist, gate da imagem .so) a
+    estourava — o 2º lote estacionava e o teste falhava sem bug nenhum. Aqui o
+    tempo só anda dentro da entrega, depois que os três lotes já marcaram o
+    início deles."""
     from backend.app.collectors.tests.test_dataplane_consumer import _real_sleep
 
     calls: list = []
+    clock = {"now": 0.0}
+    holder: dict = {}
+
+    class _VirtualTime:
+        def perf_counter(self) -> float:
+            return clock["now"]
+
+        def __getattr__(self, name):
+            return getattr(time, name)
 
     async def _dispatch(dest, batch):
         calls.append(batch[0]["e"])
-        await _real_sleep(0.3)
+        # Só avança o relógio quando o consumidor já leu os três lotes e as
+        # tasks deles rodaram o 1º passo (``started``): a medição fica exata.
+        while holder["fake"]._messages:
+            await _real_sleep(0.001)
+        await _real_sleep(0.01)
+        clock["now"] += 0.3
 
     msgs = [_ord_msg(i, "dest-ord", i) for i in range(3)]
     fake, parked_, redis = _ordered_consumer_setup(monkeypatch, msgs, _dispatch, slow_after=0.5)
+    holder["fake"] = fake
+    monkeypatch.setattr(kt, "time", _VirtualTime())
     asyncio.run(kt.run_dispatch_consumer())
     assert calls == [0, 1]
     assert [p["reason"] for p in parked_] == ["slow"]
