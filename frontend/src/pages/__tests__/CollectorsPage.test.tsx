@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom"
 import CollectorsPage from "@/pages/CollectorsPage"
 import * as api from "@/services/api"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePlatform } from "@/contexts/PlatformContext"
 import type { CollectionState, CollectorSummary, CollectorVendor } from "@/types"
 import i18n from "@/i18n"
 
@@ -22,9 +23,13 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(),
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
+vi.mock("@/contexts/PlatformContext", () => ({ usePlatform: vi.fn() }))
 
 const mockedApi = vi.mocked(api)
 const mockedUseAuth = vi.mocked(useAuth)
+const mockedUsePlatform = vi.mocked(usePlatform)
+const platformScope = (selectedOrgId: number | null, selectedPlatform: string | null) =>
+  ({ selectedOrgId, selectedPlatform }) as never
 
 const adminUser = {
   id: "u-admin",
@@ -93,6 +98,7 @@ describe("CollectorsPage", () => {
       refreshUser: vi.fn(),
     } as never)
 
+    mockedUsePlatform.mockReturnValue(platformScope(null, null))
     mockedApi.listCollectorVendors.mockResolvedValue(sampleVendors)
     mockedApi.listCollectionState.mockResolvedValue(sampleStates)
     mockedApi.getCollectorSummary.mockResolvedValue(sampleSummary)
@@ -444,5 +450,37 @@ describe("CollectorsPage", () => {
       expect(screen.getByText("ACME Sophos")).toBeInTheDocument()
       expect(screen.queryByRole("button", { name: /tentar novamente/i })).not.toBeInTheDocument()
     })
+  })
+  it("respeita o filtro global de organização e plataforma do cabeçalho", async () => {
+    // Regressão: escolher um tenant no topo não mudava a tabela de estado.
+    const other: CollectionState = {
+      ...sampleStates[0],
+      integration_id: 55,
+      integration_name: "LinceTech Azure",
+      organization_id: 10,
+      organization_name: "Lince Participacoes",
+      platform: "azure",
+      stream: "entra",
+    }
+    mockedApi.listCollectionState.mockResolvedValue([...sampleStates, other])
+
+    mockedUsePlatform.mockReturnValue(platformScope(10, null))
+    const { unmount } = render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText("LinceTech Azure")).toBeInTheDocument())
+    expect(screen.queryByText("ACME Sophos")).not.toBeInTheDocument()
+    unmount()
+
+    mockedUsePlatform.mockReturnValue(platformScope(null, "sophos"))
+    render(
+      <MemoryRouter>
+        <CollectorsPage />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByText("ACME Sophos")).toBeInTheDocument())
+    expect(screen.queryByText("LinceTech Azure")).not.toBeInTheDocument()
   })
 })

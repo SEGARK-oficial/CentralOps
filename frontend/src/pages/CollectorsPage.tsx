@@ -34,6 +34,7 @@ import { Modal } from "@/components/ui/Modal/Modal"
 import { Notice } from "@/components/ui/Notice/Notice"
 import { PageHeader } from "@/components/ui/PageHeader/PageHeader"
 import { useAuth } from "@/contexts/AuthContext"
+import { usePlatform } from "@/contexts/PlatformContext"
 import { formatDate } from "@/lib/utils"
 import { currentLocale, formatNumber } from "@/lib/intl"
 import type { TFunction } from "i18next"
@@ -119,6 +120,9 @@ const CollectorsPage: React.FC = () => {
   const { t: tLag } = useTranslation("dashboard")
   const { user } = useAuth()
   const isAdmin = user?.role === "admin"
+  // Seletor global de organização/plataforma do cabeçalho. A página ignorava os
+  // dois: escolher um tenant no topo não mudava a tabela.
+  const { selectedOrgId, selectedPlatform } = usePlatform()
 
   const [states, setStates] = useState<CollectionState[]>([])
   const [vendors, setVendors] = useState<CollectorVendor[]>([])
@@ -187,9 +191,19 @@ const CollectorsPage: React.FC = () => {
 
   const rowKey = (row: CollectionState) => `${row.integration_id}:${row.stream}`
 
+  const scopedStates = useMemo(
+    () =>
+      states.filter(
+        (s) =>
+          (!selectedOrgId || s.organization_id === selectedOrgId) &&
+          (!selectedPlatform || s.platform === selectedPlatform),
+      ),
+    [states, selectedOrgId, selectedPlatform],
+  )
+
   const sortedStates = useMemo(
     () =>
-      [...states].sort((a, b) => {
+      [...scopedStates].sort((a, b) => {
         const orgA = a.organization_name ?? ""
         const orgB = b.organization_name ?? ""
         if (orgA !== orgB) return orgA.localeCompare(orgB, currentLocale())
@@ -198,7 +212,7 @@ const CollectorsPage: React.FC = () => {
         if (nameA !== nameB) return nameA.localeCompare(nameB, currentLocale())
         return a.stream.localeCompare(b.stream)
       }),
-    [states],
+    [scopedStates],
   )
 
   /**
@@ -208,13 +222,13 @@ const CollectorsPage: React.FC = () => {
    */
   const worstDataLag = useMemo(() => {
     let worst: { row: CollectionState; seconds: number } | null = null
-    for (const row of states) {
+    for (const row of scopedStates) {
       const seconds = dataLagSeconds(row)
       if (seconds === null) continue
       if (!worst || seconds > worst.seconds) worst = { row, seconds }
     }
     return worst
-  }, [states])
+  }, [scopedStates])
 
   const handleTrigger = async (row: CollectionState) => {
     const key = rowKey(row)
