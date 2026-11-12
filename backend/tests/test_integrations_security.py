@@ -330,6 +330,44 @@ def test_test_connection_persists_auth_status_and_last_error(client_factory, mon
     assert data["last_checked_at"] is not None
 
 
+def test_healthy_check_message_is_not_persisted_as_last_error(client_factory, monkeypatch):
+    """Regressão: a frase de SUCESSO do provider ia para ``last_error``.
+
+    Toda filha do Partner Sophos mostrava "Partner credentials authenticated…"
+    como erro, com ``auth_status`` healthy. Numa checagem healthy, o ``message``
+    do nível de cima não é erro; numa checagem com falha, continua sendo.
+    """
+    admin_client = client_factory()
+    bootstrap_admin(admin_client)
+    organization = create_organization(admin_client, "Org Healthy Msg")
+    integration = create_wazuh_integration(admin_client, organization_id=organization["id"], include_indexer=True)
+
+    results = iter(
+        [
+            HealthResult(status="healthy", details={"message": "Partner credentials authenticated."}),
+            HealthResult(status="error", details={"message": "Invalid client secret"}),
+        ]
+    )
+
+    class StubProvider:
+        def test_connection(self) -> HealthResult:
+            return next(results)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("backend.app.routers.integrations.get_provider", lambda integration: StubProvider())
+
+    assert admin_client.post(f"/api/integrations/{integration['id']}/test-connection").status_code == 200
+    data = admin_client.get(f"/api/integrations/{integration['id']}").json()
+    assert data["auth_status"] == "healthy"
+    assert data["last_error"] is None
+
+    admin_client.post(f"/api/integrations/{integration['id']}/test-connection")
+    data = admin_client.get(f"/api/integrations/{integration['id']}").json()
+    assert data["last_error"] == "Invalid client secret"
+
+
 def test_integration_overview_exposes_component_statuses_without_alerts_preview(client_factory, monkeypatch):
     """O overview expõe health por componente; a preview de alertas (superfície
     Wazuh-only removida) NÃO existe mais no payload."""
