@@ -159,7 +159,16 @@ def _serialize(
     return result
 
 
-def _integration_last_error(details: Dict[str, Any]) -> str | None:
+def _integration_last_error(details: Dict[str, Any], status: str | None = None) -> str | None:
+    """Texto do ``last_error`` a partir do resultado da checagem.
+
+    ``message`` no nível de cima é a frase do provider sobre a checagem INTEIRA,
+    e numa checagem ``healthy`` ela é de sucesso ("Authentication successful",
+    "Partner credentials authenticated…"). Copiá-la sem olhar o status punha
+    sucesso no campo de erro de toda filha do Partner Sophos. Componentes
+    (``manager``/``indexer``…) continuam entrando só quando não estão saudáveis.
+    """
+    healthy = str(status or "").strip().lower() == "healthy"
     messages: list[str] = []
 
     for key, value in details.items():
@@ -169,7 +178,7 @@ def _integration_last_error(details: Dict[str, Any]) -> str | None:
                 continue
             message = value.get("message") or value.get("error") or status_value
             messages.append(f"{key}: {message}")
-        elif key == "message" and value:
+        elif key == "message" and value and not healthy:
             messages.append(str(value))
 
     if not messages:
@@ -183,7 +192,7 @@ def _record_health_state(
     result,
 ) -> None:
     now = datetime.utcnow()
-    last_error = _integration_last_error(result.details)
+    last_error = _integration_last_error(result.details, result.status)
     update_values: Dict[str, Any] = {
         "auth_status": result.status,
         "last_checked_at": now,
@@ -2337,7 +2346,7 @@ def get_health(
 
         with database.SessionLocal() as write_db:
             now = datetime.utcnow()
-            last_error = _integration_last_error(result.details)
+            last_error = _integration_last_error(result.details, result.status)
             update_values: Dict[str, Any] = {
                 "auth_status": result.status,
                 "last_checked_at": now,

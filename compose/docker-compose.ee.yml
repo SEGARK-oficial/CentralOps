@@ -108,3 +108,18 @@ services:
     image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
     environment: *ee-license-env
     volumes: *ee-keyring-vol
+
+  # ── Raw processor (ADR-0018): consome centralops.raw, roda mapping + rotas e produz
+  # no centralops.deliver. Sem este bloco o serviço herdava a imagem COMMUNITY da base
+  # (${IMAGE_NAME}:${IMAGE_TAG}) e sem licença — numa stack EE ele não processava
+  # nada (ou crash-loop no import), e a coleta seguia "saudável" com 0 entregue. ──
+  collector-raw-processor:
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
+    environment: *ee-license-env
+    volumes: *ee-keyring-vol
+
+  # ── Syslog receiver (profile `syslog`): mesma razão — edição consistente na stack. ──
+  syslog-receiver:
+    image: ${CENTRALOPS_EE_IMAGE:-centralops-ee:latest}
+    environment: *ee-license-env
+    volumes: *ee-keyring-vol
