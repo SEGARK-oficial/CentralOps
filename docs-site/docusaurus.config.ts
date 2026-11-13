@@ -11,8 +11,9 @@ const config: Config = {
     v4: true,
   },
 
-  // Custom domain (GitHub Pages): CNAME docs.segark.com → segark-oficial.github.io.
-  // O arquivo static/CNAME mantém o domínio a cada deploy do gh-pages.
+  // docs.segark.com é publicado pelo repositório SEGARK-oficial/segark-docs
+  // (portal multiproduto; este conteúdo vive lá em /centralops). Este site só
+  // é construído pelo `docs guard` e não é mais publicado daqui.
   url: 'https://docs.segark.com',
   baseUrl: '/',
 
