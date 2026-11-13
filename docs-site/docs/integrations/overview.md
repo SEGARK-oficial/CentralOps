@@ -32,6 +32,7 @@ Estas são as plataformas das quais o CentralOps coleta eventos hoje:
 | Google Cloud (Pub/Sub) | Cloud-audit | Cloud Audit Logs (IAM, login do Workspace), audit do GKE e auditoria do Cloud SQL MySQL |
 | Microsoft Azure | Cloud-audit | Activity Log, sign-ins do Entra ID (inclusive não interativos) e resource logs (Key Vault, AKS, Azure SQL, Storage), lidos de um Log Analytics workspace ou de Event Hubs |
 | Akamai App & API Protector (WAF) | Rede / Firewall | Eventos de segurança do WAF pela SIEM API (regras disparadas, deny/alert, IP/geo, requisição HTTP) |
+| Cloudflare (WAF e segurança) | Rede / Firewall | Eventos de segurança das zonas pela GraphQL Analytics API (WAF, regras de firewall, rate limiting, bots; ação aplicada, regra, IP real do cliente, geo, requisição HTTP) |
 | Google Workspace | Identity | Reports API (login, 2SV, Admin console, OAuth, SAML, grupos, dispositivos, regras/DLP) e alertas do Alert Center |
 | Microsoft 365 | Cloud-audit | Auditoria unificada (Management Activity API): logons e admin do Entra, regras/acesso de caixa do Exchange, arquivos e compartilhamento no SharePoint/OneDrive, Teams e DLP |
 | Veeam Backup & Replication | Backup | Sessões de job (backup, réplica, restore) |
@@ -50,6 +51,7 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração Google Cloud (Pub/Sub)](./google-cloud.md)
 - [Integração Microsoft Azure](./microsoft-azure.md)
 - [Integração Akamai (WAF)](./akamai.md)
+- [Integração Cloudflare (WAF e segurança)](./cloudflare.md)
 - [Integração Google Workspace](./google-workspace.md)
 - [Integração Microsoft 365](./microsoft-365.md)
 - [AWS: dar acesso ao CentralOps (papel de serviço e permissões mínimas)](./aws-acesso)
