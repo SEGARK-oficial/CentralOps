@@ -7,7 +7,7 @@
  * de uma tabela `rede-corporativa` com versão publicada e uma política
  * qualquer (ver docs/enrichment/how-to-enrich.md, passos 2–4).
  *
- *   node scripts/docs-screenshots-enrichment-write.mjs ../docs-site/static/img/console
+ *   node scripts/docs-screenshots-enrichment-write.mjs ../../segark-docs/static/img/centralops/console
  */
 import { chromium } from "playwright"
 import { mkdirSync } from "node:fs"

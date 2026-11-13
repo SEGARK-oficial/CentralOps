@@ -1,10 +1,10 @@
 /**
- * Captura as telas do console para a documentação (docs-site/static/img/console/).
+ * Captura as telas do console para a documentação (repositório segark-docs, static/img/centralops/console/).
  *
- * Rodar daqui, e não de docs-site/, porque o Playwright está instalado no
+ * Rodar daqui (com o segark-docs clonado ao lado deste repositório), e não do segark-docs, porque o Playwright está instalado no
  * node_modules do frontend:
  *
- *   node scripts/docs-screenshots.mjs ../docs-site/static/img/console
+ *   node scripts/docs-screenshots.mjs ../../segark-docs/static/img/centralops/console
  *
  * Exige uma instância local no ar e SEMEADA (organizações, integrações, destinos,
  * rotas). Contra uma instância vazia os prints saem em estado vazio, que é o

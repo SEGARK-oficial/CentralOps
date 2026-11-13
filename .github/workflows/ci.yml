@@ -53,7 +53,6 @@ on:
     # sweep + E2E (~45 min de runner). Cada um desses tem o próprio guard
     # (docs-guard, helm-guard, workflows-guard).
     paths-ignore:
-      - "docs-site/**"
       - "docs/**"
       - "**/*.md"
       - "kubernetes/**"
@@ -61,7 +60,6 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs-site/**"
       - "docs/**"
       - "**/*.md"
       - "kubernetes/**"

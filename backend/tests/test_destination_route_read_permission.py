@@ -7,7 +7,7 @@ o caso de uso real — Zabbix, script de health check, dashboard externo.
 
 Invariantes travadas aqui:
   1. As duas permissões existem e são concedidas a partir de VIEWER — é o que a
-     matriz de docs-site/docs/concepts/rbac.md já afirmava; o código divergia.
+     matriz de docs.segark.com/centralops/concepts/rbac já afirmava; o código divergia.
   2. Um token com APENAS ``destination.read`` lê os GETs de destino e recebe 403
      em toda ESCRITA — e em ``/api/auth/users`` (o ponto da mudança).
   3. ``destination.read`` e ``route.read`` são DISTINTAS: uma não abre a outra.
