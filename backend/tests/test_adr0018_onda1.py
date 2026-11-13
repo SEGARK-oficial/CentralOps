@@ -208,8 +208,10 @@ def test_compose_kafka_parity():
 
 # ── Regras de alerta: métricas e runbooks que existem ───────────────────────
 
+_RUNBOOK_URL = re.compile(r"https://docs\.segark\.com/centralops/runbooks/[a-z0-9]+(?:-[a-z0-9]+)*")
 
-@pytest.mark.source_only  # lê compose/observability e docs-site
+
+@pytest.mark.source_only  # lê compose/observability
 def test_alert_rules_reference_real_metrics_and_runbooks():
     yaml = pytest.importorskip("yaml")
     from backend.app.collectors import otel_metrics
@@ -225,8 +227,11 @@ def test_alert_rules_reference_real_metrics_and_runbooks():
         assert names, rule["alert"]
         unknown = names - known
         assert not unknown, f"{rule['alert']}: métrica inexistente {sorted(unknown)}"
-        runbook = rule["annotations"].get("runbook")
-        assert runbook and (REPO_ROOT / runbook).exists(), f"{rule['alert']}: runbook {runbook}"
+        # A doc mora no repositório segark-docs (docs.segark.com), não aqui: o
+        # runbook é o endereço da página, que o operador abre direto do alerta.
+        # Página nova de runbook entra primeiro no segark-docs.
+        runbook = rule["annotations"].get("runbook") or ""
+        assert _RUNBOOK_URL.fullmatch(runbook), f"{rule['alert']}: runbook {runbook!r}"
 
     prom = (REPO_ROOT / "compose" / "observability" / "prometheus.yml").read_text(encoding="utf-8")
     assert "/etc/prometheus/rules/*.yml" in prom
