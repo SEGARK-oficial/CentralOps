@@ -91,6 +91,8 @@ const REQUIRED_IDS = [
   "akamai",
   "googleworkspace",
   "microsoft365",
+  // Cloudflare via Simple Icons (laranja oficial #F38020).
+  "cloudflare",
 ] as const
 
 describe("BRAND_IDS", () => {

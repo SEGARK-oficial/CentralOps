@@ -93,6 +93,7 @@ const sidebars: SidebarsConfig = {
         'integrations/google-cloud',
         'integrations/microsoft-azure',
         'integrations/akamai',
+        'integrations/cloudflare',
         'integrations/google-workspace',
         'integrations/microsoft-365',
         'integrations/aws-acesso',

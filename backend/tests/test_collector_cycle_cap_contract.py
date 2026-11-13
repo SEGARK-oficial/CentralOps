@@ -310,6 +310,16 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
     ("azure", "resource"): {"offsets": {"0": 42}, "watermark": "2026-07-24T10:00:00Z"},
     # Akamai SIEM: o offset é opaco; o watermark é o início (epoch ms) do evento mais novo lido.
     ("akamai", "siem"): {"offset": "c0bc409010aa6928e57cd5a3000433b9", "last_ts_ms": 1784887200000},
+    # Cloudflare: cursor por zona; o watermark é o ``since`` MAIS ANTIGO entre as zonas.
+    ("cloudflare", "security_events"): {
+        "zones": {
+            "a" * 32: {
+                "since": "2026-07-24T10:00:00Z",
+                "boundary": {"at": "2026-07-24T10:00:00Z", "keys": ["8a1b2c3d4e5f6a7b:0123456789abcdef0123"]},
+            },
+            "b" * 32: {"since": "2026-07-24T11:00:00Z"},
+        }
+    },
     # Google Workspace: cursor por aplicação; o watermark é o início MAIS ANTIGO.
     ("google_workspace", "activity"): {
         "apps": {

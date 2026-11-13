@@ -1,0 +1,406 @@
+{
+  "_comment": [
+    "Cloudflare firewallEventsAdaptive (evento de seguranca: WAF, regras de firewall, rate limiting, bots) -> HTTP Activity (4002).",
+    "O coletor acrescenta zoneTag a cada linha (a zona consultada). 'action' e classificada em blocked/challenge/passed/log/allowed/other/unknown;",
+    "a classificacao e repetida em cada regra porque value_map so olha a propria expressao.",
+    "'datetime' e ISO-8601 UTC (segundos): iso_to_epoch -> ms. Campos opcionais so via when.exists (null vs omitido)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 4002,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "HTTP Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 4,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Network Activity"
+    },
+    {
+      "target": "normalized.activity_id",
+      "source": "(clientRequestHTTPMethodName || '')",
+      "value_map": {
+        "GET": 3,
+        "POST": 6,
+        "PUT": 7,
+        "DELETE": 2,
+        "HEAD": 4,
+        "OPTIONS": 5,
+        "TRACE": 8,
+        "PATCH": 9,
+        "CONNECT": 1
+      },
+      "default": 99,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(clientRequestHTTPMethodName || '')",
+      "value_map": {
+        "GET": "Get",
+        "POST": "Post",
+        "PUT": "Put",
+        "DELETE": "Delete",
+        "HEAD": "Head",
+        "OPTIONS": "Options",
+        "TRACE": "Trace",
+        "PATCH": "Patch",
+        "CONNECT": "Connect"
+      },
+      "default": "Other"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(clientRequestHTTPMethodName || '')",
+      "value_map": {
+        "GET": 400203,
+        "POST": 400206,
+        "PUT": 400207,
+        "DELETE": 400202,
+        "HEAD": 400204,
+        "OPTIONS": 400205,
+        "TRACE": 400208,
+        "PATCH": 400209,
+        "CONNECT": 400201
+      },
+      "default": 400299,
+      "required": true
+    },
+    {
+      "_comment": "block/challenge = contido na borda (Low); log = a requisicao CHEGOU a origem e so foi anotada (Medium); desafio resolvido e allow/skip/bypass = Informational.",
+      "target": "normalized.severity_id",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": 2,
+        "challenge": 2,
+        "passed": 1,
+        "log": 3,
+        "allowed": 1,
+        "other": 1,
+        "unknown": 0
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": "Low",
+        "challenge": "Low",
+        "passed": "Informational",
+        "log": "Medium",
+        "allowed": "Informational",
+        "other": "Informational",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Enum disposition_id do OCSF 1.8: 1 Allowed, 2 Blocked, 17 Logged, 23 Challenge. block/connection_close/*_failed -> Blocked; challenge/jschallenge/managed_challenge -> Challenge; *_solved/*_bypassed/*_skipped -> Allowed.",
+      "target": "normalized.disposition_id",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": 2,
+        "challenge": 23,
+        "passed": 1,
+        "log": 17,
+        "allowed": 1,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.disposition",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": "Blocked",
+        "challenge": "Challenge",
+        "passed": "Allowed",
+        "log": "Logged",
+        "allowed": "Allowed",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "Desafio emitido: a requisicao nao foi liberada nem negada ainda -> Other (mesma regra do AWS WAF).",
+      "target": "normalized.action_id",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": 2,
+        "challenge": 99,
+        "passed": 1,
+        "log": 1,
+        "allowed": 1,
+        "other": 99,
+        "unknown": 0
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.action",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": "Denied",
+        "challenge": "Other",
+        "passed": "Allowed",
+        "log": "Allowed",
+        "allowed": "Allowed",
+        "other": "Other",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "allow/skip/bypass e desafio resolvido nao sao alerta; o resto (regra que atuou ou sinalizou) e.",
+      "target": "normalized.is_alert",
+      "source": "((((action || '') == 'block' || (action || '') == 'connection_close' || (action || '') == 'force_connection_close' || ends_with((action || ''), '_failed')) && 'blocked') || (contains(['challenge', 'jschallenge', 'managed_challenge'], (action || '')) && 'challenge') || ((ends_with((action || ''), '_solved') || ends_with((action || ''), '_bypassed') || ends_with((action || ''), '_skipped')) && 'passed') || ((action || '') == 'log' && 'log') || (contains(['allow', 'skip', 'bypass'], (action || '')) && 'allowed') || ((action || '') == '' && 'unknown') || 'other')",
+      "value_map": {
+        "blocked": true,
+        "challenge": true,
+        "log": true
+      },
+      "default": false
+    },
+    {
+      "target": "normalized.message",
+      "source": "join('', ['Cloudflare ', source || 'security', ' ', action || 'unknown', ': ', description || ruleId || ''])",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "clientIP",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.location.country",
+      "source": "clientCountryName",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.autonomous_system.number",
+      "source": "clientAsn && to_number(clientAsn)",
+      "default": null
+    },
+    {
+      "target": "normalized.src_endpoint.autonomous_system.name",
+      "source": "clientASNDescription",
+      "default": null
+    },
+    {
+      "target": "normalized.dst_endpoint.hostname",
+      "source": "clientRequestHTTPHost",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.uid",
+      "source": "rayName",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.http_method",
+      "source": "clientRequestHTTPMethodName",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.version",
+      "source": "clientRequestHTTPProtocol",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.user_agent",
+      "source": "userAgent",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.referrer",
+      "source": "clientRefererHost",
+      "when": {
+        "exists": "clientRefererHost"
+      }
+    },
+    {
+      "target": "normalized.http_request.url.hostname",
+      "source": "clientRequestHTTPHost",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.path",
+      "source": "clientRequestPath",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.query_string",
+      "source": "clientRequestQuery",
+      "default": null
+    },
+    {
+      "target": "normalized.http_request.url.scheme",
+      "source": "clientRequestScheme",
+      "default": null
+    },
+    {
+      "target": "normalized.http_response.code",
+      "source": "edgeResponseStatus && to_number(edgeResponseStatus)",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.uid",
+      "source": "ruleId",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.name",
+      "source": "description",
+      "default": null
+    },
+    {
+      "target": "normalized.firewall_rule.type",
+      "source": "source",
+      "default": null
+    },
+    {
+      "target": "normalized.time",
+      "source": "datetime",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "Cloudflare Security Events"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "Cloudflare"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "rayName",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "firewallEventsAdaptive"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "action",
+      "default": null
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_zone_id",
+      "source": "zoneTag",
+      "when": {
+        "exists": "zoneTag"
+      },
+      "_comment": "Campos sem lugar no OCSF ficam em unmapped, so quando existem (nunca null)."
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_kind",
+      "source": "kind",
+      "when": {
+        "exists": "kind"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_match_index",
+      "source": "matchIndex",
+      "when": {
+        "exists": "matchIndex"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_ruleset_id",
+      "source": "rulesetId",
+      "when": {
+        "exists": "rulesetId"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_client_ip_class",
+      "source": "clientIPClass",
+      "when": {
+        "exists": "clientIPClass"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_edge_colo",
+      "source": "edgeColoName",
+      "when": {
+        "exists": "edgeColoName"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_origin_response_status",
+      "source": "originResponseStatus",
+      "when": {
+        "exists": "originResponseStatus"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_sample_interval",
+      "source": "sampleInterval",
+      "when": {
+        "exists": "sampleInterval"
+      }
+    },
+    {
+      "target": "normalized.unmapped.cloudflare_ref",
+      "source": "ref",
+      "when": {
+        "exists": "ref"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "src_endpoint.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "clientIP",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.url.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "clientRequestHTTPHost",
+          "skip_null": true
+        },
+        {
+          "name": "http_request.user_agent",
+          "type": "HTTP User-Agent",
+          "type_id": 16,
+          "source": "userAgent",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

@@ -36,6 +36,7 @@ from . import aws_organization  # noqa: F401 — pais de AWS Organization (filha
 from . import gcp_pubsub  # noqa: F401        — gcp_pubsub/audit+gke_audit+cloudsql_mysql (Pub/Sub pull)
 from . import azure  # noqa: F401             — azure/activity (ARM) + entra+resource (Event Hubs/Kafka)
 from . import akamai  # noqa: F401            — akamai/siem (SIEM Integration API, EdgeGrid)
+from . import cloudflare  # noqa: F401           — cloudflare/security_events (GraphQL Analytics, firewallEventsAdaptive)
 from . import google_workspace  # noqa: F401  — google_workspace/activity+alerts (Reports API + Alert Center)
 from . import microsoft_365  # noqa: F401     — microsoft_365/audit_*+dlp (Management Activity API)
 from . import veeam  # noqa: F401             — veeam/sessions (VBR REST, OAuth2 password)

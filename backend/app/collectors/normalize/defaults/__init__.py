@@ -74,6 +74,9 @@ DEFAULT_MAPPING_FILES = {
     # Akamai App & API Protector/Kona — eventos de segurança do WAF pela SIEM API
     # → HTTP Activity (regra, ação aplicada, ataque).
     ("akamai", "akamai.siem"): "akamai_siem.json",
+    # Cloudflare — eventos de segurança (firewallEventsAdaptive: WAF, regras, rate
+    # limiting, bots) → HTTP Activity (ação, regra, IP real do cliente).
+    ("cloudflare", "cloudflare.security_events"): "cloudflare_security_events.json",
     # Google Workspace: Reports API (login → Authentication; admin/contas →
     # Account Change; resto → API Activity) e Alert Center → Detection Finding.
     ("google_workspace", "google_workspace.activity"): "google_workspace_activity.json",

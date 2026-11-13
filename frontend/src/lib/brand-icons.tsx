@@ -33,6 +33,7 @@ import {
   SiFortinet,
   SiVeeam,
   SiAkamai,
+  SiCloudflare,
 } from "react-icons/si"
 import { iconFor } from "./icons"
 
@@ -696,6 +697,7 @@ export const BRAND_IDS: ReadonlySet<string> = new Set([
   "akamai",
   "googleworkspace",
   "microsoft365",
+  "cloudflare",
 ])
 
 // ── Renderer map ──────────────────────────────────────────────────────────────
@@ -780,6 +782,7 @@ const SI_MARKS: Record<string, BrandRenderer> = {
   apachekafka: siMark(SiApachekafka as SiComponent, "#231F20"),
   veeam: siMark(SiVeeam as SiComponent, "#00B336"),
   akamai: siMark(SiAkamai as SiComponent, "#0096D6"),
+  cloudflare: siMark(SiCloudflare as SiComponent, "#F38020"),
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

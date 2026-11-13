@@ -21,6 +21,7 @@ import pytest
 
 from backend.app.collectors.tests import _azure_fixtures as _azure
 from backend.app.collectors.tests import _akamai_fixtures as _akamai
+from backend.app.collectors.tests import _cloudflare_fixtures as _cloudflare
 from backend.app.collectors.tests import _google_workspace_fixtures as _gws
 from backend.app.collectors.tests import _microsoft_365_fixtures as _m365
 from backend.app.collectors.tests import _gcp_fixtures as _gcp
@@ -251,6 +252,8 @@ _FIXTURES = {
     # SaaS — o objeto que cada coletor emite (Akamai já com attackData decodificado,
     # Workspace com events[] explodido, M365 com ClientIPNormalized).
     ("akamai", "akamai.siem"): _akamai.XSS_DENY,
+    # Cloudflare — a linha de firewallEventsAdaptive que o coletor emite (com zoneTag).
+    ("cloudflare", "cloudflare.security_events"): _cloudflare.BLOCK_EVENT,
     ("google_workspace", "google_workspace.activity"): _gws.LOGIN_FAILURE,
     ("google_workspace", "google_workspace.alert"): _gws.SUSPICIOUS_LOGIN_ALERT,
     ("microsoft_365", "microsoft_365.audit"): _m365.USER_LOGGED_IN,
