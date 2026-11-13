@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.19.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.18.0...v2.19.0) (2026-11-13)
+
+
+### Features
+
+* **collectors:** coletor Cloudflare (eventos de segurança pela GraphQL Analytics API) ([#131](https://github.com/SEGARK-oficial/CentralOps/issues/131)) ([5b82d4c](https://github.com/SEGARK-oficial/CentralOps/commit/5b82d4cd78ec4cde043f9f2395b14f7d73b7d73c))
+
+
+### Bug Fixes
+
+* **ci:** cleanup não apaga a imagem publicada junto com a ci-&lt;run_id&gt; ([#129](https://github.com/SEGARK-oficial/CentralOps/issues/129)) ([22d389b](https://github.com/SEGARK-oficial/CentralOps/commit/22d389bdea725d6ca4925dab87765416f398f639))
+* **deps:** opentelemetry-api 1.45.1 -&gt; 1.45.2 (CVE-2026-126360) ([#134](https://github.com/SEGARK-oficial/CentralOps/issues/134)) ([9ea0ffb](https://github.com/SEGARK-oficial/CentralOps/commit/9ea0ffb1988c23e2979882b31f8a439931d6f66c))
+* overlay EE com o raw-processor, last_error de sucesso e filtro da tela de Coletores ([#130](https://github.com/SEGARK-oficial/CentralOps/issues/130)) ([ea52783](https://github.com/SEGARK-oficial/CentralOps/commit/ea52783ba5a7a1149e2fcb0548b6c3a5d23ed62a))
+
 ## [2.18.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.17.1...v2.18.0) (2026-11-10)
 
 
