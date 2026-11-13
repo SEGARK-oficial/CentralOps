@@ -1,0 +1,251 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/aws-findings" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>AWS Security Hub e GuardDuty | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/integrations/aws-findings /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="AWS Security Hub e GuardDuty | CentralOps"/><meta data-rh=true name=description content="Colete os achados de segurança da AWS (Security Hub em ASFF e GuardDuty) como OCSF Detection Finding"/><meta data-rh=true property=og:description content="Colete os achados de segurança da AWS (Security Hub em ASFF e GuardDuty) como OCSF Detection Finding"/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/integrations/aws-findings /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/aws-findings hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/aws-findings hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/aws-findings hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/aws-findings hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/integrations/aws-findings","name":"AWS Security Hub e GuardDuty","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.af611e72.js defer></script><script src=/assets/js/main.e3aa1eaa.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/integrations/aws-findings target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/integrations/aws-findings target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/integrations/aws-findings target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/administration/users-and-roles><span title=Administração class=categoryLinkLabel_W154>Administração</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/integrations/overview><span title=Integrações class=categoryLinkLabel_W154>Integrações</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/google-cloud><span title="Google Cloud (Pub/Sub)" class=linkLabel_WmDU>Google Cloud (Pub/Sub)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-azure><span title="Microsoft Azure" class=linkLabel_WmDU>Microsoft Azure</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/akamai><span title="Akamai App & API Protector (WAF)" class=linkLabel_WmDU>Akamai App & API Protector (WAF)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/cloudflare><span title="Cloudflare (WAF e segurança)" class=linkLabel_WmDU>Cloudflare (WAF e segurança)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/google-workspace><span title="Google Workspace" class=linkLabel_WmDU>Google Workspace</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-365><span title="Microsoft 365" class=linkLabel_WmDU>Microsoft 365</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-acesso><span title="AWS: dar acesso ao CentralOps" class=linkLabel_WmDU>AWS: dar acesso ao CentralOps</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-cloudtrail><span title="AWS CloudTrail" class=linkLabel_WmDU>AWS CloudTrail</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-cloudwatch><span title="AWS CloudWatch Logs" class=linkLabel_WmDU>AWS CloudWatch Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-waf><span title="AWS WAF" class=linkLabel_WmDU>AWS WAF</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/integrations/aws-findings><span title="AWS Security Hub e GuardDuty" class=linkLabel_WmDU>AWS Security Hub e GuardDuty</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-firehose><span title="AWS via Firehose (push)" class=linkLabel_WmDU>AWS via Firehose (push)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-entra-id><span title="Microsoft Entra ID" class=linkLabel_WmDU>Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/okta><span title=Okta class=linkLabel_WmDU>Okta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/ninjaone><span title=NinjaOne class=linkLabel_WmDU>NinjaOne</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/veeam><span title="Veeam Backup & Replication" class=linkLabel_WmDU>Veeam Backup & Replication</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/syslog-receiver><span title="Receptor syslog nativo" class=linkLabel_WmDU>Receptor syslog nativo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/custom-json><span title="Fonte genérica (JSON)" class=linkLabel_WmDU>Fonte genérica (JSON)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integrações</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>AWS Security Hub e GuardDuty</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>AWS Security Hub e GuardDuty</h1></header>
+<p>Duas integrações para trazer os <strong>achados de segurança</strong> da AWS para o CentralOps, normalizados como OCSF 1.8 <strong>Detection Finding (2004)</strong>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Integração<th>O que traz<th>Quando usar<tbody><tr><td><strong>AWS Security Hub</strong><td>Achados agregados em ASFF: GuardDuty, Inspector, Macie, IAM Access Analyzer, Config e os controles do próprio Security Hub (CSPM)<td>A conta usa o Security Hub. É a escolha padrão: uma integração, todos os produtos<tr><td><strong>Amazon GuardDuty</strong><td>Achados de ameaça direto da API do GuardDuty (contas, EC2, S3, EKS, RDS, Lambda)<td>A conta usa o GuardDuty sem o Security Hub</table>
+<p>Com os dois ligados, os achados do GuardDuty chegam duas vezes (pelo Security Hub e direto). Escolha um.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona>Como funciona<a href=#como-funciona class=hash-link aria-label="Link direto para Como funciona" title="Link direto para Como funciona" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Item<th>Security Hub<th>GuardDuty<tbody><tr><td>Stream<td><code>findings</code> (tipo <code>aws_securityhub.finding</code>)<td><code>findings</code> (tipo <code>aws_guardduty.finding</code>)<tr><td>API<td><code>GetFindings</code>, filtro <code>UpdatedAt</code>, 100 por página<td><code>ListDetectors</code> → <code>ListFindings</code> (filtro <code>updatedAt</code>, 50 IDs) → <code>GetFindings</code><tr><td>Frequência<td>a cada 5 minutos<td>a cada 5 minutos<tr><td>Regiões<td>lista ou <code>*</code> (as habilitadas na conta, via <code>ec2:DescribeRegions</code>)<td>lista ou <code>*</code>; região sem GuardDuty é pulada<tr><td>Primeira coleta<td>achados atualizados nas últimas 24 horas<td>idem<tr><td>Posição da coleta<td>por região: o <code>UpdatedAt</code> mais novo lido<td>idem<tr><td>Teto por ciclo<td>50 páginas, somando as regiões; a região corrente grava a posição exata<td>idem<tr><td>Duplicados<td><code>Id</code> + <code>UpdatedAt</code><td>idem</table>
+<p><strong>Cada atualização de um achado é um evento.</strong> O GuardDuty soma ocorrências num achado existente e o Security Hub muda o workflow ou arquiva. Por isso o CentralOps trata <code>Id</code> + <code>UpdatedAt</code> como identidade: a mesma ameaça que se repete gera um evento novo, com <code>activity_id</code> <strong>Update</strong>.</p>
+<p><strong>Achado indexado com atraso não se perde.</strong> Cada consulta começa 15 minutos antes da posição salva, e a posição nunca passa do fim da janela menos 15 minutos. O que for relido é descartado pelo dedupe.</p>
+<p><strong>Security Hub com agregação entre regiões.</strong> Se a <em>cross-Region aggregation</em> está ligada, a região de agregação devolve os achados de todas. Informe só ela; listar as outras traria duplicados.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Link direto para Pré-requisitos" title="Link direto para Pré-requisitos" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>O serviço ligado na conta e nas regiões que você vai listar.</strong> No console: <strong>Security Hub → Go to Security Hub → Enable Security Hub</strong>, ou <strong>GuardDuty → Get Started → Enable GuardDuty</strong>, em cada região. O GuardDuty só gera achados depois de ligado; não há histórico anterior.</li>
+<li class="">Leitura pelo <strong>papel cross-account</strong> do CentralOps. O passo a passo pelo console está em <a class="" href=/integrations/aws-acesso>AWS: dar acesso ao CentralOps</a>. O template do painel <strong>Acesso por papel AWS</strong> já inclui <code>securityhub:GetFindings</code>, <code>guardduty:ListDetectors</code>, <code>guardduty:ListFindings</code>, <code>guardduty:GetFindings</code> e <code>ec2:DescribeRegions</code>. O passo a passo do papel está em <a class="" href=/integrations/aws-cloudtrail#op%C3%A7%C3%A3o-a-recomendada-papel-cross-account>AWS CloudTrail: Opção A</a>.</li>
+</ul>
+<p>Com o papel criado à mão (ou com access key, legado), a policy mínima é esta. <code>ec2:DescribeRegions</code> só é usado com regiões <code>*</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-json codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token property" style=color:#36acaa>"Version"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"2012-10-17"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token property" style=color:#36acaa>"Statement"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>[</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>{</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">      </span><span class="token property" style=color:#36acaa>"Sid"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"LerAchados"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">      </span><span class="token property" style=color:#36acaa>"Effect"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"Allow"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">      </span><span class="token property" style=color:#36acaa>"Action"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token punctuation" style=color:#393A34>[</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">        </span><span class="token string" style=color:#e3116c>"securityhub:GetFindings"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">        </span><span class="token string" style=color:#e3116c>"guardduty:ListDetectors"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">        </span><span class="token string" style=color:#e3116c>"guardduty:ListFindings"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">        </span><span class="token string" style=color:#e3116c>"guardduty:GetFindings"</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">        </span><span class="token string" style=color:#e3116c>"ec2:DescribeRegions"</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">      </span><span class="token punctuation" style=color:#393A34>]</span><span class="token punctuation" style=color:#393A34>,</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">      </span><span class="token property" style=color:#36acaa>"Resource"</span><span class="token operator" style=color:#393A34>:</span><span class="token plain"> </span><span class="token string" style=color:#e3116c>"*"</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">    </span><span class="token punctuation" style=color:#393A34>}</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token punctuation" style=color:#393A34>]</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain"></span><span class="token punctuation" style=color:#393A34>}</span><br/></div></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=várias-contas-de-uma-aws-organization>Várias contas de uma AWS Organization<a href=#várias-contas-de-uma-aws-organization class=hash-link aria-label="Link direto para Várias contas de uma AWS Organization" title="Link direto para Várias contas de uma AWS Organization" translate=no>​</a></h3>
+<p>O passo a passo completo, pelo console e pela CLI, está em <a class="" href=/integrations/aws-acesso#v%C3%A1rias-contas-de-uma-aws-organization>AWS: dar acesso ao CentralOps</a>. Resumo:</p>
+<p>O mesmo template serve como <strong>StackSet</strong>: o External ID é por organização do CentralOps, não por conta AWS, então todas as contas de um cliente usam o mesmo papel com o mesmo External ID. Na conta de gerenciamento (ou administradora delegada do CloudFormation):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">aws cloudformation create-stack-set </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --stack-set-name centralops-readonly </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --template-body file://centralops-readonly-role.json </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--capabilities</span><span class="token plain"> CAPABILITY_NAMED_IAM </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --permission-model SERVICE_MANAGED </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --auto-deployment </span><span class="token assign-left variable" style=color:#36acaa>Enabled</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">true,RetainStacksOnAccountRemoval</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">false</span><br/></div><div class=token-line style=color:#393A34><span class="token plain" style=display:inline-block></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">aws cloudformation create-stack-instances </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --stack-set-name centralops-readonly </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  --deployment-targets </span><span class="token assign-left variable" style=color:#36acaa>OrganizationalUnitIds</span><span class="token operator" style=color:#393A34>=</span><span class="token plain">r-abcd </span><span class="token punctuation" style=color:#393A34>\</span><span class="token plain"></span><br/></div><div class=token-line style=color:#393A34><span class="token plain">  </span><span class="token parameter variable" style=color:#36acaa>--regions</span><span class="token plain"> us-east-1</span><br/></div></code></pre></div></div>
+<p>O papel é global (IAM), então uma região basta. Com <code>auto-deployment</code>, contas novas da Organization ganham o papel sozinhas. A conta de gerenciamento não recebe instância de um StackSet <em>service-managed</em>; crie a stack nela à parte, se for coletar dela.</p>
+<p>Duas formas de cobrir as contas:</p>
+<ul>
+<li class=""><strong>Conta administradora delegada do serviço.</strong> Com o Security Hub ou o GuardDuty configurados com administradora delegada, uma única integração nessa conta recebe os achados de todas as contas membro.</li>
+<li class=""><strong>Modo AWS Organization (Enterprise).</strong> Os cards <strong>Security Hub — AWS Organization</strong> e <strong>GuardDuty — AWS Organization</strong> criam um <em>pai</em> que lista as contas (<code>organizations:ListAccounts</code>) e, para cada conta aprovada, uma integração filha nesta mesma organização, assumindo o papel de <strong>mesmo nome e path</strong> na conta membro (o que o StackSet acima criou). Contas suspensas ou que saem da Organization têm a filha desativada no próximo sync. O papel do pai fica na conta de gerenciamento ou numa administradora delegada do AWS Organizations; crie a stack nela com <code>AllowListAccounts=true</code>. Na Community o pai é criado, mas nenhuma conta é importada. O modo Organization exige papel; chave fixa não é aceita.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=criar-a-integração>Criar a integração<a href=#criar-a-integração class=hash-link aria-label="Link direto para Criar a integração" title="Link direto para Criar a integração" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>Vá em <strong>Coleta -> Integrações</strong> e adicione <strong>AWS Security Hub</strong> ou <strong>Amazon GuardDuty</strong>.</p>
+</li>
+<li class="">
+<p>Preencha:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>ARN do papel ou Access Key ID<td>O <code>RoleArn</code> da stack (ex.: <code>arn:aws:iam::111122223333:role/CentralOpsReadOnly</code>).<tr><td>Secret Access Key<td>Só com Access Key ID.<tr><td>Regiões AWS<td>Security Hub com agregação: só a região de agregação. Sem agregação, ou no GuardDuty: lista (<code>us-east-1, sa-east-1</code>) ou <code>*</code>.</table>
+</li>
+<li class="">
+<p><strong>Testar conexão.</strong> Security Hub: lê 1 achado da primeira região (<code>InvalidAccessException</code> = o Security Hub não está habilitado ali). GuardDuty: procura o detector da primeira região.</p>
+</li>
+<li class="">
+<p>Salve.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Link direto para O que é coletado" title="Link direto para O que é coletado" translate=no>​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=security-hub-asff>Security Hub (ASFF)<a href=#security-hub-asff class=hash-link aria-label="Link direto para Security Hub (ASFF)" title="Link direto para Security Hub (ASFF)" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo OCSF<th>Origem<tbody><tr><td><code>time</code>, <code>finding_info.modified_time</code><td><code>UpdatedAt</code><tr><td><code>finding_info.created_time</code> / <code>first_seen_time</code> / <code>last_seen_time</code><td><code>CreatedAt</code> / <code>FirstObservedAt</code> / <code>LastObservedAt</code><tr><td><code>finding_info.uid</code> / <code>.title</code> / <code>.desc</code> / <code>.types</code><td><code>Id</code> / <code>Title</code> / <code>Description</code> / <code>Types</code><tr><td><code>finding_info.product.name</code>, <code>metadata.product.name</code><td><code>ProductName</code> (GuardDuty, Inspector, Security Hub…)<tr><td><code>finding_info.analytic.uid</code><td><code>GeneratorId</code> (a regra ou o controle)<tr><td><code>severity_id</code><td><code>Severity.Label</code>: INFORMATIONAL 1, LOW 2, MEDIUM 3, HIGH 4, CRITICAL 5<tr><td><code>status_id</code><td><code>Workflow.Status</code>: NEW 1, NOTIFIED 2, SUPPRESSED 3, RESOLVED 4; <code>RecordState</code> ARCHIVED 5<tr><td><code>activity_id</code><td>Create (nunca atualizado), Update, Close (ARCHIVED)<tr><td><code>resources[]</code><td><code>Resources[]</code> (<code>Type</code>, <code>Id</code>, <code>Region</code>)<tr><td><code>remediation.desc</code> / <code>.references</code><td><code>Remediation.Recommendation.Text</code> / <code>.Url</code><tr><td><code>cloud.account.uid</code> / <code>cloud.region</code><td><code>AwsAccountId</code> / <code>Region</code><tr><td><code>unmapped.aws_compliance_status</code><td><code>Compliance.Status</code> (PASSED, FAILED…)</table>
+<p>Achados <strong>INFORMATIONAL</strong> entram com <code>is_alert=false</code>: os controles CSPM geram muitos achados <code>PASSED</code>. Descarte ou amostre na rota, se quiser.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id=guardduty>GuardDuty<a href=#guardduty class=hash-link aria-label="Link direto para GuardDuty" title="Link direto para GuardDuty" translate=no>​</a></h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo OCSF<th>Origem<tbody><tr><td><code>severity_id</code><td><code>Severity</code>: 1.0–3.9 Low, 4.0–6.9 Medium, 7.0–8.9 High, 9.0+ Critical<tr><td><code>finding_info.types</code><td><code>Type</code> (ex.: <code>UnauthorizedAccess:IAMUser/TorIPCaller</code>)<tr><td><code>finding_info.first_seen_time</code> / <code>last_seen_time</code>, <code>count</code><td><code>Service.EventFirstSeen</code> / <code>EventLastSeen</code>, <code>Service.Count</code><tr><td><code>status_id</code>, <code>activity_id</code>, <code>is_alert</code><td><code>Service.Archived</code>: arquivado = Archived, Close, sem alerta<tr><td><code>src_endpoint.ip</code> / <code>.location.country</code><td>IP remoto da ação (chamada de API, conexão, port probe, login RDS, Kubernetes)<tr><td><code>actor.user.name</code> / <code>.type</code><td><code>Resource.AccessKeyDetails.UserName</code> / <code>UserType</code><tr><td><code>resources[]</code><td><code>Resource.ResourceType</code> + ID da instância, chave, bucket, cluster EKS, banco RDS ou função Lambda<tr><td><code>unmapped.aws_guardduty_api</code><td><code>Service.Action.AwsApiCallAction.Api</code></table>
+<p>O achado completo fica no <code>raw</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Link direto para Solução de problemas" title="Link direto para Solução de problemas" translate=no>​</a></h2>
+<p><strong><code>InvalidAccessException</code> no Security Hub.</strong> O serviço não está habilitado na região consultada, ou a conta não é a administradora.</p>
+<p><strong>GuardDuty: <code>Credencial OK, mas o GuardDuty não está habilitado em &lt;região></code>.</strong> Não há detector nessa região. Na coleta, a região é pulada sem erro.</p>
+<p><strong>Achados duplicados.</strong> O Security Hub e o GuardDuty estão os dois ligados para a mesma conta, ou o Security Hub tem agregação e você listou várias regiões.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações-conhecidas>Limitações conhecidas<a href=#limitações-conhecidas class=hash-link aria-label="Link direto para Limitações conhecidas" title="Link direto para Limitações conhecidas" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Criar uma integração por conta automaticamente é Enterprise</strong> (modo AWS Organization). Na Community, use a administradora delegada do serviço ou uma integração por conta.</li>
+<li class=""><strong>Security Hub em ASFF.</strong> O formato OCSF nativo do novo Security Hub (<code>GetFindingsV2</code>) não é usado.</li>
+<li class=""><strong>Sem atualização de volta.</strong> O CentralOps não muda o workflow nem arquiva achados na AWS.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/integrations/aws-waf><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>AWS WAF</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/integrations/aws-firehose><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>AWS via Firehose (push)</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#como-funciona class="table-of-contents__link toc-highlight">Como funciona</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><ul><li><a href=#várias-contas-de-uma-aws-organization class="table-of-contents__link toc-highlight">Várias contas de uma AWS Organization</a></ul><li><a href=#criar-a-integração class="table-of-contents__link toc-highlight">Criar a integração</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><ul><li><a href=#security-hub-asff class="table-of-contents__link toc-highlight">Security Hub (ASFF)</a><li><a href=#guardduty class="table-of-contents__link toc-highlight">GuardDuty</a></ul><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#limitações-conhecidas class="table-of-contents__link toc-highlight">Limitações conhecidas</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>

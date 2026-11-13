@@ -1,0 +1,331 @@
+<!doctype html><html lang=pt-BR dir=ltr class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-integrations/cloudflare" data-has-hydrated=false><head><meta charset=UTF-8><meta name=generator content="Docusaurus v3.10.0"><title data-rh=true>Cloudflare (WAF e segurança) | CentralOps</title><meta data-rh=true name=viewport content="width=device-width, initial-scale=1.0"/><meta data-rh=true name=twitter:card content=summary_large_image /><meta data-rh=true property=og:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true name=twitter:image content=https://docs.segark.com/img/centralops-social-card.png /><meta data-rh=true property=og:url content=https://docs.segark.com/integrations/cloudflare /><meta data-rh=true property=og:locale content=pt_BR /><meta data-rh=true property=og:locale:alternate content=en /><meta data-rh=true property=og:locale:alternate content=es /><meta data-rh=true name=docusaurus_locale content=pt-BR /><meta data-rh=true name=docsearch:language content=pt-BR /><meta data-rh=true name=docusaurus_version content=current /><meta data-rh=true name=docusaurus_tag content=docs-default-current /><meta data-rh=true name=docsearch:version content=current /><meta data-rh=true name=docsearch:docusaurus_tag content=docs-default-current /><meta data-rh=true property=og:title content="Cloudflare (WAF e segurança) | CentralOps"/><meta data-rh=true name=description content="Colete os eventos de segurança das suas zonas na Cloudflare (WAF, regras de firewall, rate limiting, bots) pela GraphQL Analytics API — ação aplicada, regra, IP real do cliente, geo e a requisição HTTP"/><meta data-rh=true property=og:description content="Colete os eventos de segurança das suas zonas na Cloudflare (WAF, regras de firewall, rate limiting, bots) pela GraphQL Analytics API — ação aplicada, regra, IP real do cliente, geo e a requisição HTTP"/><link data-rh=true rel=icon href=/img/favicon.ico /><link data-rh=true rel=canonical href=https://docs.segark.com/integrations/cloudflare /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/cloudflare hreflang=pt-BR /><link data-rh=true rel=alternate href=https://docs.segark.com/en/integrations/cloudflare hreflang=en /><link data-rh=true rel=alternate href=https://docs.segark.com/es/integrations/cloudflare hreflang=es /><link data-rh=true rel=alternate href=https://docs.segark.com/integrations/cloudflare hreflang=x-default /><script data-rh=true type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://docs.segark.com/integrations/cloudflare","name":"Cloudflare (WAF e segurança)","position":1}]}</script><link rel=stylesheet href=/assets/css/styles.65a61132.css /><script src=/assets/js/runtime~main.af611e72.js defer></script><script src=/assets/js/main.e3aa1eaa.js defer></script></head><body><svg style="display: none;"><defs>
+<symbol id=theme-svg-external-link viewBox="0 0 24 24"><path fill=currentColor d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme-cee")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{for(var[t,e]of new URLSearchParams(window.location.search).entries())if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id=__docusaurus><link rel=preload as=image href=/img/logo.svg /><div role=region aria-label="Pular para o conteúdo principal"><a class=skipToContent_fXgn href=#__docusaurus_skipToContent_fallback>Pular para o conteúdo principal</a></div><nav aria-label="Navegação principal" class="theme-layout-navbar navbar navbar--fixed-top"><div class=navbar__inner><div class="theme-layout-navbar-left navbar__items"><button aria-label="Alternar painel de navegação" aria-expanded=false class="navbar__toggle clean-btn" type=button><svg width=30 height=30 viewBox="0 0 30 30" aria-hidden=true><path stroke=currentColor stroke-linecap=round stroke-miterlimit=10 stroke-width=2 d="M4 7h22M4 15h22M4 23h22"/></svg></button><a class=navbar__brand href=/><div class=navbar__logo><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--light_NVdE"/><img src=/img/logo.svg alt=CentralOps class="themedComponent_mlkZ themedComponent--dark_xIcU"/></div><b class="navbar__title text--truncate">CentralOps</b></a><a class="navbar__item navbar__link" href=/>Começar</a><a class="navbar__item navbar__link" href=/outputs/overview>Saídas & Rotas</a><a class="navbar__item navbar__link" href=/operations/dashboard>Operação</a><a aria-current=page class="navbar__item navbar__link navbar__link--active" href=/administration/users-and-roles>Administração</a><a class="navbar__item navbar__link" href=/normalization/overview>Mappings</a><a class="navbar__item navbar__link" href=/enrichment/overview>Enriquecimento</a><a class="navbar__item navbar__link" href=/runbooks/dispatcher>Runbooks</a><a class="navbar__item navbar__link" href=/api/overview>API</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# aria-haspopup=true aria-expanded=false role=button class=navbar__link><svg viewBox="0 0 24 24" width=20 height=20 aria-hidden=true class=iconLanguage_nlXk><path fill=currentColor d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>Português</a><ul class=dropdown__menu><li><a href=/integrations/cloudflare target=_self rel="noopener noreferrer" class="dropdown__link dropdown__link--active" lang=pt-BR>Português</a><li><a href=/en/integrations/cloudflare target=_self rel="noopener noreferrer" class=dropdown__link lang=en>English</a><li><a href=/es/integrations/cloudflare target=_self rel="noopener noreferrer" class=dropdown__link lang=es>Español</a></ul></div><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type=button disabled title="modo do sistema" aria-label="Mudar entre modo claro e escuro (modo do sistema está ativo)"><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill=currentColor d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill=currentColor d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg><svg viewBox="0 0 24 24" width=24 height=24 aria-hidden=true class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill=currentColor d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"/></svg></button></div><div class=navbarSearchContainer_Bca1><div class=navbar__search><span aria-label="expand searchbar" role=button class=search-icon tabindex=0></span><input id=search_input_react type=search placeholder=Loading... aria-label=Search class="navbar__search-input search-bar" disabled/></div></div></div></div><div role=presentation class=navbar-sidebar__backdrop></div></nav><div id=__docusaurus_skipToContent_fallback class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class=docsWrapper_hBAB><button aria-label="Voltar para o topo" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type=button></button><div class=docRoot_UBD9><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class=sidebarViewport_aRkj><div class=sidebar_njMd><nav aria-label="Painel lateral de documentos" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret" role=button aria-expanded=true href=/administration/users-and-roles><span title=Administração class=categoryLinkLabel_W154>Administração</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/users-and-roles><span title="Usuários e papéis" class=linkLabel_WmDU>Usuários e papéis</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/sso-entra><span title="SSO com Microsoft Entra ID" class=linkLabel_WmDU>SSO com Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/organizations><span title=Organizações class=linkLabel_WmDU>Organizações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/tenant-hierarchy><span title="Hierarquia de tenants e MSP" class=linkLabel_WmDU>Hierarquia de tenants e MSP</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/platform-config><span title="Configuração da plataforma" class=linkLabel_WmDU>Configuração da plataforma</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/administration/secrets-and-master-key><span title="Credenciais e segredos das integrações" class=linkLabel_WmDU>Credenciais e segredos das integrações</span></a></ul><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class=menu__list-item-collapsible><a class="categoryLink_byQd menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role=button aria-expanded=true href=/integrations/overview><span title=Integrações class=categoryLinkLabel_W154>Integrações</span></a></div><ul class=menu__list><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/overview><span title="Visão geral de integrações" class=linkLabel_WmDU>Visão geral de integrações</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/sophos><span title="Sophos Central" class=linkLabel_WmDU>Sophos Central</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/wazuh><span title=Wazuh class=linkLabel_WmDU>Wazuh</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/crowdstrike><span title="CrowdStrike Falcon" class=linkLabel_WmDU>CrowdStrike Falcon</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-defender><span title="Microsoft Defender" class=linkLabel_WmDU>Microsoft Defender</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/google-cloud><span title="Google Cloud (Pub/Sub)" class=linkLabel_WmDU>Google Cloud (Pub/Sub)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-azure><span title="Microsoft Azure" class=linkLabel_WmDU>Microsoft Azure</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/akamai><span title="Akamai App & API Protector (WAF)" class=linkLabel_WmDU>Akamai App & API Protector (WAF)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current=page tabindex=0 href=/integrations/cloudflare><span title="Cloudflare (WAF e segurança)" class=linkLabel_WmDU>Cloudflare (WAF e segurança)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/google-workspace><span title="Google Workspace" class=linkLabel_WmDU>Google Workspace</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-365><span title="Microsoft 365" class=linkLabel_WmDU>Microsoft 365</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-acesso><span title="AWS: dar acesso ao CentralOps" class=linkLabel_WmDU>AWS: dar acesso ao CentralOps</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-cloudtrail><span title="AWS CloudTrail" class=linkLabel_WmDU>AWS CloudTrail</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-cloudwatch><span title="AWS CloudWatch Logs" class=linkLabel_WmDU>AWS CloudWatch Logs</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-waf><span title="AWS WAF" class=linkLabel_WmDU>AWS WAF</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-findings><span title="AWS Security Hub e GuardDuty" class=linkLabel_WmDU>AWS Security Hub e GuardDuty</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/aws-firehose><span title="AWS via Firehose (push)" class=linkLabel_WmDU>AWS via Firehose (push)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/microsoft-entra-id><span title="Microsoft Entra ID" class=linkLabel_WmDU>Microsoft Entra ID</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/okta><span title=Okta class=linkLabel_WmDU>Okta</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/ninjaone><span title=NinjaOne class=linkLabel_WmDU>NinjaOne</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/veeam><span title="Veeam Backup & Replication" class=linkLabel_WmDU>Veeam Backup & Replication</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/dfir-iris><span title=DFIR-IRIS class=linkLabel_WmDU>DFIR-IRIS</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/push-ingestion><span title="Ingestão push (edge-collector)" class=linkLabel_WmDU>Ingestão push (edge-collector)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/fortinet-fortigate><span title="Fortinet FortiGate" class=linkLabel_WmDU>Fortinet FortiGate</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/windows-event-log><span title="Windows Event Log (WEC)" class=linkLabel_WmDU>Windows Event Log (WEC)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/syslog-receiver><span title="Receptor syslog nativo" class=linkLabel_WmDU>Receptor syslog nativo</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/custom-json><span title="Fonte genérica (JSON)" class=linkLabel_WmDU>Fonte genérica (JSON)</span></a><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class=menu__link tabindex=0 href=/integrations/adding-new-vendor><span title="Vendors suportados e como solicitar um novo" class=linkLabel_WmDU>Vendors suportados e como solicitar um novo</span></a></ul></ul></nav></div></div></aside><main class=docMainContainer_TBSr><div class="container padding-top--md padding-bottom--lg"><div class=row><div class="col docItemCol_VOVn"><div class=docItemContainer_Djhp><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label=Trilha><ul class=breadcrumbs><li class=breadcrumbs__item><a aria-label="Página Inicial" class=breadcrumbs__link href=/><svg viewBox="0 0 24 24" class=breadcrumbHomeIcon_YNFT><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill=currentColor /></svg></a><li class=breadcrumbs__item><span class=breadcrumbs__link>Integrações</span><li class="breadcrumbs__item breadcrumbs__item--active"><span class=breadcrumbs__link>Cloudflare (WAF e segurança)</span></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type=button class="clean-btn tocCollapsibleButton_TO0P">Nesta página</button></div><div class="theme-doc-markdown markdown"><header><h1>Cloudflare (WAF e segurança)</h1></header>
+<p>Conecte as zonas da Cloudflare ao CentralOps para coletar os <strong>eventos de segurança</strong>: cada requisição que um produto de segurança da Cloudflare bloqueou, desafiou, registrou ou deixou passar por uma regra, com a ação aplicada, a regra que atuou, o <strong>IP real do cliente</strong>, o país e o ASN, e o recorte da requisição.</p>
+<p>Quando o seu site está atrás da Cloudflare, o WAF, o proxy ou o firewall que fica depois dela só enxerga IPs da Cloudflare. É na Cloudflare que o IP verdadeiro do atacante aparece, e é isso que esta integração traz para o pipeline.</p>
+<p>A fonte é a <strong>GraphQL Analytics API</strong> (dataset <code>firewallEventsAdaptive</code>, o mesmo que alimenta a tela <em>Security Events</em> do painel). Não exige infraestrutura: só um API token de leitura.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=quando-usar>Quando usar<a href=#quando-usar class=hash-link aria-label="Link direto para Quando usar" title="Link direto para Quando usar" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Ver quem ataca de verdade.</strong> O IP do cliente por trás da Cloudflare, com país, ASN e <em>user agent</em>, para bloquear ou investigar.</li>
+<li class=""><strong>Correlacionar a borda com o resto.</strong> O mesmo IP em logins (Entra ID, Okta, Workspace), no firewall interno ou no EDR.</li>
+<li class=""><strong>Medir o que as regras fazem.</strong> Quais regras bloqueiam, quais só registram (<code>log</code>) e quais desafios os clientes resolvem.</li>
+<li class=""><strong>Auditar exceções.</strong> Eventos <code>skip</code>, <code>allow</code> e <code>bypass</code> mostram quando uma regra liberou tráfego.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=como-funciona>Como funciona<a href=#como-funciona class=hash-link aria-label="Link direto para Como funciona" title="Link direto para Como funciona" translate=no>​</a></h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style=--prism-color:#393A34;--prism-background-color:#f6f8fa><div class=codeBlockContent_QJqH><pre tabindex=0 class="prism-code language-text codeBlock_bY9V thin-scrollbar" style=color:#393A34;background-color:#f6f8fa><code class=codeBlockLines_e6Vv><div class=token-line style=color:#393A34><span class="token plain">Zonas Cloudflare ──► GraphQL Analytics API ──(Bearer token, polling 1 min)──► stream security_events</span><br/></div><div class=token-line style=color:#393A34><span class="token plain">                     POST /client/v4/graphql      uma consulta por zona e página</span><br/></div></code></pre></div></div>
+<ul>
+<li class="">A cada minuto, para <strong>cada zona</strong>, o CentralOps lê primeiro os limites que a Cloudflare declara para aquela zona (nó <code>settings</code>: campos disponíveis, tamanho de página, largura máxima da janela e retenção) e só então consulta os eventos dentro desses limites. Nenhum limite é fixo no código.</li>
+<li class="">A primeira coleta lê a <strong>última hora</strong>. Daí em diante a leitura continua de onde parou, <strong>zona por zona</strong>: o cursor guarda o instante de cada uma.</li>
+<li class="">A janela termina 60 segundos antes de agora (latência de ingestão da Cloudflare).</li>
+<li class="">Página cheia: o CentralOps continua do instante do último evento no mesmo ciclo, até 10 páginas por ciclo. Se sobrar backlog, o cursor fica salvo e a <strong>Saúde do Pipeline</strong> marca o stream como em <em>backlog</em>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-coletar-análise-de-segurança>O que coletar: análise de segurança<a href=#o-que-coletar-análise-de-segurança class=hash-link aria-label="Link direto para O que coletar: análise de segurança" title="Link direto para O que coletar: análise de segurança" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo do evento<th>Para que serve<tbody><tr><td><code>action</code><td>O que a Cloudflare fez: <code>block</code>, <code>managed_challenge</code>, <code>challenge</code>, <code>jschallenge</code>, <code>log</code>, <code>skip</code>, <code>allow</code>, <code>bypass</code>, resultados de desafio (<code>*_solved</code>, <code>*_failed</code>, <code>*_bypassed</code>, <code>*_skipped</code>), <code>connection_close</code>.<tr><td><code>source</code> / <code>ruleId</code> / <code>description</code><td>Produto que atuou (<code>firewallcustom</code>, <code>firewallmanaged</code>, <code>ratelimit</code>, <code>bic</code>, <code>l7ddos</code>…), ID e nome da regra.<tr><td><code>rayName</code><td>ID da requisição (Ray ID). Uma requisição pode gerar <strong>vários</strong> eventos, um por produto ou regra.<tr><td><code>clientIP</code> / <code>clientIPClass</code><td>IP real do cliente e a classificação de reputação.<tr><td><code>clientAsn</code> / <code>clientASNDescription</code> / <code>clientCountryName</code><td>ASN, nome da operadora e país do cliente.<tr><td><code>clientRequestHTTPHost</code>, <code>…MethodName</code>, <code>…Protocol</code>, <code>clientRequestScheme</code>, <code>clientRequestPath</code>, <code>clientRequestQuery</code><td>A requisição.<tr><td><code>userAgent</code> / <code>clientRefererHost</code><td><em>User agent</em> e host do <em>referer</em>.<tr><td><code>edgeResponseStatus</code> / <code>originResponseStatus</code><td>Status devolvido ao cliente e status da origem.<tr><td><code>kind</code>, <code>matchIndex</code>, <code>rulesetId</code>, <code>edgeColoName</code>, <code>sampleInterval</code>, <code>ref</code><td>Contexto adicional (vão para <code>unmapped</code>).</table>
+<p>O CentralOps só pede os campos que a zona expõe (<code>availableFields</code>) e que cabem no limite de campos por consulta (<code>maxNumberOfFields</code>, tipicamente 30). Cinco campos são obrigatórios: <code>datetime</code>, <code>rayName</code>, <code>action</code>, <code>source</code> e <code>clientIP</code>. Se a zona não expõe algum deles, o teste de conexão reprova e a coleta pula a zona.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=segurança-da-integração>Segurança da integração<a href=#segurança-da-integração class=hash-link aria-label="Link direto para Segurança da integração" title="Link direto para Segurança da integração" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Host travado.</strong> Só <code>api.cloudflare.com</code>, em HTTPS. Redirecionamento nunca é seguido.</li>
+<li class=""><strong>Token só no header.</strong> O token vai em <code>Authorization: Bearer</code>, nunca na URL, e nunca aparece em mensagem de erro, log ou resultado do teste de conexão. Está guardado no campo secreto, criptografado como os demais segredos do CentralOps.</li>
+<li class=""><strong>Só leitura.</strong> O CentralOps usa a permissão de leitura de analytics. Nenhuma mutação é enviada.</li>
+<li class=""><strong>Zone IDs validados.</strong> Só os 32 caracteres hexadecimais são aceitos e eles entram na consulta como variável, nunca no texto dela.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=pré-requisitos>Pré-requisitos<a href=#pré-requisitos class=hash-link aria-label="Link direto para Pré-requisitos" title="Link direto para Pré-requisitos" translate=no>​</a></h2>
+<ul>
+<li class="">Zonas na Cloudflare em qualquer plano (Free, Pro, Business ou Enterprise): o dataset de eventos de segurança está disponível em todos, com retenção de pelo menos 31 dias. No plano Free o painel mostra só amostras; confirme com o teste de conexão.</li>
+<li class="">Permissão para criar API tokens (ou um administrador que crie para você).</li>
+<li class="">Saída HTTPS (443) do CentralOps para <code>api.cloudflare.com</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-1-criar-o-api-token>Passo 1: Criar o API token<a href=#passo-1-criar-o-api-token class=hash-link aria-label="Link direto para Passo 1: Criar o API token" title="Link direto para Passo 1: Criar o API token" translate=no>​</a></h2>
+<ol>
+<li class="">No painel da Cloudflare, abra <strong>My Profile → API Tokens</strong> (ou <strong>Manage account → Account API tokens</strong>, para um token de conta) e selecione <strong>Create Token → Create Custom Token</strong>.</li>
+<li class="">Dê um nome, por exemplo <code>centralops-security-events</code>.</li>
+<li class="">Em <strong>Permissions</strong>, adicione:
+<ul>
+<li class=""><strong>Zone → Analytics → Read</strong>: obrigatória, é o que permite consultar o dataset.</li>
+<li class=""><strong>Zone → Zone → Read</strong>: só se você <strong>não</strong> for informar os Zone IDs e quiser que o CentralOps descubra as zonas sozinho.</li>
+</ul>
+</li>
+<li class="">Em <strong>Zone Resources</strong>, escolha <strong>Include → Specific zone</strong> (uma linha por zona) ou <strong>All zones</strong>.</li>
+<li class="">Opcional: restrinja por IP de origem (o IP de saída do CentralOps) e defina uma data de expiração. Lembre de trocar o token antes que expire.</li>
+<li class="">Selecione <strong>Continue to summary → Create Token</strong> e copie o token. Ele só é exibido uma vez.</li>
+</ol>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class=admonitionHeading_Gvgb><span class=admonitionIcon_Rf37><svg viewBox="0 0 14 16"><path fill-rule=evenodd d="M6.3 5.69a.942.942 0 0 1-.28-.7c0-.28.09-.52.28-.7.19-.18.42-.28.7-.28.28 0 .52.09.7.28.18.19.28.42.28.7 0 .28-.09.52-.28.7a1 1 0 0 1-.7.3c-.28 0-.52-.11-.7-.3zM8 7.99c-.02-.25-.11-.48-.31-.69-.2-.19-.42-.3-.69-.31H6c-.27.02-.48.13-.69.31-.2.2-.3.44-.31.69h1v3c.02.27.11.5.31.69.2.2.42.31.69.31h1c.27 0 .48-.11.69-.31.2-.19.3-.42.31-.69H8V7.98v.01zM7 2.3c-3.14 0-5.7 2.54-5.7 5.68 0 3.14 2.56 5.7 5.7 5.7s5.7-2.55 5.7-5.7c0-3.15-2.56-5.69-5.7-5.69v.01zM7 .98c3.86 0 7 3.14 7 7s-3.14 7-7 7-7-3.12-7-7 3.14-7 7-7z"/></svg></span>Permissão de analytics</div><div class=admonitionContent_BuS1><p>O guia oficial de token do GraphQL Analytics usa <strong>Account → Account Analytics → Read</strong> como exemplo. Para consultar o dataset de uma <strong>zona</strong>, a permissão de zona acima é a que o CentralOps espera; se o teste de conexão acusar <code>sem permissão</code>, confira também se o token não ficou restrito a zonas diferentes das informadas.</div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-2-anotar-os-zone-ids-opcional>Passo 2: Anotar os Zone IDs (opcional)<a href=#passo-2-anotar-os-zone-ids-opcional class=hash-link aria-label="Link direto para Passo 2: Anotar os Zone IDs (opcional)" title="Link direto para Passo 2: Anotar os Zone IDs (opcional)" translate=no>​</a></h2>
+<p>O <strong>Zone ID</strong> está na página <em>Overview</em> da zona, na coluna da direita (<strong>API → Zone ID</strong>): são 32 caracteres hexadecimais. Você pode informar até <strong>50</strong> zonas, separadas por vírgula.</p>
+<p>Se deixar o campo em branco, o CentralOps coleta <strong>todas as zonas ativas que o token enxerga</strong>, descobertas a cada ciclo (exige <strong>Zone → Zone → Read</strong>). Zonas novas passam a ser coletadas sozinhas; sem os Zone IDs fixos, porém, é mais fácil exceder a cota de consultas (veja os limites abaixo).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=passo-3-criar-a-integração-no-centralops>Passo 3: Criar a integração no CentralOps<a href=#passo-3-criar-a-integração-no-centralops class=hash-link aria-label="Link direto para Passo 3: Criar a integração no CentralOps" title="Link direto para Passo 3: Criar a integração no CentralOps" translate=no>​</a></h2>
+<ol>
+<li class="">
+<p>No menu lateral, vá em <strong>Coleta -> Integrações</strong> e adicione uma integração <strong>Cloudflare (WAF e segurança)</strong>.</p>
+</li>
+<li class="">
+<p>Preencha:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Campo<th>O que informar<tbody><tr><td>API token da Cloudflare<td>O token do Passo 1.<tr><td>Zone IDs (opcional)<td>Um ou mais Zone IDs do Passo 2, separados por vírgula. Vazio = todas as zonas do token.</table>
+</li>
+<li class="">
+<p>Clique em <strong>testar a conexão</strong>. O teste verifica o token, resolve as zonas (informadas ou descobertas) e lê os limites do dataset em <strong>cada</strong> zona. Passa só se <strong>todas</strong> forem utilizáveis. Veja as mensagens na seção <a href=#solu%C3%A7%C3%A3o-de-problemas class="">Solução de problemas</a>.</p>
+</li>
+<li class="">
+<p>Salve. O stream <code>security_events</code> roda a cada minuto.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=o-que-é-coletado>O que é coletado<a href=#o-que-é-coletado class=hash-link aria-label="Link direto para O que é coletado" title="Link direto para O que é coletado" translate=no>​</a></h2>
+<p>Cada evento chega normalizado em OCSF 1.8 como <strong>HTTP Activity</strong> (classe 4002), com a linha original da Cloudflare (mais o <code>zoneTag</code> da zona) preservada no <code>raw</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>OCSF<th>Origem<tbody><tr><td><code>activity_id</code><td>Método HTTP: GET → Get, POST → Post, PUT → Put, DELETE → Delete, HEAD, OPTIONS, TRACE, PATCH, CONNECT; outros → Other.<tr><td><code>disposition_id</code> / <code>action_id</code> / <code>severity_id</code> / <code>is_alert</code><td>Pela ação, veja a tabela abaixo.<tr><td><code>src_endpoint</code><td><code>ip</code> = <code>clientIP</code> (o IP real); <code>location.country</code> = país; <code>autonomous_system</code> = número (<code>clientAsn</code>) e nome.<tr><td><code>dst_endpoint.hostname</code><td>Host pedido.<tr><td><code>http_request</code><td><code>http_method</code>, <code>version</code> (protocolo), <code>user_agent</code>, <code>referrer</code> (host do <em>referer</em>), <code>uid</code> (= Ray ID) e <code>url</code> (<code>hostname</code>, <code>path</code>, <code>query_string</code>, <code>scheme</code>).<tr><td><code>http_response.code</code><td><code>edgeResponseStatus</code>: o status devolvido ao cliente.<tr><td><code>firewall_rule</code><td><code>uid</code> = <code>ruleId</code>, <code>name</code> = <code>description</code>, <code>type</code> = <code>source</code>.<tr><td><code>time</code><td><code>datetime</code> (ISO-8601 UTC, em segundos).<tr><td><code>metadata.uid</code><td>Ray ID. <code>event_code</code> = ação original.<tr><td><code>unmapped.cloudflare_*</code><td><code>zone_id</code>, <code>kind</code>, <code>match_index</code>, <code>ruleset_id</code>, <code>client_ip_class</code>, <code>edge_colo</code>, <code>origin_response_status</code>, <code>sample_interval</code>, <code>ref</code>, só quando existem.</table>
+<p>Como cada ação vira OCSF:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Ação da Cloudflare<th><code>disposition</code><th><code>action</code><th>Severidade<th>Alerta<tbody><tr><td><code>block</code>, <code>connection_close</code>, <code>force_connection_close</code>, <code>*_failed</code><td>Blocked<td>Denied<td>Low<td>sim<tr><td><code>challenge</code>, <code>jschallenge</code>, <code>managed_challenge</code> (desafio emitido)<td>Challenge<td>Other<td>Low<td>sim<tr><td><code>*_solved</code>, <code>*_bypassed</code>, <code>*_skipped</code> (cliente passou ou foi dispensado do desafio)<td>Allowed<td>Allowed<td>Informational<td>não<tr><td><code>log</code><td>Logged<td>Allowed<td>Medium<td>sim<tr><td><code>allow</code>, <code>skip</code>, <code>bypass</code><td>Allowed<td>Allowed<td>Informational<td>não<tr><td>qualquer outra<td>Other<td>Other<td>Informational<td>não</table>
+<ul>
+<li class=""><strong>Desafio emitido</strong> não é nem permitido nem negado ainda: por isso <code>action</code> fica em <em>Other</em>, a mesma convenção usada para o AWS WAF.</li>
+<li class=""><strong><code>log</code></strong> deixa a requisição chegar à origem: severidade Medium, como o <code>alert</code>/<code>monitor</code> da Akamai.</li>
+</ul>
+<p>O dedupe usa zona + Ray ID + <code>datetime</code> + <code>source</code> + <code>ruleId</code> + ação + <code>matchIndex</code>: a mesma requisição que dispara duas regras gera dois eventos distintos.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=operação-e-saúde>Operação e saúde<a href=#operação-e-saúde class=hash-link aria-label="Link direto para Operação e saúde" title="Link direto para Operação e saúde" translate=no>​</a></h2>
+<ul>
+<li class=""><strong>Retenção.</strong> O dataset guarda pelo menos 31 dias, mas o valor real vem do <code>notOlderThan</code> de cada zona. Se o CentralOps ficar parado além disso, o log do worker diz <strong>quanto tempo de eventos se perdeu</strong>; a leitura retoma do limite permitido (com 5 minutos de folga).</li>
+<li class=""><strong>Janela.</strong> Cada consulta cobre no máximo <code>maxDuration</code> da zona. Backlog maior que isso é lido em janelas consecutivas, no limite de 10 páginas por ciclo.</li>
+<li class=""><strong>Amostragem.</strong> <code>firewallEventsAdaptive</code> usa amostragem adaptativa: em picos de ataque a Cloudflare devolve uma amostra e informa a taxa em <code>sampleInterval</code> (1 = sem amostragem). Quem precisa do registro completo e é Enterprise deve usar o Logpush.</li>
+<li class=""><strong>Mais de uma página no mesmo segundo.</strong> A API só ordena por <code>datetime</code> (em segundos) e limita a página (<code>maxPageSize</code>, tipicamente 10.000). Se mais eventos que uma página caírem no <strong>mesmo segundo</strong>, o excedente não é alcançável: o log registra <strong>perda parcial</strong> e a leitura avança 1 segundo. Não vira laço infinito.</li>
+<li class=""><strong>Zona com o dataset desligado.</strong> Zona cujo plano não expõe o dataset é <strong>pulada</strong> com um WARNING, sem derrubar as demais. Se <strong>nenhuma</strong> zona for utilizável o ciclo falha, para a saúde da integração não ficar verde sem coletar nada.</li>
+<li class=""><strong>Indicador de atraso.</strong> O atraso exibido é o da zona mais atrasada.</li>
+<li class=""><strong>Backfill.</strong> Funciona dentro da retenção, em fatias de <code>maxDuration</code>; a fatia que enche a página é dividida ao meio, até 1 segundo. O backfill não mexe na posição da coleta normal.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limites-da-api-da-cloudflare>Limites da API da Cloudflare<a href=#limites-da-api-da-cloudflare class=hash-link aria-label="Link direto para Limites da API da Cloudflare" title="Link direto para Limites da API da Cloudflare" translate=no>​</a></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Limite<th>Valor<th>Fonte<tbody><tr><td>Consultas GraphQL<td>300 por usuário a cada 5 minutos (em regime, 1 por segundo)<td><a href=https://developers.cloudflare.com/analytics/graphql-api/limits/ target=_blank rel="noopener noreferrer" class="">Limits</a><tr><td>Zonas por consulta<td>Até 10 (o CentralOps consulta uma por vez)<td><a href=https://developers.cloudflare.com/analytics/graphql-api/limits/ target=_blank rel="noopener noreferrer" class="">Limits</a><tr><td>Retenção do dataset<td>Pelo menos 31 dias em todos os planos (<code>notOlderThan</code> informa o valor da zona)<td><a href=https://developers.cloudflare.com/analytics/graphql-api/limits/ target=_blank rel="noopener noreferrer" class="">Limits</a><tr><td>Janela por consulta<td><code>maxDuration</code> da zona (até 30 dias nos planos Free, Pro e Business e 31 no Enterprise)<td><a href=https://developers.cloudflare.com/waf/analytics/security-events/#limits target=_blank rel="noopener noreferrer" class="">Security Events</a><tr><td>Campos e linhas por consulta<td><code>maxNumberOfFields</code> (tipicamente 30) e <code>maxPageSize</code> (tipicamente 10.000)<td><a href=https://developers.cloudflare.com/analytics/graphql-api/features/discovery/settings/ target=_blank rel="noopener noreferrer" class="">Settings node</a><tr><td>API geral (REST)<td>1.200 chamadas a cada 5 minutos por token<td><a href=https://developers.cloudflare.com/fundamentals/api/reference/limits/ target=_blank rel="noopener noreferrer" class="">API limits</a></table>
+<p><strong>Cota de 300 consultas.</strong> Cada zona gasta uma consulta de <code>settings</code> e ao menos uma de eventos por ciclo (2 por minuto, ou seja 10 a cada 5 minutos). Com isso cabem cerca de <strong>30 zonas</strong> por token antes de a cota apertar. Acima disso a Cloudflare responde <code>rate limiter budget depleted</code>; o CentralOps respeita o <code>Retry-After</code> e tenta de novo, mas a coleta atrasa. Use mais de um token (um por grupo de zonas) ou a <a href=https://developers.cloudflare.com/analytics/graphql-api/account-based-rate-limiting/ target=_blank rel="noopener noreferrer" class="">cota por conta</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=custo-e-licenciamento>Custo e licenciamento<a href=#custo-e-licenciamento class=hash-link aria-label="Link direto para Custo e licenciamento" title="Link direto para Custo e licenciamento" translate=no>​</a></h2>
+<ul>
+<li class="">A Cloudflare não cobra à parte pelo uso da GraphQL Analytics API; o dataset de eventos de segurança está disponível em todos os planos. Os <strong>produtos</strong> que geram os eventos (WAF gerenciado, rate limiting, Bot Management) seguem o seu plano: confirme com a Cloudflare o que o seu contrato inclui.</li>
+<li class="">Do lado do CentralOps, o volume é o de eventos de segurança, não o de tráfego: só requisições acionadas por uma regra viram evento.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=solução-de-problemas>Solução de problemas<a href=#solução-de-problemas class=hash-link aria-label="Link direto para Solução de problemas" title="Link direto para Solução de problemas" translate=no>​</a></h2>
+<p>Mensagens do teste de conexão, por zona:</p>
+<p><strong><code>token ... — gere um token ativo</code></strong>: o token foi desativado, expirou ou foi revogado. Crie outro no Passo 1.</p>
+<p><strong><code>token não verificável em /user/tokens/verify (token de conta?)</code></strong>: aviso, não erro. Tokens de conta não passam por essa verificação; o teste de cada zona, a seguir, é a prova real.</p>
+<p><strong><code>token inválido, expirado ou revogado</code></strong>: a Cloudflare respondeu 401. Confira se o valor foi colado inteiro, sem espaços.</p>
+<p><strong><code>sem permissão — o token precisa da permissão Zone > Analytics > Read ...</code></strong>: o token não tem a permissão de leitura de analytics nessa zona, ou a zona não está nos <em>Zone Resources</em> do token. Edite o token na Cloudflare.</p>
+<p><strong><code>Falha ao descobrir as zonas: sem permissão — a descoberta automática de zonas exige Zone > Zone > Read</code></strong>: o campo de Zone IDs está vazio e o token não tem <strong>Zone → Zone → Read</strong>. Adicione a permissão ou informe os Zone IDs.</p>
+<p><strong><code>o token não enxerga nenhuma zona ativa</code></strong>: o token não tem nenhuma zona em <em>Zone Resources</em>, ou as zonas ainda estão pendentes.</p>
+<p><strong><code>o token não tem acesso a esta zona (ou o ID não existe)</code></strong>: Zone ID errado ou fora dos recursos do token.</p>
+<p><strong><code>dataset firewallEventsAdaptive desativado para esta zona (o plano não o expõe)</code></strong>: a Cloudflare não expõe o dataset para esta zona. A coleta pula a zona com um WARNING.</p>
+<p><strong><code>campos obrigatórios indisponíveis na zona: ...</code></strong>: a zona não expõe algum de <code>datetime</code>, <code>rayName</code>, <code>action</code>, <code>source</code>, <code>clientIP</code>. Sem eles não há evento utilizável.</p>
+<p><strong><code>ID de zona inválido (use os 32 caracteres hexadecimais do Zone ID)</code></strong>: o valor colado não é um Zone ID (não use o nome da zona nem o Account ID).</p>
+<p><strong><code>limite de consultas da Cloudflare atingido</code></strong>: a cota de 300 consultas por 5 minutos acabou. Aguarde o tempo informado.</p>
+<p>Mensagens no log do worker:</p>
+<p><strong><code>zona ... pulada — ...</code></strong>: a razão está na mensagem (dataset desligado, campos, acesso). As demais zonas seguem.</p>
+<p><strong><code>o cursor (...) passou da retenção da API ... de eventos não podem mais ser lidos</code></strong>: o CentralOps ficou parado por mais tempo que a retenção da zona. O que passou dela não existe mais na API.</p>
+<p><strong><code>mais de N eventos em &lt;segundo> ... perda parcial</code></strong>: mais eventos que uma página no mesmo segundo (ataque volumétrico). Os eventos acima do limite desse segundo não são alcançáveis pela API.</p>
+<p><strong><code>nenhuma zona utilizável</code></strong>: todas as zonas foram puladas; a integração fica com erro até uma delas voltar a funcionar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id=limitações-conhecidas>Limitações conhecidas<a href=#limitações-conhecidas class=hash-link aria-label="Link direto para Limitações conhecidas" title="Link direto para Limitações conhecidas" translate=no>​</a></h2>
+<ul>
+<li class="">Só os <strong>eventos de segurança</strong> (<code>firewallEventsAdaptive</code>). Logs de requisições completas (HTTP Requests via Logpush) e analytics de tráfego agregado não são coletados.</li>
+<li class="">Os dados podem ser <strong>amostrados</strong> em picos de volume (veja <code>sampleInterval</code>).</li>
+<li class="">A latência de ingestão da Cloudflare faz o CentralOps ler com ~1 minuto de atraso.</li>
+<li class=""><code>firewall_rule</code> traz uma regra por evento: uma requisição que dispara várias regras gera <strong>vários eventos</strong> (um por regra), ligados pelo mesmo <code>metadata.uid</code> (Ray ID).</li>
+<li class="">Até <strong>50 zonas</strong> por integração.</li>
+</ul></div></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Páginas de documento"><a class="pagination-nav__link pagination-nav__link--prev" href=/integrations/akamai><div class=pagination-nav__sublabel>Anterior</div><div class=pagination-nav__label>Akamai App & API Protector (WAF)</div></a><a class="pagination-nav__link pagination-nav__link--next" href=/integrations/google-workspace><div class=pagination-nav__sublabel>Próxima</div><div class=pagination-nav__label>Google Workspace</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href=#quando-usar class="table-of-contents__link toc-highlight">Quando usar</a><li><a href=#como-funciona class="table-of-contents__link toc-highlight">Como funciona</a><li><a href=#o-que-coletar-análise-de-segurança class="table-of-contents__link toc-highlight">O que coletar: análise de segurança</a><li><a href=#segurança-da-integração class="table-of-contents__link toc-highlight">Segurança da integração</a><li><a href=#pré-requisitos class="table-of-contents__link toc-highlight">Pré-requisitos</a><li><a href=#passo-1-criar-o-api-token class="table-of-contents__link toc-highlight">Passo 1: Criar o API token</a><li><a href=#passo-2-anotar-os-zone-ids-opcional class="table-of-contents__link toc-highlight">Passo 2: Anotar os Zone IDs (opcional)</a><li><a href=#passo-3-criar-a-integração-no-centralops class="table-of-contents__link toc-highlight">Passo 3: Criar a integração no CentralOps</a><li><a href=#o-que-é-coletado class="table-of-contents__link toc-highlight">O que é coletado</a><li><a href=#operação-e-saúde class="table-of-contents__link toc-highlight">Operação e saúde</a><li><a href=#limites-da-api-da-cloudflare class="table-of-contents__link toc-highlight">Limites da API da Cloudflare</a><li><a href=#custo-e-licenciamento class="table-of-contents__link toc-highlight">Custo e licenciamento</a><li><a href=#solução-de-problemas class="table-of-contents__link toc-highlight">Solução de problemas</a><li><a href=#limitações-conhecidas class="table-of-contents__link toc-highlight">Limitações conhecidas</a></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Documentação</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/overview>Começar</a><li class=footer__item><a class=footer__link-item href=/operations/dashboard>Operação diária</a><li class=footer__item><a class=footer__link-item href=/normalization/overview>Mappings (CML)</a><li class=footer__item><a class=footer__link-item href=/runbooks/dispatcher>Runbooks</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Plataforma</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/concepts/architecture>Arquitetura</a><li class=footer__item><a class=footer__link-item href=/concepts/rbac>RBAC</a><li class=footer__item><a class=footer__link-item href=/integrations/overview>Integrações</a><li class=footer__item><a class=footer__link-item href=/compliance/retention>Compliance</a></ul></div><div class="theme-layout-footer-column col footer__col"><div class=footer__title>Recursos</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=/getting-started/quickstart>Quickstart</a><li class=footer__item><a class=footer__link-item href=/normalization/cookbook>DSL Cookbook</a><li class=footer__item><a class=footer__link-item href=/normalization/troubleshooting>Troubleshooting</a></ul></div></div><div class="footer__bottom text--center"><div class=footer__copyright>Copyright © 2026 CentralOps. Built with Docusaurus.</div></div></div></footer></div></body>
