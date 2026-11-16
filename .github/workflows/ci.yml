@@ -133,16 +133,9 @@ jobs:
             echo "::error title=Runner sem disco::${MSG}"
             exit 1
           fi
-      # Hospedado: a imagem do runner traz ~30 GB de toolchains que este job não
-      # usa (.NET, Android, GHC, CodeQL). O build da API (duas bases Debian, o
-      # venv copiado entre estágios, SBOM) ocupa mais de 10 GB no BuildKit; sem
-      # folga, o GC do BuildKit despeja os cache mounts do Cython no meio do run.
-      - name: Liberar disco (runner hospedado)
-        if: runner.environment == 'github-hosted'
-        run: |
-          df -h / | tail -1
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-          df -h / | tail -1
+      # Sem passo de "liberar disco" no hospedado: medido na PR #137, o ubuntu-latest
+      # começa o job com 86 GB livres em /, e o build da API cabe com folga. A poda
+      # das toolchains custava 60-80 s por run sem ganho nenhum.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       # Credencial do registry POR JOB. Os runners self-hosted do pool são várias
       # instâncias (/opt/actions-runner-N) na MESMA máquina e com o MESMO usuário:

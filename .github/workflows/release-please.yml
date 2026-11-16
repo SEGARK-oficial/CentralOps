@@ -186,14 +186,6 @@ jobs:
             echo "::error title=Runner sem disco::${MSG}"
             exit 1
           fi
-      # Hospedado: ~30 GB de toolchains que este job não usa; o build completo
-      # da API (compile + sweep + SBOM) precisa da folga. Ver o job build do ci.yml.
-      - name: Liberar disco (runner hospedado)
-        if: runner.environment == 'github-hosted'
-        run: |
-          df -h / | tail -1
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-          df -h / | tail -1
       - name: Checkout no tag do release
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
