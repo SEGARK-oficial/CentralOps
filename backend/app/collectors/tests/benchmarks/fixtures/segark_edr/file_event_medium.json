@@ -1,0 +1,20 @@
+{
+  "event_id": "e-file-1",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "feed": "file_events",
+  "observed_at": "2026-11-12T10:00:00Z",
+  "received_at": "2026-11-12T10:00:06Z",
+  "time_flag": "",
+  "columns": {
+    "time": "1762941600",
+    "pid": "3100",
+    "uid": "0",
+    "executable": "/usr/bin/vim",
+    "action": "modify",
+    "target_path": "/etc/hosts",
+    "count": "3",
+    "eid": "88"
+  },
+  "hostname": "srv-01.example.com",
+  "device_os": "linux"
+}

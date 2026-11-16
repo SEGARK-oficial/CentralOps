@@ -1,0 +1,21 @@
+{
+  "event_id": "e-dns-1",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "feed": "dns_events",
+  "observed_at": "2026-11-12T10:00:00Z",
+  "received_at": "2026-11-12T10:00:08Z",
+  "time_flag": "",
+  "columns": {
+    "time": "1762941600",
+    "pid": "4100",
+    "uid": "1000",
+    "executable": "/usr/bin/curl",
+    "query": "www.example.com",
+    "query_type": "A",
+    "resolver": "192.0.2.53",
+    "count": "1",
+    "eid": "100"
+  },
+  "hostname": "srv-01.example.com",
+  "device_os": "linux"
+}

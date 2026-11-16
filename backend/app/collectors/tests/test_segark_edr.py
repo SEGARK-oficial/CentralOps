@@ -19,9 +19,11 @@ Tudo afirmado pelas chamadas que os dublês registram, nunca pelo texto do fonte
 from __future__ import annotations
 
 import copy
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
+from urllib.parse import urlsplit
 
 import aiohttp
 import pytest
@@ -153,7 +155,9 @@ def test_streams_default_to_alerts_and_are_validated() -> None:
 )
 def test_console_url_is_https_without_path(raw: str, ok: bool) -> None:
     if ok:
-        assert S.console_url(raw).startswith("https://edr.example.com")
+        # esquema e host exatos (um prefixo aceitaria https://edr.example.com.outro-dominio)
+        parts = urlsplit(S.console_url(raw))
+        assert (parts.scheme, parts.hostname) == ("https", "edr.example.com")
     else:
         with pytest.raises(S.SegarkEdrConfigError):
             S.console_url(raw)
@@ -573,7 +577,9 @@ async def test_probe_network_failure_is_reported_without_the_token() -> None:
     with aioresponses() as m:
         m.get(_match(_ALERTS), exception=aiohttp.ClientConnectionError(f"boom {F.TOKEN}"))
         result = await S._segark_edr_probe(_probe_cfg(tenant_id=""))
-    assert not result.ok and "edr.example.com" in result.detail and F.TOKEN not in result.detail
+    assert not result.ok and F.TOKEN not in result.detail
+    # a mensagem cita o host do console como palavra inteira, não como pedaço de outro nome
+    assert re.search(r"(?<![\w.-])edr\.example\.com(?![\w.-])", result.detail), result.detail
 
 
 def test_platform_is_registered_with_editable_columns_only() -> None:

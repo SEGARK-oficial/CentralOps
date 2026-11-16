@@ -1,0 +1,21 @@
+{
+  "event_id": "e-proc-1",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "feed": "process_events",
+  "observed_at": "2026-11-12T10:00:00Z",
+  "received_at": "2026-11-12T10:00:05.250Z",
+  "time_flag": "",
+  "columns": {
+    "pid": "20294",
+    "path": "/usr/bin/curl",
+    "cmdline": "curl -s https://www.example.com/x.sh",
+    "uid": "1000",
+    "parent": "20200",
+    "eid": "77",
+    "syscall": "execve",
+    "process_guid": "1a2b3c4d:20294:555",
+    "parent_guid": "1a2b3c4d:20200:444"
+  },
+  "hostname": "srv-01.example.com",
+  "device_os": "linux"
+}
