@@ -73,9 +73,13 @@ echo "cython-tests: running pytest sweep (workers=${WORKERS})…"
 # --maxfail=5: short-circuit after a handful of failures. With the source_only
 # auto-skip in backend/conftest.py wiring up the known-incompatible tests,
 # anything that reaches this threshold is a real regression and worth halting on.
+# --durations=30: o sweep é a maior fatia do "Build once" (35-55 min medidos no
+# pool self-hosted, contra ~1,5 min do compile com cache). A lista dos 30 testes
+# mais lentos no fim do log diz onde cortar, em vez de adivinhar.
 exec python -m pytest \
     "${XDIST_ARGS[@]}" \
     -m "not source_only" \
+    --durations=30 \
     --maxfail=5 \
     --no-header \
     -q \

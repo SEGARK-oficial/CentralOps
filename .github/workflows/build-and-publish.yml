@@ -33,7 +33,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
@@ -183,8 +183,12 @@ jobs:
           # run_attempt entra para que um "Re-run" puxe os pacotes do dia.
           build-args: |
             SECURITY_EPOCH=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          # Mesmo cache remoto que o ci.yml grava na main, só LEITURA (paridade com
+          # o build-release-image do release-please.yml). Antes era um escopo
+          # ``type=gha`` próprio: nunca reaproveitava o compile do CI (os dois
+          # dispatches de nov/2026 levaram ~48 min cada) e o export mode=max
+          # ocupava ~3,7 GB dos 10 GB de cache do repositório.
+          cache-from: type=registry,ref=${{ steps.img.outputs.ref }}:${{ matrix.target == 'final' && 'buildcache-api' || 'buildcache' }}
           # SBOM + provenance SLSA anexados à imagem (atestações
           # OCI). Procurement enterprise/MSSP exige proveniência verificável.
           sbom: true

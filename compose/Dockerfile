@@ -109,15 +109,20 @@ COPY compose/cython-build.sh /usr/local/bin/cython-build.sh
 #   - Cython ``cache=``: o ``.c`` de um ``.py`` inalterado sai do cache;
 #   - ccache: o ``.o`` de um ``.c`` inalterado sai do cache.
 # Só módulo de fato alterado paga gcc. Os caches vivem no estado do builder
-# BuildKit, que o CI mantém entre jobs (``keep-state`` no runner persistente);
-# num builder novo eles começam vazios e o resultado é IDÊNTICO, só mais lento.
+# BuildKit. No CI o builder do runner hospedado nasce vazio a cada job, então o
+# ci.yml guarda os dois diretórios no actions/cache e os injeta aqui pelos
+# ``id``s abaixo (renomeou um ``id``, renomeie o ``cache-map`` do ci.yml). Num
+# builder sem cache eles começam vazios e o resultado é IDÊNTICO, só mais lento.
+# ``ccache -z`` antes do compile: sem ele o resumo do fim somava todos os runs
+# que já passaram pelo cache e não dizia nada sobre ESTE.
 RUN --mount=type=cache,id=centralops-ccache,target=/root/.ccache \
     --mount=type=cache,id=centralops-cython,target=/root/.cython-cache \
     chmod +x /usr/local/bin/cython-build.sh \
+ && CCACHE_DIR=/root/.ccache ccache -z >/dev/null \
  && CC="ccache gcc" CCACHE_DIR=/root/.ccache CCACHE_MAXSIZE=3G \
     CYTHON_CACHE_DIR=/root/.cython-cache \
     BUILD_ROOT=/build/backend /usr/local/bin/cython-build.sh \
- && ccache --show-stats --verbose 2>/dev/null | grep -Ei "hit|miss" || true
+ && ccache --show-stats --verbose 2>/dev/null | grep -Ei "hit|miss|cache size" || true
 
 # ── Stage 5: Compiled-image test sweep ───────────────────────────────────────
 # Runs the 127-file pytest suite against the .so tree. Build fails on any
