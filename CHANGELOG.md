@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.20.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.19.0...v2.20.0) (2026-11-16)
+
+
+### Features
+
+* **collectors:** coletor SEGARK EDR (detecções e telemetria de endpoint → OCSF 1.8) ([15a8e59](https://github.com/SEGARK-oficial/CentralOps/commit/15a8e59d8135a5d3f27ae5e1cd87e50c0d73ae0f))
+* **collectors:** coletor SEGARK EDR (detecções e telemetria de endpoint pela API de coleta para SIEM) ([b7bddb2](https://github.com/SEGARK-oficial/CentralOps/commit/b7bddb27417f06dba967a427e165736996192bb7))
+
 ## [2.19.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.18.0...v2.19.0) (2026-11-14)
 
 
