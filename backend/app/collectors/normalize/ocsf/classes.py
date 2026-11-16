@@ -36,7 +36,11 @@ CATEGORY_UID_APPLICATION_ACTIVITY = 6
 CLASS_UID_BASE_EVENT = 0
 
 # System Activity (category 1)
+# Telemetria de endpoint (EDR): arquivo, processo. ``actor``/``device`` são
+# obrigatórios na categoria System Activity.
+CLASS_UID_FILE_SYSTEM_ACTIVITY = 1001
 CLASS_UID_SCHEDULED_JOB_ACTIVITY = 1006
+CLASS_UID_PROCESS_ACTIVITY = 1007
 
 # Findings (category 2)
 CLASS_UID_DETECTION_FINDING = 2004
@@ -51,6 +55,8 @@ CLASS_UID_NETWORK_ACTIVITY = 4001
 # Requisição HTTP vista por WAF/CDN (Akamai): carrega ``attacks``,
 # ``firewall_rule`` e ``disposition_id`` — o que o WAF decidiu sobre o pedido.
 CLASS_UID_HTTP_ACTIVITY = 4002
+# Consulta DNS vista no endpoint (EDR): ``query.hostname`` e o resolvedor.
+CLASS_UID_DNS_ACTIVITY = 4003
 
 # Application Activity (category 6)
 CLASS_UID_API_ACTIVITY = 6003
@@ -61,13 +67,16 @@ CLASS_UID_DATASTORE_ACTIVITY = 6005
 
 CLASS_NAMES: Mapping[int, str] = {
     CLASS_UID_BASE_EVENT: "Base Event",
+    CLASS_UID_FILE_SYSTEM_ACTIVITY: "File System Activity",
     CLASS_UID_SCHEDULED_JOB_ACTIVITY: "Scheduled Job Activity",
+    CLASS_UID_PROCESS_ACTIVITY: "Process Activity",
     CLASS_UID_DETECTION_FINDING: "Detection Finding",
     CLASS_UID_INCIDENT_FINDING: "Incident Finding",
     CLASS_UID_ACCOUNT_CHANGE: "Account Change",
     CLASS_UID_AUTHENTICATION: "Authentication",
     CLASS_UID_NETWORK_ACTIVITY: "Network Activity",
     CLASS_UID_HTTP_ACTIVITY: "HTTP Activity",
+    CLASS_UID_DNS_ACTIVITY: "DNS Activity",
     CLASS_UID_API_ACTIVITY: "API Activity",
     CLASS_UID_DATASTORE_ACTIVITY: "Datastore Activity",
 }

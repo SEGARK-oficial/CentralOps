@@ -36,6 +36,7 @@ Plataformas de origem que a equipe já integrou. A lista pode crescer; confira s
 | Sophos (Central / MDR) | EDR / XDR | Alertas, casos e detecções (inclui modo Partner/MSSP) |
 | Microsoft Defender | EDR / XDR | Incidentes e alertas (Graph Security API) |
 | CrowdStrike Falcon | EDR / XDR | Detecções/alertas (Alerts API v2) |
+| SEGARK EDR | EDR / XDR | Detecções (processo, arquivo, MITRE ATT&CK, veredito, ML) e telemetria de endpoint (processos, arquivos, conexões, DNS) pela API de coleta para SIEM da plataforma |
 | NinjaOne | RMM | Atividades e alertas de endpoints |
 | Microsoft Entra ID | Identity | Sign-in logs e directory audit (Microsoft Graph) |
 | Okta | Identity | System Log (logins, MFA, lifecycle de identidade) |

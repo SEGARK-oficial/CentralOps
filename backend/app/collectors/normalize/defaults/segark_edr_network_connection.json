@@ -1,0 +1,359 @@
+{
+  "_comment": [
+    "SEGARK EDR feed network_connections -> Network Activity (4001).",
+    "direction out/in decide quem e origem e destino."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 4001,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Network Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 4,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Network Activity"
+    },
+    {
+      "_comment": "Cada linha resume conexoes iguais fundidas na janela do agente, com bytes somados: Traffic (6), nao a abertura de uma conexao.",
+      "target": "normalized.activity_id",
+      "source": "'traffic'",
+      "value_map": {
+        "traffic": 6
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "'traffic'",
+      "value_map": {
+        "traffic": "Traffic"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "'traffic'",
+      "value_map": {
+        "traffic": 400106
+      },
+      "default": 400100,
+      "required": true
+    },
+    {
+      "target": "normalized.severity_id",
+      "const": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "const": "Informational"
+    },
+    {
+      "_comment": "observed_at = quando o agente viu (UTC com Z); received_at = quando a plataforma gravou.",
+      "target": "normalized.time",
+      "source": "observed_at",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.logged_time",
+      "source": "received_at",
+      "when": {
+        "exists": "received_at"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "SEGARK EDR"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "SEGARK"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "event_id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "network_connections"
+    },
+    {
+      "target": "normalized.device.uid",
+      "source": "device_id",
+      "default": null
+    },
+    {
+      "target": "normalized.device.hostname",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "target": "normalized.device.name",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "target": "normalized.device.type_id",
+      "const": 0
+    },
+    {
+      "target": "normalized.device.type",
+      "const": "Unknown"
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "device_os",
+      "value_map": {
+        "linux": "Linux",
+        "windows": "Windows"
+      },
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "target": "normalized.device.os.type_id",
+      "source": "device_os",
+      "value_map": {
+        "linux": 200,
+        "windows": 100
+      },
+      "default": 0,
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "_comment": "Linhas agregadas na janela da tabela do agente: count = eventos iguais fundidos.",
+      "target": "normalized.count",
+      "source": "columns.count",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "(columns.count) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.time_flag",
+      "source": "(time_flag) || `null`",
+      "when": {
+        "exists": "(time_flag) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.container_id",
+      "source": "(columns.container_id) || `null`",
+      "when": {
+        "exists": "(columns.container_id) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.eid",
+      "source": "(columns.eid) || `null`",
+      "when": {
+        "exists": "(columns.eid) || `null`"
+      }
+    },
+    {
+      "target": "normalized.actor.process.pid",
+      "source": "columns.pid",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "(columns.pid) || `null`"
+      }
+    },
+    {
+      "target": "normalized.actor.process.file.path",
+      "source": "(columns.executable) || `null`",
+      "when": {
+        "exists": "(columns.executable) || `null`"
+      }
+    },
+    {
+      "_comment": "uid 4294967295 = desconhecido no contrato do agente: fica fora.",
+      "target": "normalized.actor.process.user.uid",
+      "source": "columns.uid",
+      "when": {
+        "exists": "columns.uid != '4294967295' && columns.uid || `null`"
+      }
+    },
+    {
+      "target": "normalized.connection_info.direction_id",
+      "source": "columns.direction || ''",
+      "value_map": {
+        "out": 2,
+        "in": 1
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.connection_info.direction",
+      "source": "columns.direction || ''",
+      "value_map": {
+        "out": "Outbound",
+        "in": "Inbound"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.connection_info.protocol_name",
+      "source": "columns.protocol",
+      "type_cast": "lowercase",
+      "when": {
+        "exists": "(columns.protocol) || `null`"
+      }
+    },
+    {
+      "target": "normalized.connection_info.protocol_num",
+      "source": "columns.protocol",
+      "pre_cast": "lowercase",
+      "value_map": {
+        "tcp": 6,
+        "udp": 17
+      },
+      "when": {
+        "exists": "contains(['tcp','udp','TCP','UDP'], columns.protocol || '') && `true` || `null`"
+      }
+    },
+    {
+      "_comment": "Saida: origem = o endpoint (porta local), destino = remoto. Entrada: o inverso. O IP local nao vem na linha.",
+      "target": "normalized.src_endpoint.port",
+      "source": "columns.local_port",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'out' && columns.local_port || `null`"
+      }
+    },
+    {
+      "target": "normalized.dst_endpoint.ip",
+      "source": "columns.remote_address",
+      "when": {
+        "exists": "columns.direction == 'out' && columns.remote_address || `null`"
+      }
+    },
+    {
+      "target": "normalized.dst_endpoint.port",
+      "source": "columns.remote_port",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'out' && columns.remote_port || `null`"
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.ip",
+      "source": "columns.remote_address",
+      "when": {
+        "exists": "columns.direction == 'in' && columns.remote_address || `null`"
+      }
+    },
+    {
+      "target": "normalized.src_endpoint.port",
+      "source": "columns.remote_port",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'in' && columns.remote_port || `null`"
+      }
+    },
+    {
+      "target": "normalized.dst_endpoint.port",
+      "source": "columns.local_port",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'in' && columns.local_port || `null`"
+      }
+    },
+    {
+      "_comment": "bytes_out = da origem para o destino: o que o endpoint enviou na saida, o que recebeu na entrada.",
+      "target": "normalized.traffic.bytes_out",
+      "source": "columns.bytes_sent",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'out' && columns.bytes_sent || `null`"
+      }
+    },
+    {
+      "target": "normalized.traffic.bytes_in",
+      "source": "columns.bytes_received",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'out' && columns.bytes_received || `null`"
+      }
+    },
+    {
+      "target": "normalized.traffic.bytes_out",
+      "source": "columns.bytes_received",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'in' && columns.bytes_received || `null`"
+      }
+    },
+    {
+      "target": "normalized.traffic.bytes_in",
+      "source": "columns.bytes_sent",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "columns.direction == 'in' && columns.bytes_sent || `null`"
+      }
+    },
+    {
+      "_comment": "SNI do ClientHello (so TLS de saida).",
+      "target": "normalized.tls.sni",
+      "source": "(columns.sni) || `null`",
+      "when": {
+        "exists": "(columns.sni) || `null`"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "device.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "hostname",
+          "skip_null": true
+        },
+        {
+          "name": "dst_endpoint.ip",
+          "type": "IP Address",
+          "type_id": 2,
+          "source": "columns.remote_address",
+          "skip_null": true
+        },
+        {
+          "name": "tls.sni",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "columns.sni",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

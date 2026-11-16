@@ -162,6 +162,18 @@ Converte as táticas MITRE no formato que a integração Sophos envia para o for
 
 **Atenção.** Este operador é específico do formato da integração Sophos. Se outro fornecedor envia táticas MITRE em formato diferente, ele não se aplica — fale com o administrador da plataforma sobre o suporte ao formato desse fornecedor.
 
+### IDs MITRE ATT&CK -> formato OCSF (`mitre_ids_to_ocsf`)
+
+Converte uma lista de identificadores do MITRE ATT&CK, como `T1059.004`, `T1071` e `TA0011`, nos objetos de ataque do OCSF. Técnica com subtécnica vira `technique` + `sub_technique`; tática vira `tactic`. Só o identificador é preenchido: o nome não é inventado.
+
+| Situação | Resultado |
+|----------|-----------|
+| `T1059.004` | técnica `T1059` e subtécnica `T1059.004` |
+| `TA0011` | tática `TA0011` |
+| Identificador fora do formato | descartado (o resto da lista é convertido) |
+| Identificador repetido | sai uma vez |
+| Campo vazio | permanece vazio |
+
 ---
 
 ## Operadores de condição
@@ -267,6 +279,7 @@ Para um passo a passo completo, veja a [receita de construção de observáveis 
 | Envolver um valor único em lista | `to_array` | conversão |
 | Remover itens repetidos de uma lista | `dedup` | conversão |
 | Converter táticas MITRE da Sophos para OCSF | `mitre_tactic_to_ocsf` | conversão |
+| Converter IDs MITRE ATT&CK (T1059.004, TA0011) para OCSF | `mitre_ids_to_ocsf` | conversão |
 | Aplicar a regra só se o campo existir | `exists` | condição |
 | Aplicar a regra só se o campo for igual a um valor | `equals` | condição |
 | Aplicar a regra só se o campo estiver em uma lista | `in` | condição |

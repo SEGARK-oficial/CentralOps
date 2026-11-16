@@ -320,6 +320,15 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
             "b" * 32: {"since": "2026-07-24T11:00:00Z"},
         }
     },
+    # SEGARK EDR: no teto o cursor guarda o início da janela em curso (``since``),
+    # a janela inteira e o cursor keyset da API para a página seguinte.
+    **{
+        ("segark_edr", s): {
+            "since": "2026-07-24T10:00:00Z",
+            "window": {"from": "2026-07-24T10:00:00Z", "to": "2026-07-24T11:00:00Z", "cursor": "WyJhbGVydHMiXQ"},
+        }
+        for s in ("alerts", "process_events", "file_events", "network_connections", "dns_events")
+    },
     # Google Workspace: cursor por aplicação; o watermark é o início MAIS ANTIGO.
     ("google_workspace", "activity"): {
         "apps": {

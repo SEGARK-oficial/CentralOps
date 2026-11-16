@@ -1103,8 +1103,8 @@ def test_list_type_casts_requires_auth(client_factory) -> None:
     assert r.status_code == 401
 
 
-def test_list_type_casts_returns_12_items(client_factory) -> None:
-    """Deve retornar exatamente 12 casts (5 originais + 7 novos), ordenados."""
+def test_list_type_casts_returns_13_items(client_factory) -> None:
+    """Deve retornar exatamente 13 casts (5 originais + 8 novos), ordenados."""
     factory, _ = client_factory
     client = factory()
     _bootstrap_admin(client)
@@ -1112,7 +1112,7 @@ def test_list_type_casts_returns_12_items(client_factory) -> None:
     r = client.get("/api/mappings/normalize/type-casts")
     assert r.status_code == 200, r.text
     data = r.json()
-    assert len(data) == 12, f"Esperava 12 casts, obteve {len(data)}: {[d['name'] for d in data]}"
+    assert len(data) == 13, f"Esperava 13 casts, obteve {len(data)}: {[d['name'] for d in data]}"
 
 
 def test_list_type_casts_sorted_by_name(client_factory) -> None:
@@ -1145,7 +1145,7 @@ def test_list_type_casts_schema_fields(client_factory) -> None:
 
 
 def test_list_type_casts_contains_expected_names(client_factory) -> None:
-    """Verifica que todos os 12 casts esperados estão presentes."""
+    """Verifica que todos os 13 casts esperados estão presentes."""
     factory, _ = client_factory
     client = factory()
     _bootstrap_admin(client)
@@ -1167,6 +1167,7 @@ def test_list_type_casts_contains_expected_names(client_factory) -> None:
         "to_array",
         "dedup",
         "mitre_tactic_to_ocsf",
+        "mitre_ids_to_ocsf",
     }
     assert expected == names, f"Diferença: {expected.symmetric_difference(names)}"
 

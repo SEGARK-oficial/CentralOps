@@ -24,6 +24,7 @@ Estas são as plataformas das quais o CentralOps coleta eventos hoje:
 | Sophos (Central / MDR) | EDR / XDR | Alertas, casos e detecções (inclui modo Partner/MSSP) |
 | Microsoft Defender | EDR / XDR | Incidentes e alertas (Graph Security API) |
 | CrowdStrike Falcon | EDR / XDR | Detecções/alertas (Alerts API v2) |
+| SEGARK EDR | EDR / XDR | Detecções (processo, arquivo, MITRE ATT&CK, veredito, ML) e telemetria de endpoint (processos, arquivos, conexões, DNS) pela API de coleta para SIEM da plataforma |
 | NinjaOne | RMM | Atividades e alertas de endpoints |
 | Microsoft Entra ID | Identity | Sign-in logs e directory audit (Microsoft Graph) |
 | Okta | Identity | System Log (logins, MFA, lifecycle de identidade) |
@@ -48,6 +49,7 @@ Para configurar qualquer uma delas, abra o menu **Coleta -> Integrações**, cli
 - [Integração Wazuh](./wazuh.md)
 - [Integração CrowdStrike](./crowdstrike.md)
 - [Integração Microsoft Defender](./microsoft-defender.md)
+- [Integração SEGARK EDR](./segark-edr.md)
 - [Integração Google Cloud (Pub/Sub)](./google-cloud.md)
 - [Integração Microsoft Azure](./microsoft-azure.md)
 - [Integração Akamai (WAF)](./akamai.md)

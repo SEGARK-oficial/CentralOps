@@ -449,6 +449,7 @@ class TestRegistry:
             "to_array",
             "dedup",
             "mitre_tactic_to_ocsf",
+            "mitre_ids_to_ocsf",
         }
         assert expected.issubset(set(TYPE_CASTS.keys()))
 

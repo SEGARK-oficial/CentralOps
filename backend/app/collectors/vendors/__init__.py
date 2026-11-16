@@ -37,6 +37,7 @@ from . import gcp_pubsub  # noqa: F401        — gcp_pubsub/audit+gke_audit+clo
 from . import azure  # noqa: F401             — azure/activity (ARM) + entra+resource (Event Hubs/Kafka)
 from . import akamai  # noqa: F401            — akamai/siem (SIEM Integration API, EdgeGrid)
 from . import cloudflare  # noqa: F401           — cloudflare/security_events (GraphQL Analytics, firewallEventsAdaptive)
+from . import segark_edr  # noqa: F401        — segark_edr/alerts+process_events+file_events+network_connections+dns_events (API de coleta para SIEM)
 from . import google_workspace  # noqa: F401  — google_workspace/activity+alerts (Reports API + Alert Center)
 from . import microsoft_365  # noqa: F401     — microsoft_365/audit_*+dlp (Management Activity API)
 from . import veeam  # noqa: F401             — veeam/sessions (VBR REST, OAuth2 password)

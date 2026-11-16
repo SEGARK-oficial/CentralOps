@@ -1,0 +1,276 @@
+{
+  "_comment": [
+    "SEGARK EDR feed file_events -> File System Activity (1001).",
+    "Linhas agregadas pelo agente (count)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 1001,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "File System Activity"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "System Activity"
+    },
+    {
+      "_comment": "Acoes do sensor eBPF: modify = fechamento apos escrita (Update); append = open com O_APPEND (Open); link/symlink nao tem atividade propria (Other).",
+      "target": "normalized.activity_id",
+      "source": "(columns.action || '')",
+      "value_map": {
+        "create": 1,
+        "modify": 3,
+        "delete": 4,
+        "rename": 5,
+        "setattr": 6,
+        "open": 14,
+        "append": 14,
+        "link": 99
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(columns.action || '')",
+      "value_map": {
+        "create": "Create",
+        "modify": "Update",
+        "delete": "Delete",
+        "rename": "Rename",
+        "setattr": "Set Attributes",
+        "open": "Open",
+        "append": "Open",
+        "link": "Other"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(columns.action || '')",
+      "value_map": {
+        "create": 100101,
+        "modify": 100103,
+        "delete": 100104,
+        "rename": 100105,
+        "setattr": 100106,
+        "open": 100114,
+        "append": 100114,
+        "link": 100199
+      },
+      "default": 100100,
+      "required": true
+    },
+    {
+      "target": "normalized.severity_id",
+      "const": 1,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "const": "Informational"
+    },
+    {
+      "_comment": "observed_at = quando o agente viu (UTC com Z); received_at = quando a plataforma gravou.",
+      "target": "normalized.time",
+      "source": "observed_at",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.metadata.logged_time",
+      "source": "received_at",
+      "when": {
+        "exists": "received_at"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "SEGARK EDR"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "SEGARK"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "event_id",
+      "default": null
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "file_events"
+    },
+    {
+      "target": "normalized.device.uid",
+      "source": "device_id",
+      "default": null
+    },
+    {
+      "target": "normalized.device.hostname",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "target": "normalized.device.name",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "target": "normalized.device.type_id",
+      "const": 0
+    },
+    {
+      "target": "normalized.device.type",
+      "const": "Unknown"
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "device_os",
+      "value_map": {
+        "linux": "Linux",
+        "windows": "Windows"
+      },
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "target": "normalized.device.os.type_id",
+      "source": "device_os",
+      "value_map": {
+        "linux": 200,
+        "windows": 100
+      },
+      "default": 0,
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "_comment": "Linhas agregadas na janela da tabela do agente: count = eventos iguais fundidos.",
+      "target": "normalized.count",
+      "source": "columns.count",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "(columns.count) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.time_flag",
+      "source": "(time_flag) || `null`",
+      "when": {
+        "exists": "(time_flag) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.container_id",
+      "source": "(columns.container_id) || `null`",
+      "when": {
+        "exists": "(columns.container_id) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.eid",
+      "source": "(columns.eid) || `null`",
+      "when": {
+        "exists": "(columns.eid) || `null`"
+      }
+    },
+    {
+      "target": "normalized.actor.process.pid",
+      "source": "columns.pid",
+      "type_cast": "to_int",
+      "when": {
+        "exists": "(columns.pid) || `null`"
+      }
+    },
+    {
+      "target": "normalized.actor.process.file.path",
+      "source": "(columns.executable) || `null`",
+      "when": {
+        "exists": "(columns.executable) || `null`"
+      }
+    },
+    {
+      "_comment": "uid 4294967295 = desconhecido no contrato do agente: fica fora.",
+      "target": "normalized.actor.process.user.uid",
+      "source": "columns.uid",
+      "when": {
+        "exists": "columns.uid != '4294967295' && columns.uid || `null`"
+      }
+    },
+    {
+      "target": "normalized.file.path",
+      "source": "(columns.target_path) || `null`",
+      "when": {
+        "exists": "(columns.target_path) || `null`"
+      }
+    },
+    {
+      "_comment": "rename/link: dest_path e o caminho resultante.",
+      "target": "normalized.file_result.path",
+      "source": "(columns.dest_path) || `null`",
+      "when": {
+        "exists": "(columns.dest_path) || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.action",
+      "source": "(columns.action) || `null`",
+      "when": {
+        "exists": "(columns.action) || `null`"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "device.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "hostname",
+          "skip_null": true
+        },
+        {
+          "name": "file.path",
+          "type": "File Name",
+          "type_id": 7,
+          "source": "columns.target_path",
+          "skip_null": true
+        },
+        {
+          "name": "actor.process.file.path",
+          "type": "File Name",
+          "type_id": 7,
+          "source": "columns.executable",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

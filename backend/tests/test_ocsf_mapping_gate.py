@@ -111,9 +111,9 @@ def test_gate_invalid_output_blocks() -> None:
 
 
 def test_gate_out_of_scope_is_not_blocking() -> None:
-    # class 1001 is a valid OCSF class we don't vendor → graceful, not a hard defect
-    oos = {"normalized": {"class_uid": 1001, "category_uid": 1, "activity_id": 1,
-                          "type_uid": 100101, "severity_id": 1}}
+    # class 1004 (Memory Activity) is a valid OCSF class we don't vendor → graceful, not a hard defect
+    oos = {"normalized": {"class_uid": 1004, "category_uid": 1, "activity_id": 1,
+                          "type_uid": 100401, "severity_id": 1}}
     stats = M._ocsf_validate_commit({"rules": []}, [oos], declared_class_uid=None)
     assert stats["invalid_by_reason"] == {"out_of_scope": 1}
     assert stats["blocking"] is False  # out_of_scope alone must not block a commit

@@ -102,8 +102,8 @@ def test_gate_base_event_is_a_valid_vendored_class() -> None:
 
 
 def test_gate_out_of_scope_for_unvendored_class() -> None:
-    # 1001 (Process Activity) is a real OCSF class we do not vendor → graceful.
-    r = V.validate_normalized({"class_uid": 1001, "category_uid": 1, "activity_id": 1, "type_uid": 100101, "severity_id": 1})
+    # 1004 (Memory Activity) is a real OCSF class we do not vendor → graceful.
+    r = V.validate_normalized({"class_uid": 1004, "category_uid": 1, "activity_id": 1, "type_uid": 100401, "severity_id": 1})
     assert not r.in_scope and r.reason == V.REASON_OUT_OF_SCOPE and not r.valid
 
 
