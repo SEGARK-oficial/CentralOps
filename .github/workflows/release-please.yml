@@ -117,7 +117,7 @@ jobs:
   build-release-image:
     needs: [release-please, promote-release-image]
     if: ${{ always() && needs.release-please.outputs.release_created == 'true' && needs.promote-release-image.outputs.promoted != 'true' }}
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write

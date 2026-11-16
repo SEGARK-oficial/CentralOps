@@ -24,23 +24,23 @@
 # ───────────────────────────────────────────────────────────────────────────────
 
 # ───────────────────────────────────────────────────────────────────────────────
-# ONDE ESTE PIPELINE RODA (política de runner)
+# ONDE ESTE PIPELINE RODA (política de runner): ubuntu-latest, em TODO evento.
 #
-#   evento                                   runner
-#   ───────────────────────────────────────  ─────────────────────────────────
-#   push/main, schedule, workflow_dispatch   self-hosted (LXC do pool)
-#   pull_request de branch DESTE repo        self-hosted (ref confiável)
-#   pull_request de FORK                     ubuntu-latest (GitHub-hosted)
+# Este repositório é PÚBLICO, e em repo público o runner hospedado padrão do
+# GitHub é gratuito e não consome a franquia de minutos. Até nov/2026 os jobs
+# daqui rodavam no pool self-hosted da organização, que tem poucas instâncias,
+# disco lento e atende também os repositórios privados. Este pipeline era o
+# maior consumidor do pool: ~3.700 min em 14 dias, fila mediana de 5 min e p90
+# de ~55 min, e 13 "Build once" cancelados no teto de tempo (50/75 min) sem
+# resultado nenhum.
 #
-# POR QUE O FORK É EXCEÇÃO: este repositório é PÚBLICO. Um PR de fork carrega
-# código de terceiro; rodá-lo em runner self-hosted daria execução arbitrária
-# dentro da LXC — que vive na mesma infra de produção. O runner GitHub-hosted é
-# efêmero, isolado e GRATUITO em repo público, então o fork não custa nada e não
-# alcança nada. Ver `.github/actions/runner-preflight` para a higiene de disco.
+# Segurança: o hospedado é efêmero e isolado. PR de fork nunca chega perto da
+# infra própria, nem PR que edite o próprio workflow para pedir outro runner
+# (o que só a configuração do runner group impede de verdade).
 #
-# `runs-on` não aceita o contexto `env`, e YAML anchor não existe em Actions —
-# por isso a expressão ternária se repete literalmente em cada job. Alterou uma,
-# altere todas (o job `cleanup` é a exceção deliberada: só chama API do GitHub).
+# Os passos `if: runner.environment == 'self-hosted'` (preflight de disco,
+# builder nomeado com keep-state) ficaram: são no-op aqui e tornam a volta ao
+# pool uma troca de `runs-on`, não uma reescrita.
 # ───────────────────────────────────────────────────────────────────────────────
 
 name: CI (build-once)
@@ -80,7 +80,7 @@ jobs:
   # ── 1) Build once: compila o Cython + roda o unit sweep (gate) e publica ci-<id> ──
   build:
     name: Build once (Cython + unit sweep) → ci image
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     # 75, não 50: o compile + o unit sweep levam ~45 min, e o ``cache-to`` do
     # BuildKit depois deles (~4–6 min) estourava o teto — o job era CANCELADO com
     # todos os testes verdes (#112, #115, #118), e os E2E nunca rodavam.
@@ -133,6 +133,9 @@ jobs:
             echo "::error title=Runner sem disco::${MSG}"
             exit 1
           fi
+      # Sem passo de "liberar disco" no hospedado: medido na PR #137, o ubuntu-latest
+      # começa o job com 86 GB livres em /, e o build da API cabe com folga. A poda
+      # das toolchains custava 60-80 s por run sem ganho nenhum.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       # Credencial do registry POR JOB. Os runners self-hosted do pool são várias
       # instâncias (/opt/actions-runner-N) na MESMA máquina e com o MESMO usuário:
@@ -166,6 +169,7 @@ jobs:
       # frontend terminava. Sem o rm, o próximo job reaproveita o container vivo.
       # Guard: backend/tests/test_workflow_buildx_builder_compartilhado.py
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        id: buildx
         with:
           name: ${{ runner.environment == 'self-hosted' && 'centralops-ci' || '' }}
           keep-state: ${{ runner.environment == 'self-hosted' }}
@@ -175,6 +179,51 @@ jobs:
               gc = true
               maxUsedSpace = "20GB"
               minFreeSpace = "12GB"
+      # ── Cache do Cython e do ccache ENTRE RUNS (runner hospedado) ─────────────
+      # O estágio backend-compile monta dois caches por CONTEÚDO (ver o
+      # Dockerfile): o do Cython (.c de um .py inalterado) e o ccache (.o de um
+      # .c inalterado). Cache mount do BuildKit NÃO viaja no ``cache-to``
+      # registry: ele mora no estado do builder. No runner hospedado o builder
+      # nasce vazio a cada job, então sem isto os 266 módulos seriam traduzidos e
+      # compilados do zero sempre que backend/ mudasse.
+      #
+      # O actions/cache guarda os dois diretórios e o cache-dance os injeta nos
+      # cache mounts (mesmos ``id``s do Dockerfile) antes do build e os extrai
+      # depois, no post-step. Os caches são por conteúdo: restaurar um mais velho
+      # (restore-keys) só reduz acerto, nunca muda o artefato.
+      #
+      # A chave muda com o código compilado; restore-keys pega o mais recente.
+      # Em PR, o cache salvo fica no escopo da PR (o push seguinte da mesma PR
+      # reaproveita); a main alimenta todas as PRs.
+      - name: Restaurar cache do Cython/ccache
+        if: runner.environment == 'github-hosted'
+        id: cython-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            cython-cache/ccache
+            cython-cache/cython
+          key: cython-ccache-v1-${{ hashFiles('backend/app/**/*.py', 'backend/requirements-build.txt', 'compose/cython-build.sh') }}
+          restore-keys: |
+            cython-ccache-v1-
+      # No primeiro run (sem cache nenhum) os diretórios não existem, e o
+      # cache-dance precisa da origem para montar.
+      - name: Preparar diretórios do cache do Cython/ccache
+        if: runner.environment == 'github-hosted'
+        run: |
+          mkdir -p cython-cache/ccache cython-cache/cython
+          du -sh cython-cache/* 2>/dev/null || true
+      - name: Injetar o cache nos cache mounts do BuildKit
+        if: runner.environment == 'github-hosted'
+        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723 # v3.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-map: |
+            {
+              "cython-cache/ccache": {"target": "/root/.ccache", "id": "centralops-ccache"},
+              "cython-cache/cython": {"target": "/root/.cython-cache", "id": "centralops-cython"}
+            }
+          skip-extraction: ${{ steps.cython-cache.outputs.cache-hit }}
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
@@ -234,7 +283,7 @@ jobs:
   # caminho crítico). Não depende de nada do backend.
   build-frontend:
     name: Build frontend image → ci image
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -327,7 +376,7 @@ jobs:
   # ── 2) Postgres migration gate (independe do build; ver PR #124) ─────────────
   source-tree-guards:
     name: Guards de árvore de fontes (-m source_only)
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     # Os testes marcados ``source_only`` inspecionam a ÁRVORE DE FONTES — leem o
     # ``.py`` do alvo com ``inspect.getsource``/``read_text``, ou arquivos do
@@ -398,7 +447,7 @@ jobs:
 
   pg-migrations:
     name: Postgres migration gate (-m pg)
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       # Runner self-hosted: (a) devolve a posse do workspace — container root
@@ -444,6 +493,19 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # O cache de pip abaixo mora no $HOME do runner. No self-hosted ele persiste
+      # sozinho; no hospedado a VM é nova a cada job, então o actions/cache o
+      # carrega pela chave do lock (senão o lock inteiro é baixado de novo).
+      # Só no hospedado: no self-hosted o diretório tem arquivos do root (o
+      # container escreve como root) e o tar do restore levaria EACCES.
+      - name: Restaurar cache de pip do gate de migração
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/centralops-ci-pip
+          key: pg-gate-pip-${{ hashFiles('backend/requirements.lock') }}
+          restore-keys: |
+            pg-gate-pip-
       - name: Run -m pg tests against real Postgres
         run: |
           set -euo pipefail
@@ -476,6 +538,11 @@ jobs:
         run: |
           docker rm -f "ci_pg_${{ github.run_id }}" >/dev/null 2>&1 || true
           docker network rm "ci_pgnet_${{ github.run_id }}" >/dev/null 2>&1 || true
+          # O pip do container grava como root (arquivos 0600); sem devolver a
+          # posse, o save do actions/cache não consegue ler o diretório.
+          if [ "${{ runner.environment }}" = "github-hosted" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$HOME/.cache/centralops-ci-pip" || true
+          fi
 
   # ── 3) E2E: PUXA a mesma imagem e roda o Playwright ─────────────────────────
   # Havia um job `e2e-setup` antes dos shards (subia a stack, semeava, autenticava
@@ -492,7 +559,7 @@ jobs:
   e2e:
     name: E2E ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: [build, build-frontend]
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
@@ -596,6 +663,13 @@ jobs:
         # runner pelo admin, uma vez por SO: `npx playwright install-deps chromium`.
         # Faltando alguma, o launch falha nomeando a lib.
         run: npx playwright install chromium
+      # No hospedado a VM nasce limpa a cada job: o cache acima devolve o binário
+      # do Chromium, mas não as libs de sistema. Lá há sudo sem senha, então o
+      # próprio Playwright instala o que falta (no-op quando já está tudo).
+      - name: Instalar libs de sistema do Chromium (runner hospedado)
+        if: runner.environment == 'github-hosted'
+        working-directory: e2e
+        run: npx playwright install-deps chromium
       - name: Isolar DOCKER_CONFIG deste job
         run: |
           mkdir -p "$RUNNER_TEMP/docker-config"
@@ -692,7 +766,7 @@ jobs:
     # push na main = publish normal; dispatch na main = re-publicar de propósito
     # (ex.: o image-scan.yml diário acusou CVE de SO corrigível na `latest`).
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    runs-on: ${{ fromJSON(github.event.pull_request.head.repo.fork && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
