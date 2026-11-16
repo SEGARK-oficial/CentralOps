@@ -15,7 +15,7 @@ Quatro dashboards auto-provisionados (Superfície B, OTel-native). Fonte de dado
 ## Pré-requisitos
 
 1. OTel ligado nos workers: `OTEL_ENABLED=true` (+ `OTEL_EXPORTER_OTLP_ENDPOINT`).
-   Ver `docs-site/docs/outputs/observability.md`.
+   Ver https://docs.segark.com/centralops/outputs/observability.
 2. OTel Collector de pé com `add_metric_suffixes: false` no exporter `prometheus`
    (já configurado em `../otel-collector-config.yaml`) — **obrigatório** para os
    nomes de série baterem com as queries dos dashboards.

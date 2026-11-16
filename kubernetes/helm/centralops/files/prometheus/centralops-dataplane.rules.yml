@@ -21,7 +21,7 @@ groups:
             O dispatcher não consegue gravar na DLQ (Postgres fora ou degradado) e
             está segurando os lotes no Kafka em vez de commitar. Nada se perde
             enquanto a retenção do tópico durar, mas a entrega daquele destino parou.
-          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+          runbook: https://docs.segark.com/centralops/runbooks/dlq-and-destination-delivery
 
       - alert: CentralOpsDeliveryUnclassifiedErrors
         expr: sum(rate(collector_dataplane_consumed_total{outcome="unclassified"}[10m])) > 0
@@ -34,7 +34,7 @@ groups:
             O envio a um destino está falhando com um erro que o código não
             classifica (conexão recusada, falha ao ler o destino, bug de formatter).
             É re-tentado e, esgotado, vai à DLQ. Veja o log do kafka-dispatcher.
-          runbook: docs-site/docs/runbooks/dispatcher.md
+          runbook: https://docs.segark.com/centralops/runbooks/dispatcher
 
       - alert: CentralOpsDeliveryExhausted
         expr: sum(rate(collector_dataplane_consumed_total{outcome="exhausted"}[15m])) > 0
@@ -43,7 +43,7 @@ groups:
           severity: warning
         annotations:
           summary: "Lotes indo à DLQ após esgotar as tentativas"
-          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+          runbook: https://docs.segark.com/centralops/runbooks/dlq-and-destination-delivery
 
       - alert: CentralOpsDataplaneLagHigh
         expr: max(collector_dataplane_consumer_lag) > 10000
@@ -55,7 +55,7 @@ groups:
           description: >-
             O kafka-dispatcher não acompanha o volume, ou um destino lento está
             prendendo a partição. Cada mensagem é um lote de até 200 eventos.
-          runbook: docs-site/docs/runbooks/dispatcher.md
+          runbook: https://docs.segark.com/centralops/runbooks/dispatcher
 
       - alert: CentralOpsDestinationBreakerOpen
         expr: max by (destination_id) (collector_destination_breaker_state) == 1
@@ -64,7 +64,7 @@ groups:
           severity: warning
         annotations:
           summary: "Breaker aberto para o destino {{ $labels.destination_id }}"
-          runbook: docs-site/docs/runbooks/destination-down.md
+          runbook: https://docs.segark.com/centralops/runbooks/destination-down
 
       - alert: CentralOpsDLQGrowing
         expr: sum by (destination_id, error_kind) (rate(collector_dlq_total[15m])) > 0
@@ -76,7 +76,7 @@ groups:
           description: >-
             Eventos estão indo para a DLQ há 15 minutos. O reenvio é manual: corrija
             o destino e reprocesse pela tela de Destinos.
-          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+          runbook: https://docs.segark.com/centralops/runbooks/dlq-and-destination-delivery
 
       - alert: CentralOpsParkedBacklog
         expr: sum(collector_parked_lag) > 0
@@ -89,7 +89,7 @@ groups:
             Um destino está fora do ar ou recusando há pelo menos 30 minutos e os
             lotes dele esperam no tópico de estacionamento (nada se perdeu). Eles
             saem sozinhos quando o destino volta; a tela do destino mostra quantos.
-          runbook: docs-site/docs/runbooks/destination-down.md
+          runbook: https://docs.segark.com/centralops/runbooks/destination-down
 
       - alert: CentralOpsParkedNearRetention
         expr: max(collector_parked_head_age_seconds) > 432000
@@ -102,7 +102,7 @@ groups:
             O tópico de estacionamento guarda lotes por 7 dias (KAFKA_PARKED_RETENTION_MS).
             Passado isso, o Kafka apaga o lote e os eventos se perdem. Recupere o
             destino ou aumente a retenção do tópico antes disso.
-          runbook: docs-site/docs/runbooks/destination-down.md
+          runbook: https://docs.segark.com/centralops/runbooks/destination-down
 
   - name: centralops-push
     rules:
@@ -117,7 +117,7 @@ groups:
             O processor do tópico raw esgotou as tentativas, ou recebeu lote de
             integração inativa, e mandou os eventos à DLQ __raw__. Com dlq_failed,
             a DLQ não grava e o lote segue retido no tópico.
-          runbook: docs-site/docs/runbooks/dlq-and-destination-delivery.md
+          runbook: https://docs.segark.com/centralops/runbooks/dlq-and-destination-delivery
 
       - alert: CentralOpsRawProcessingRetrying
         expr: sum(rate(collector_raw_processed_total{outcome="retry"}[10m])) > 0
@@ -130,7 +130,7 @@ groups:
             O ciclo de processamento falha para algum lote push (rota inválida,
             Postgres fora, entrega indisponível). O push não se perde: espera no
             tópico raw até a retenção (24 h por padrão).
-          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+          runbook: https://docs.segark.com/centralops/runbooks/collection-lag-backlog
 
       - alert: CentralOpsRawProcessorLagHigh
         expr: max(collector_raw_consumer_lag) > 1000
@@ -143,7 +143,7 @@ groups:
             O processor não acompanha a ingestão push. Aumente as réplicas do
             processor (até o número de partições do raw) antes que a retenção do
             tópico vença.
-          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+          runbook: https://docs.segark.com/centralops/runbooks/collection-lag-backlog
 
   - name: centralops-collection
     rules:
@@ -154,7 +154,7 @@ groups:
           severity: warning
         annotations:
           summary: "Coleta atrasada mais de 1 h ({{ $labels.integration_id }}/{{ $labels.stream }})"
-          runbook: docs-site/docs/runbooks/collection-lag-backlog.md
+          runbook: https://docs.segark.com/centralops/runbooks/collection-lag-backlog
 
       - alert: CentralOpsDedupeEvicting
         expr: delta(collector_dedupe_redis_evicted_keys[15m]) > 0
@@ -167,4 +167,4 @@ groups:
             Com evicção, cursores, travas, tokens OAuth e estado do disjuntor
             podem sumir. O Redis guarda só estado de controle (o dedupe por evento
             saiu no ADR-0018 Onda 5): aumente a memória dele.
-          runbook: docs-site/docs/runbooks/redis-capacity.md
+          runbook: https://docs.segark.com/centralops/runbooks/redis-capacity

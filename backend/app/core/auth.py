@@ -192,7 +192,7 @@ class Permission(StrEnum):
     # seguem em ``user.manage``: só a LEITURA foi separada.
     #
     # Concedidas a partir de VIEWER — é o que a matriz documentada em
-    # docs-site/docs/concepts/rbac.md já afirmava ("Ver destinos" / "Ver regras
+    # docs.segark.com/centralops/concepts/rbac já afirmava ("Ver destinos" / "Ver regras
     # de roteamento" ✓ para todos os papéis); o código é que divergia.
     DESTINATION_READ = "destination.read"
     ROUTE_READ = "route.read"
