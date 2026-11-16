@@ -1404,6 +1404,7 @@ export type KnownTypeCast =
   | "epoch_to_iso"
   | "iso_to_epoch"
   | "lowercase"
+  | "mitre_ids_to_ocsf"
   | "mitre_tactic_to_ocsf"
   | "score_to_percent"
   | "to_array"

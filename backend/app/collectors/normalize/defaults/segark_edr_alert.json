@@ -1,0 +1,577 @@
+{
+  "_comment": [
+    "SEGARK EDR GET /api/integrations/v1/alerts (estado atual de cada deteccao) -> Detection Finding (2004).",
+    "Campos da lista + bloco detection (process/parent/file/threat/ml), aditivo na plataforma: sem ele as regras que leem detection.* nao escrevem nada.",
+    "Datas da API sao UTC com Z: iso_to_epoch -> ms. Opcionais so via when.exists (sem null no OCSF)."
+  ],
+  "rules": [
+    {
+      "target": "normalized.class_uid",
+      "const": 2004,
+      "required": true
+    },
+    {
+      "target": "normalized.class_name",
+      "const": "Detection Finding"
+    },
+    {
+      "target": "normalized.category_uid",
+      "const": 2,
+      "required": true
+    },
+    {
+      "target": "normalized.category_name",
+      "const": "Findings"
+    },
+    {
+      "_comment": "Fechada (resolved/false_positive) -> Close; nova e sem repeticao (first_seen == last_seen) -> Create; o resto -> Update. A API exporta o ESTADO ATUAL: a mesma deteccao volta a cada mudanca.",
+      "target": "normalized.activity_id",
+      "source": "(((status == 'resolved' || status == 'false_positive') && 'close') || (status == 'new' && first_seen == last_seen && 'create') || 'update')",
+      "value_map": {
+        "create": 1,
+        "update": 2,
+        "close": 3
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.activity_name",
+      "source": "(((status == 'resolved' || status == 'false_positive') && 'close') || (status == 'new' && first_seen == last_seen && 'create') || 'update')",
+      "value_map": {
+        "create": "Create",
+        "update": "Update",
+        "close": "Close"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.type_uid",
+      "source": "(((status == 'resolved' || status == 'false_positive') && 'close') || (status == 'new' && first_seen == last_seen && 'create') || 'update')",
+      "value_map": {
+        "create": 200401,
+        "update": 200402,
+        "close": 200403
+      },
+      "default": 200400,
+      "required": true
+    },
+    {
+      "target": "normalized.severity_id",
+      "source": "severity",
+      "value_map": {
+        "critical": 5,
+        "high": 4,
+        "medium": 3,
+        "low": 2,
+        "informational": 1,
+        "unknown": 0
+      },
+      "default": 0,
+      "required": true
+    },
+    {
+      "target": "normalized.severity",
+      "source": "severity",
+      "value_map": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "informational": "Informational",
+        "unknown": "Unknown"
+      },
+      "default": "Unknown"
+    },
+    {
+      "_comment": "false_positive nao tem enum proprio no OCSF 1.8: Other (99) com o texto.",
+      "target": "normalized.status_id",
+      "source": "status",
+      "value_map": {
+        "new": 1,
+        "in_progress": 2,
+        "resolved": 4,
+        "false_positive": 99
+      },
+      "default": 0
+    },
+    {
+      "target": "normalized.status",
+      "source": "status",
+      "value_map": {
+        "new": "New",
+        "in_progress": "In Progress",
+        "resolved": "Resolved",
+        "false_positive": "False Positive"
+      },
+      "default": "Unknown"
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "resolution",
+      "when": {
+        "exists": "resolution"
+      }
+    },
+    {
+      "target": "normalized.is_alert",
+      "const": true
+    },
+    {
+      "_comment": "Cada emissao e o estado da deteccao em updated_at (UTC com Z).",
+      "target": "normalized.time",
+      "source": "updated_at",
+      "type_cast": "iso_to_epoch",
+      "required": true
+    },
+    {
+      "target": "normalized.start_time",
+      "source": "first_seen",
+      "when": {
+        "exists": "first_seen"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.end_time",
+      "source": "last_seen",
+      "when": {
+        "exists": "last_seen"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.message",
+      "source": "title",
+      "default": null
+    },
+    {
+      "target": "normalized.finding_info.uid",
+      "source": "id",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.title",
+      "source": "title",
+      "default": "SEGARK EDR",
+      "required": true
+    },
+    {
+      "target": "normalized.finding_info.created_time",
+      "source": "created_at || first_seen",
+      "when": {
+        "exists": "created_at || first_seen"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.finding_info.first_seen_time",
+      "source": "first_seen",
+      "when": {
+        "exists": "first_seen"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.finding_info.last_seen_time",
+      "source": "last_seen",
+      "when": {
+        "exists": "last_seen"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "target": "normalized.finding_info.modified_time",
+      "source": "updated_at",
+      "when": {
+        "exists": "updated_at"
+      },
+      "type_cast": "iso_to_epoch"
+    },
+    {
+      "_comment": "Origem (detection/av/platform), tipo da ameaca e categoria do console, sem vazios.",
+      "target": "normalized.finding_info.types",
+      "source": "[source, detection.threat.type, category][?@]",
+      "type_cast": "dedup",
+      "when": {
+        "exists": "[source, detection.threat.type, category][?@] | [0]"
+      }
+    },
+    {
+      "_comment": "IDs ATT&CK sem nome (a plataforma nao manda o nome; nao e inventado).",
+      "target": "normalized.finding_info.attacks",
+      "source": "mitre",
+      "type_cast": "mitre_ids_to_ocsf",
+      "when": {
+        "exists": "mitre[0]"
+      }
+    },
+    {
+      "_comment": "Analitico: a regra da deteccao; ML -> Learning (4), regras -> Rule (1).",
+      "target": "normalized.finding_info.analytic.uid",
+      "source": "detection.threat.rule_id || policy_id",
+      "when": {
+        "exists": "(detection.threat.rule_id || policy_id) || `null`"
+      }
+    },
+    {
+      "target": "normalized.finding_info.analytic.name",
+      "source": "policy_id",
+      "when": {
+        "exists": "policy_id || `null`"
+      }
+    },
+    {
+      "target": "normalized.finding_info.analytic.type_id",
+      "source": "detection.threat.source || ''",
+      "value_map": {
+        "ml": 4,
+        "rules": 1,
+        "vdl": 1,
+        "hash": 1,
+        "blocklist": 1
+      },
+      "default": 0,
+      "when": {
+        "exists": "(detection.threat.rule_id || policy_id) || `null`"
+      }
+    },
+    {
+      "target": "normalized.finding_info.analytic.type",
+      "source": "detection.threat.source || ''",
+      "value_map": {
+        "ml": "Learning (ML/DL)",
+        "rules": "Rule",
+        "vdl": "Rule",
+        "hash": "Rule",
+        "blocklist": "Rule"
+      },
+      "default": "Unknown",
+      "when": {
+        "exists": "(detection.threat.rule_id || policy_id) || `null`"
+      }
+    },
+    {
+      "target": "normalized.device.uid",
+      "source": "device_id",
+      "default": null
+    },
+    {
+      "target": "normalized.device.hostname",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "target": "normalized.device.name",
+      "source": "hostname",
+      "default": null
+    },
+    {
+      "_comment": "A plataforma nao diz o tipo do equipamento: Unknown (type_id e obrigatorio no objeto device).",
+      "target": "normalized.device.type_id",
+      "const": 0
+    },
+    {
+      "target": "normalized.device.type",
+      "const": "Unknown"
+    },
+    {
+      "target": "normalized.device.os.name",
+      "source": "device_os",
+      "value_map": {
+        "linux": "Linux",
+        "windows": "Windows"
+      },
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "target": "normalized.device.os.type_id",
+      "source": "device_os",
+      "value_map": {
+        "linux": 200,
+        "windows": 100
+      },
+      "default": 0,
+      "when": {
+        "exists": "device_os"
+      }
+    },
+    {
+      "_comment": "Processo, pai e arquivo da deteccao (bloco detection da API). No OCSF 1.8 a Detection Finding os carrega em evidences; merge evita chaves nulas.",
+      "target": "normalized.evidences",
+      "source": "[merge(((detection.process || detection.parent) && {process: merge((detection.process.pid && {pid: detection.process.pid} || `{}`), (detection.process.guid && {uid: detection.process.guid} || `{}`), (detection.process.cmdline && {cmd_line: detection.process.cmdline} || `{}`), ((detection.process.path || detection.process.sha256) && {file: merge((detection.process.path && {path: detection.process.path} || `{}`), (detection.process.sha256 && {hashes: [{algorithm_id: `3`, algorithm: 'SHA-256', value: detection.process.sha256}]} || `{}`))} || `{}`), (detection.process.user && {user: merge({name: detection.process.user}, (detection.process.uid && {uid: detection.process.uid} || `{}`))} || `{}`), (detection.parent && {parent_process: merge((detection.parent.pid && {pid: detection.parent.pid} || `{}`), (detection.parent.guid && {uid: detection.parent.guid} || `{}`), (detection.parent.cmdline && {cmd_line: detection.parent.cmdline} || `{}`), (detection.parent.path && {file: {path: detection.parent.path}} || `{}`))} || `{}`))} || `{}`), (detection.file && {file: merge((detection.file.path && {path: detection.file.path} || `{}`), (detection.file.sha256 && {hashes: [{algorithm_id: `3`, algorithm: 'SHA-256', value: detection.file.sha256}]} || `{}`))} || `{}`))]",
+      "when": {
+        "exists": "(detection.process || detection.parent || detection.file) && `true` || `null`"
+      }
+    },
+    {
+      "target": "normalized.metadata.version",
+      "const": "1.8.0"
+    },
+    {
+      "target": "normalized.metadata.product.name",
+      "const": "SEGARK EDR"
+    },
+    {
+      "target": "normalized.metadata.product.vendor_name",
+      "const": "SEGARK"
+    },
+    {
+      "target": "normalized.metadata.uid",
+      "source": "id"
+    },
+    {
+      "target": "normalized.metadata.log_name",
+      "const": "alerts"
+    },
+    {
+      "target": "normalized.metadata.event_code",
+      "source": "policy_id",
+      "when": {
+        "exists": "policy_id || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.case_id",
+      "source": "case_id",
+      "when": {
+        "exists": "case_id"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.category",
+      "source": "category",
+      "when": {
+        "exists": "category"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.source",
+      "source": "source",
+      "when": {
+        "exists": "source"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.policy_id",
+      "source": "policy_id || `null`",
+      "when": {
+        "exists": "policy_id || `null`"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.external_id",
+      "source": "external_id",
+      "when": {
+        "exists": "external_id"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.group_key",
+      "source": "group_key",
+      "when": {
+        "exists": "group_key"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.event_id",
+      "source": "event_id",
+      "when": {
+        "exists": "event_id"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.closed_at",
+      "source": "closed_at",
+      "when": {
+        "exists": "closed_at"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.threat_name",
+      "source": "detection.threat.name",
+      "when": {
+        "exists": "detection.threat.name"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.threat_type",
+      "source": "detection.threat.type",
+      "when": {
+        "exists": "detection.threat.type"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.threat_source",
+      "source": "detection.threat.source",
+      "when": {
+        "exists": "detection.threat.source"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.rule_id",
+      "source": "detection.threat.rule_id",
+      "when": {
+        "exists": "detection.threat.rule_id"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.reputation_score",
+      "source": "detection.threat.reputation_score",
+      "when": {
+        "exists": "detection.threat.reputation_score"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.reputation_origin",
+      "source": "detection.threat.reputation_origin",
+      "when": {
+        "exists": "detection.threat.reputation_origin"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.engine_generation",
+      "source": "detection.threat.engine_generation",
+      "when": {
+        "exists": "detection.threat.engine_generation"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.scan_type",
+      "source": "detection.threat.scan_type",
+      "when": {
+        "exists": "detection.threat.scan_type"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.blocked",
+      "source": "detection.threat.blocked",
+      "when": {
+        "exists": "detection.threat.blocked"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.detect_only",
+      "source": "detection.threat.detect_only",
+      "when": {
+        "exists": "detection.threat.detect_only"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.detect_only_reason",
+      "source": "detection.threat.detect_only_reason",
+      "when": {
+        "exists": "detection.threat.detect_only_reason"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.ml_score",
+      "source": "detection.ml.score",
+      "when": {
+        "exists": "detection.ml.score"
+      },
+      "_comment": "Campos de ML e de origem da deteccao nao tem lugar no OCSF: unmapped.segark_edr, so quando existem (convencao do projeto: unmapped.<vendor>)."
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.ml_band",
+      "source": "detection.ml.band",
+      "when": {
+        "exists": "detection.ml.band"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.ml_model",
+      "source": "detection.ml.model",
+      "when": {
+        "exists": "detection.ml.model"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.ml_mode",
+      "source": "detection.ml.mode",
+      "when": {
+        "exists": "detection.ml.mode"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.ml_extractor",
+      "source": "detection.ml.extractor",
+      "when": {
+        "exists": "detection.ml.extractor"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.engine_verdict",
+      "source": "detection.ml.engine_verdict",
+      "when": {
+        "exists": "detection.ml.engine_verdict"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.process_start",
+      "source": "detection.process.start",
+      "when": {
+        "exists": "detection.process.start"
+      }
+    },
+    {
+      "target": "normalized.unmapped.segark_edr.process_ppid",
+      "source": "detection.process.ppid",
+      "when": {
+        "exists": "detection.process.ppid"
+      }
+    },
+    {
+      "target": "normalized.observables",
+      "kind": "array_builder",
+      "items": [
+        {
+          "name": "device.hostname",
+          "type": "Hostname",
+          "type_id": 1,
+          "source": "hostname",
+          "skip_null": true
+        },
+        {
+          "name": "evidences.process.file.hashes.value",
+          "type": "Hash",
+          "type_id": 8,
+          "source": "detection.process.sha256",
+          "skip_null": true
+        },
+        {
+          "name": "evidences.file.hashes.value",
+          "type": "Hash",
+          "type_id": 8,
+          "source": "detection.file.sha256",
+          "skip_null": true
+        },
+        {
+          "name": "evidences.file.path",
+          "type": "File Name",
+          "type_id": 7,
+          "source": "detection.file.path",
+          "skip_null": true
+        },
+        {
+          "name": "evidences.process.user.name",
+          "type": "User Name",
+          "type_id": 4,
+          "source": "detection.process.user",
+          "skip_null": true
+        }
+      ],
+      "skip_null": true,
+      "dedup_by": [
+        "value"
+      ]
+    }
+  ],
+  "raw_reduction": [
+    {
+      "drop_nulls": true
+    }
+  ]
+}

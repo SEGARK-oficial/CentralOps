@@ -9,7 +9,7 @@ Operadores cobertos:
 - ``type_cast``: ``iso_to_epoch``, ``epoch_to_iso``, ``to_str``,
   ``to_int``, ``to_bool``, ``score_to_percent``, ``lowercase``,
   ``uppercase``, ``trim``, ``to_array``, ``dedup``,
-  ``mitre_tactic_to_ocsf``.
+  ``mitre_tactic_to_ocsf``, ``mitre_ids_to_ocsf``.
 - ``value_map``: dict de lookup (case-insensitive nas chaves string).
 - ``default``: valor de fallback se entrada é ``None``.
 
@@ -27,6 +27,7 @@ Basta usar ``@register_type_cast`` com nome único, ``description`` e
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -400,6 +401,63 @@ def _mitre_tactic_to_ocsf(value: Any) -> Any:
             "tactics": [{"uid": tactic_id, "name": tactic_name}],
             "version": "16.1",
         })
+    return result
+
+
+# ── mitre_ids_to_ocsf ─────────────────────────────────────────────────
+#
+# Entrada: lista de IDs do MITRE ATT&CK como o fornecedor os grava, sem nome
+# (``["T1562.001", "T1059", "TA0005"]``). Saída: objetos ``attack`` do OCSF 1.8
+# só com o ``uid`` (o nome NÃO é inventado a partir de uma tabela local, que
+# envelheceria em relação à versão do ATT&CK usada pelo fornecedor):
+#
+#   "T1562.001" -> {"technique": {"uid": "T1562"}, "sub_technique": {"uid": "T1562.001"}}
+#   "T1059"     -> {"technique": {"uid": "T1059"}}
+#   "TA0005"    -> {"tactic": {"uid": "TA0005"}}
+#
+# ID fora do formato é DESCARTADO (o valor vem do agente: um texto estranho não
+# pode mandar o alerta inteiro para a quarentena); repetidos saem uma vez.
+
+_MITRE_TECHNIQUE_RE = re.compile(r"^(T\d{4})(\.\d{3})?$")
+_MITRE_TACTIC_RE = re.compile(r"^TA\d{4}$")
+
+
+@register_type_cast(
+    "mitre_ids_to_ocsf",
+    description=(
+        "Converte lista de IDs MITRE ATT&CK (T1234, T1234.001, TA0001) em objetos attack "
+        "do OCSF (technique/sub_technique/tactic só com uid). IDs fora do formato são "
+        "descartados. None passa direto."
+    ),
+    signature="list[str] | str → list[{technique?,sub_technique?,tactic?}] | None → None",
+)
+def _mitre_ids_to_ocsf(value: Any) -> Any:
+    if value is None:
+        return None
+    items = [value] if isinstance(value, str) else value
+    if not isinstance(items, list):
+        raise OperatorError(
+            f"mitre_ids_to_ocsf espera list ou str, recebeu {type(value).__name__}"
+        )
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, str):
+            continue
+        mitre_id = item.strip().upper()
+        if mitre_id in seen:
+            continue
+        technique = _MITRE_TECHNIQUE_RE.match(mitre_id)
+        if technique:
+            attack: dict[str, Any] = {"technique": {"uid": technique.group(1)}}
+            if technique.group(2):
+                attack["sub_technique"] = {"uid": mitre_id}
+        elif _MITRE_TACTIC_RE.match(mitre_id):
+            attack = {"tactic": {"uid": mitre_id}}
+        else:
+            continue
+        seen.add(mitre_id)
+        result.append(attack)
     return result
 
 

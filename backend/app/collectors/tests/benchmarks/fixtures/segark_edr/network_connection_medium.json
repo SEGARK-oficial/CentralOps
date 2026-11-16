@@ -1,0 +1,26 @@
+{
+  "event_id": "e-net-1",
+  "device_id": "6f1c2a8e-0b7d-4e44-9a51-3c2d7e9f0a11",
+  "feed": "network_connections",
+  "observed_at": "2026-11-12T10:00:00Z",
+  "received_at": "2026-11-12T10:00:07Z",
+  "time_flag": "",
+  "columns": {
+    "time": "1762941600",
+    "pid": "4100",
+    "uid": "1000",
+    "executable": "/usr/bin/curl",
+    "direction": "out",
+    "protocol": "tcp",
+    "remote_address": "203.0.113.10",
+    "remote_port": "443",
+    "local_port": "51514",
+    "sni": "www.example.com",
+    "count": "2",
+    "bytes_sent": "1200",
+    "bytes_received": "54000",
+    "eid": "99"
+  },
+  "hostname": "srv-01.example.com",
+  "device_os": "linux"
+}

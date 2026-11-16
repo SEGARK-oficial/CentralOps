@@ -22,6 +22,7 @@ import pytest
 from backend.app.collectors.tests import _azure_fixtures as _azure
 from backend.app.collectors.tests import _akamai_fixtures as _akamai
 from backend.app.collectors.tests import _cloudflare_fixtures as _cloudflare
+from backend.app.collectors.tests import _segark_edr_fixtures as _segark_edr
 from backend.app.collectors.tests import _google_workspace_fixtures as _gws
 from backend.app.collectors.tests import _microsoft_365_fixtures as _m365
 from backend.app.collectors.tests import _gcp_fixtures as _gcp
@@ -254,6 +255,12 @@ _FIXTURES = {
     ("akamai", "akamai.siem"): _akamai.XSS_DENY,
     # Cloudflare — a linha de firewallEventsAdaptive que o coletor emite (com zoneTag).
     ("cloudflare", "cloudflare.security_events"): _cloudflare.BLOCK_EVENT,
+    # SEGARK EDR — o item da API de coleta para SIEM, como o coletor emite.
+    ("segark_edr", "segark_edr.alert"): _segark_edr.ALERT,
+    ("segark_edr", "segark_edr.process_event"): _segark_edr.process_event(),
+    ("segark_edr", "segark_edr.file_event"): _segark_edr.file_event(),
+    ("segark_edr", "segark_edr.network_connection"): _segark_edr.network_event(),
+    ("segark_edr", "segark_edr.dns_event"): _segark_edr.dns_event(),
     ("google_workspace", "google_workspace.activity"): _gws.LOGIN_FAILURE,
     ("google_workspace", "google_workspace.alert"): _gws.SUSPICIOUS_LOGIN_ALERT,
     ("microsoft_365", "microsoft_365.audit"): _m365.USER_LOGGED_IN,
