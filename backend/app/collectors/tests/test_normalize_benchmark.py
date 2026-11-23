@@ -338,6 +338,11 @@ for _firehose_type, _pull_key in {
 }.items():
     _FIXTURES[("aws_firehose", _firehose_type)] = _FIXTURES[_pull_key]
 
+# CloudTrail pelo Event history: o mesmo registro do bucket.
+_FIXTURES[("aws_cloudtrail_lookup", "aws_cloudtrail_lookup.event")] = _FIXTURES[
+    ("aws_cloudtrail", "aws_cloudtrail.event")
+]
+
 _ITERATIONS = 1000  # eventos por benchmark
 _REGRESSION_CEILING_US = 50_000  # 50ms/evento — sinal de bug grave
 
