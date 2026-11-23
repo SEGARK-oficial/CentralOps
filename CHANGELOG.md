@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.21.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.20.0...v2.21.0) (2026-11-23)
+
+
+### Features
+
+* **aws:** CloudTrail pelo Event history (LookupEvents), sem bucket ([6435da0](https://github.com/SEGARK-oficial/CentralOps/commit/6435da015834845419f35a859d40a629cfe322db))
+* **aws:** CloudTrail pelo Event history (LookupEvents), sem bucket ([e5dcc29](https://github.com/SEGARK-oficial/CentralOps/commit/e5dcc297fcedaad58dcbfa41096b05a289e16a6b))
+
+
+### Bug Fixes
+
+* **aws:** mapping CloudTrail com login falho, chave de acesso, MFA e modelo ([46b32bb](https://github.com/SEGARK-oficial/CentralOps/commit/46b32bb552086d12b7961534bf35a5f4d4dd38b6))
+* **aws:** mapping CloudTrail com login falho, chave de acesso, MFA e modelo ([bc6e245](https://github.com/SEGARK-oficial/CentralOps/commit/bc6e2450b305acfb6f908ad606e8f6a02b891898))
+
 ## [2.20.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.19.0...v2.20.0) (2026-11-16)
 
 
