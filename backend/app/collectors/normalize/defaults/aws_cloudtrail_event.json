@@ -106,9 +106,54 @@
       "default": null
     },
     {
+      "_comment": "Sucesso por padrao; a falha vem em errorCode OU, no ConsoleLogin, em responseElements.ConsoleLogin = 'Failure' (sem errorCode). O codigo da falha vai para status_code, nao para status.",
+      "target": "normalized.status_id",
+      "const": 1
+    },
+    {
       "target": "normalized.status",
+      "const": "Success"
+    },
+    {
+      "target": "normalized.status_id",
+      "const": 2,
+      "when": {"equals": {"source": "errorCode != null || responseElements.ConsoleLogin == 'Failure'", "value": true}}
+    },
+    {
+      "target": "normalized.status",
+      "const": "Failure",
+      "when": {"equals": {"source": "errorCode != null || responseElements.ConsoleLogin == 'Failure'", "value": true}}
+    },
+    {
+      "target": "normalized.status_code",
       "source": "errorCode",
-      "default": "Success"
+      "default": null
+    },
+    {
+      "target": "normalized.status_detail",
+      "source": "errorMessage",
+      "default": null
+    },
+    {
+      "_comment": "Chave de acesso usada na chamada (AKIA* = longa duracao, ASIA* = temporaria). E o pivo de uma chave vazada (ex.: LLMjacking no Bedrock). O ConsoleLogin traz accessKeyId vazio: o || troca '' por null.",
+      "target": "normalized.actor.session.credential_uid",
+      "source": "userIdentity.accessKeyId || `null`",
+      "default": null
+    },
+    {
+      "_comment": "MFA: sessionContext nas chamadas de API ('true'/'false'); additionalEventData.MFAUsed no ConsoleLogin ('Yes'/'No').",
+      "target": "normalized.actor.session.is_mfa",
+      "source": "userIdentity.sessionContext.attributes.mfaAuthenticated || additionalEventData.MFAUsed",
+      "pre_cast": "lowercase",
+      "value_map": {"true": true, "false": false, "yes": true, "no": false},
+      "default": null,
+      "when": {"exists": "userIdentity.sessionContext.attributes.mfaAuthenticated || additionalEventData.MFAUsed"}
+    },
+    {
+      "_comment": "Bedrock (InvokeModel, Converse...): o modelo chamado e o recurso da chamada.",
+      "target": "normalized.resources",
+      "source": "requestParameters.modelId && [{type: 'AWS::Bedrock::Model', uid: requestParameters.modelId}]",
+      "when": {"exists": "requestParameters.modelId"}
     },
     {
       "target": "normalized.metadata.version",
