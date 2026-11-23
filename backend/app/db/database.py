@@ -1432,6 +1432,7 @@ def _run_lightweight_migrations() -> None:
                 ("entra_id", "entra_id.audit", 3001, "Microsoft Entra ID — directory audit (Account Change)"),
                 ("okta", "okta.system_log", 3002, "Okta — System Log (Authentication)"),
                 ("aws_cloudtrail", "aws_cloudtrail.event", 6003, "AWS CloudTrail — management events (API Activity)"),
+                ("aws_cloudtrail_lookup", "aws_cloudtrail_lookup.event", 6003, "AWS CloudTrail pelo Event history, sem bucket — management events (API Activity)"),
                 ("aws_cloudwatch", "aws_cloudwatch.event", 0, "AWS CloudWatch Logs — log events de um log group (Base Event: transporte heterogêneo)"),
                 ("aws_waf", "aws_waf.event", 4002, "AWS WAF — log de requisição das web ACLs, do S3 ou do CloudWatch Logs (HTTP Activity)"),
                 ("aws_securityhub", "aws_securityhub.finding", 2004, "AWS Security Hub — achados agregados no formato ASFF (Detection Finding)"),

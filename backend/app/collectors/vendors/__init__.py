@@ -27,6 +27,7 @@ from . import crowdstrike  # noqa: F401      — crowdstrike/detections (Alerts 
 from . import entra_id  # noqa: F401         — entra_id/signins+audit (Graph)
 from . import okta  # noqa: F401             — okta/system_log (SSWS)
 from . import aws_cloudtrail  # noqa: F401    — aws_cloudtrail/events (S3 poll)
+from . import aws_cloudtrail_lookup  # noqa: F401 — aws_cloudtrail_lookup/events (Event history, LookupEvents, sem bucket)
 from . import aws_cloudwatch  # noqa: F401    — aws_cloudwatch/events (Logs FilterLogEvents)
 from . import aws_waf  # noqa: F401           — aws_waf/events (logs da web ACL: S3 ou CloudWatch)
 from . import aws_firehose  # noqa: F401      — aws_firehose (PUSH: WAF/CloudTrail/GuardDuty/Security Hub/CloudWatch via Firehose)

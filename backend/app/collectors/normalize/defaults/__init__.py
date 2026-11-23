@@ -43,6 +43,9 @@ DEFAULT_MAPPING_FILES = {
     ("okta", "okta.system_log"): "okta_system_log.json",
     # AWS CloudTrail → OCSF API Activity.
     ("aws_cloudtrail", "aws_cloudtrail.event"): "aws_cloudtrail_event.json",
+    # CloudTrail pelo Event history (LookupEvents): o item traz o MESMO registro do
+    # bucket em ``CloudTrailEvent``, então o mapping é o mesmo.
+    ("aws_cloudtrail_lookup", "aws_cloudtrail_lookup.event"): "aws_cloudtrail_event.json",
     # Veeam Backup & Replication — sessões de job → OCSF API Activity.
     ("veeam", "veeam.session"): "veeam_session.json",
     # AWS CloudWatch Logs → OCSF API Activity (log events de um log group).

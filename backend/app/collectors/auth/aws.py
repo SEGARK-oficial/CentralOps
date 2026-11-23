@@ -351,8 +351,8 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
 
     O External ID e o principal entram como DEFAULT dos parâmetros: o cliente
     aplica sem editar nada. Permissões mínimas para as fontes de hoje (CloudTrail
-    e WAF no S3, CloudWatch Logs — onde também cai o WAF entregue em log group —,
-    e leitura de achados do Security Hub e do GuardDuty);
+    no S3 ou pelo Event history, WAF no S3, CloudWatch Logs — onde também cai o
+    WAF entregue em log group —, e leitura de achados do Security Hub e do GuardDuty);
     buckets e chave KMS são opcionais e, vazios, não geram a política correspondente.
     """
     principal_param: Dict[str, Any] = {
@@ -433,6 +433,22 @@ def cloudformation_template(external_id: str, principal_arn: Optional[str]) -> D
                                             "logs:DescribeLogGroups",
                                             "logs:FilterLogEvents",
                                         ],
+                                        "Resource": "*",
+                                    }
+                                ],
+                            },
+                        },
+                        {
+                            # Event history do CloudTrail (management events dos
+                            # últimos 90 dias), para quem não tem ou não expõe o
+                            # bucket de uma trail. Não depende de recurso: sempre entra.
+                            "PolicyName": "CentralOpsCloudTrailEventHistory",
+                            "PolicyDocument": {
+                                "Version": "2012-10-17",
+                                "Statement": [
+                                    {
+                                        "Effect": "Allow",
+                                        "Action": "cloudtrail:LookupEvents",
                                         "Resource": "*",
                                     }
                                 ],

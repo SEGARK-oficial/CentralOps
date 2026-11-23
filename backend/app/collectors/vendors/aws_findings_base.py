@@ -1,4 +1,5 @@
-"""Motor comum dos coletores de ACHADOS da AWS (Security Hub, GuardDuty).
+"""Motor comum dos coletores regionais da AWS por janela de tempo (Security Hub,
+GuardDuty e o CloudTrail pelo ``LookupEvents``).
 
 Os dois serviços são regionais e respondem "o que mudou entre A e B" por
 ``UpdatedAt``. Um achado é atualizado ao longo da vida (GuardDuty soma ocorrências,
@@ -70,6 +71,10 @@ class AwsRegionalFindingsCollector(BaseCollector):
     #: Nome do serviço no boto (``securityhub`` | ``guardduty``).
     _service = ""
     _label = "findings"
+    #: Teto de páginas por ciclo. ``None`` = ``_MAX_PAGES_PER_CYCLE`` (lido na hora,
+    #: para o teste poder baixá-lo). O CloudTrail sobe o teto: página de 50 eventos
+    #: e volume muito maior que o de achados.
+    _max_pages_per_cycle: Optional[int] = None
 
     def __init__(self, ctx) -> None:
         super().__init__(ctx)
@@ -135,6 +140,7 @@ class AwsRegionalFindingsCollector(BaseCollector):
         }
         now = datetime.now(timezone.utc)
         pages = 0
+        max_pages = self._max_pages_per_cycle or _MAX_PAGES_PER_CYCLE
 
         for region in regions:
             self._region = region
@@ -166,7 +172,7 @@ class AwsRegionalFindingsCollector(BaseCollector):
                     pages += 1
                     if not token:
                         break
-                    if self.ctx.bounded_per_cycle and pages >= _MAX_PAGES_PER_CYCLE:
+                    if self.ctx.bounded_per_cycle and pages >= max_pages:
                         # Teto: posição exata desta região; o watermark NÃO avança
                         # (avançar pularia as páginas ainda não lidas da janela).
                         states[region] = {
@@ -179,7 +185,7 @@ class AwsRegionalFindingsCollector(BaseCollector):
                         self.mark_cycle_capped()
                         logger.info(
                             "%s: teto de %d páginas/ciclo em %s (integration=%s)",
-                            self._label, _MAX_PAGES_PER_CYCLE, region, self.ctx.integration_id,
+                            self._label, max_pages, region, self.ctx.integration_id,
                         )
                         return
 

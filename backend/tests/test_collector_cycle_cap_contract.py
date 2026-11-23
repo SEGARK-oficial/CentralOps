@@ -279,6 +279,13 @@ _CURSORES_DE_TETO: Dict[Tuple[str, str], Dict[str, Any]] = {
         "window_end": "2026-07-24T11:00:00.000Z",
         "next_token": "tok",
     }}},
+    # CloudTrail pelo Event history: o mesmo motor regional dos achados.
+    ("aws_cloudtrail_lookup", "events"): {"regions": {"us-east-1": {
+        "updated_at": "2026-07-24T10:00:00.000Z",
+        "window_start": "2026-07-24T09:45:00.000Z",
+        "window_end": "2026-07-24T11:00:00.000Z",
+        "next_token": "tok",
+    }}},
     ("aws_guardduty", "findings"): {"regions": {"us-east-1": {
         "updated_at": "2026-07-24T10:00:00.000Z",
         "window_start": "2026-07-24T09:45:00.000Z",
