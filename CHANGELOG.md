@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.22.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.21.0...v2.22.0) (2026-11-27)
+
+
+### Features
+
+* **obs:** métricas do ciclo de coleta por fluxo ([c24f915](https://github.com/SEGARK-oficial/CentralOps/commit/c24f91505addf3b1ca32821f2b7f1221cdb8b73f))
+* **obs:** métricas do ciclo de coleta por fluxo ([ecc017e](https://github.com/SEGARK-oficial/CentralOps/commit/ecc017e71a22c5359d211b0996f1b4520f00fccf))
+
+
+### Bug Fixes
+
+* **sophos:** detections dimensiona a janela pelo resultCount e limita o ciclo por tempo ([998dbed](https://github.com/SEGARK-oficial/CentralOps/commit/998dbed681867c823c1ed367c63560f42d7aa587))
+* **sophos:** detections dimensiona a janela pelo resultCount e limita o ciclo por tempo ([22aca29](https://github.com/SEGARK-oficial/CentralOps/commit/22aca293e1635428d9e0d99f0cf9534368a41fef))
+
 ## [2.21.0](https://github.com/SEGARK-oficial/CentralOps/compare/v2.20.0...v2.21.0) (2026-11-23)
 
 
