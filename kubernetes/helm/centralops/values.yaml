@@ -192,8 +192,6 @@ secrets:
   redisUrl: "redis://:CHANGE_ME@redis.centralops.svc.cluster.local:6379/0"
   celeryBrokerUrl: "redis://:CHANGE_ME@redis-control.centralops.svc.cluster.local:6379/1"
   celeryResultBackend: "redis://:CHANGE_ME@redis-control.centralops.svc.cluster.local:6379/2"
-  # Flower (UI Celery) — deixe vazio para desabilitar basic-auth fraco.
-  flowerBasicAuth: ""
   # Licença Enterprise . Vazio = Community (default). Um token
   # EdDSA válido + a IMAGEM EE (values.ee.yaml) → flip para Enterprise em runtime.
   # Edition-neutro: a Community ignora o token (não há código EE para ativar).

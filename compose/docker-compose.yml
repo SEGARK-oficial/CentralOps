@@ -1711,46 +1711,6 @@ services:
   #     - /var/run/docker.sock:/var/run/docker.sock
   #   restart: unless-stopped
 
-  flower:
-    image: mher/flower:2.0
-    # Gate de seguranca (L-3): em APP_ENV=production, FLOWER_BASIC_AUTH e obrigatorio.
-    # Sem isso, qualquer um na rede pode revogar/terminar tasks Celery.
-    command:
-      - sh
-      - -c
-      - |
-        if [ "$${APP_ENV:-development}" = "production" ] && [ -z "$${FLOWER_BASIC_AUTH}" ]; then
-          echo "[flower] ERROR: FLOWER_BASIC_AUTH e obrigatorio quando APP_ENV=production." >&2
-          echo "[flower] Configure FLOWER_BASIC_AUTH=user:password no .env antes de subir o servico." >&2
-          exit 1
-        fi
-        exec celery --broker="$${CELERY_BROKER_URL}" flower --port=5555
-    environment:
-      - APP_ENV=${APP_ENV:-development}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}
-      # Honra override (Redis gerenciado) e cai no redis do compose por padrão.
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatorio - gere com openssl rand -base64 24 e coloque no .env}@redis-control:6379/1}
-      - FLOWER_UNAUTHENTICATED_API=false
-      # Em producao, FLOWER_BASIC_AUTH=user:password e obrigatorio (gate em command).
-      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-}
-    ports:
-      # Em producao, considere bindar a 127.0.0.1 para nao expor o monitor na rede:
-      # - "127.0.0.1:${FLOWER_PORT:-5555}:5555"
-      - "${FLOWER_PORT:-5555}:5555"
-    depends_on:
-      redis:
-        condition: service_healthy
-      redis-control:
-        condition: service_healthy
-    deploy:
-      resources:  # O7 — monitor leve.
-        limits:
-          cpus: '0.50'
-          memory: 256m
-        reservations:
-          memory: 64m
-    restart: unless-stopped
-
   # ── OTel Collector (OPCIONAL)
   # Bloco INTEIRO comentado de propósito: NÃO faz parte do runtime default. É a
   # superfície B (ops/SRE) e só sobe quando o time de observabilidade quiser.

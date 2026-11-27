@@ -627,8 +627,8 @@ def trigger_collection(
     ``(integration_id, stream)``.
 
     Útil para validar credenciais novas sem esperar o próximo tick do
-    Beat. Retorna ``202 Accepted`` com o ``task_id`` — consulta ao
-    status fica por conta do Flower (fora do escopo deste endpoint).
+    Beat. Retorna ``202 Accepted`` com o ``task_id``; o desfecho do ciclo
+    aparece no estado do stream (tela de Coletores) e nas métricas OTel.
     """
     integration = integration_repo.get(integration_id)
     if integration is None:

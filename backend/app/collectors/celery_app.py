@@ -316,7 +316,7 @@ celery_app.conf.update(
     # não via result backend). Gravar um result por task era escrita pura no
     # broker single-node a cada despacho (gargalo). O result backend segue
     # configurado (ver ``backend=_result_backend()``) para tasks que optem por
-    # ``ignore_result=False`` e para inspeção operacional (flower/celery inspect).
+    # ``ignore_result=False`` e para inspeção operacional (``celery inspect``).
     task_ignore_result=True,
     result_expires=3600,
     # Limites conservadores; tasks de coleta raramente excedem 5min.
