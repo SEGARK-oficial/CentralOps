@@ -1,8 +1,8 @@
 # Enterprise overlay . Run ON TOP of the Community compose:
 # docker compose -f compose/docker-compose.yml -f compose/docker-compose.ee.yml up -d
 #
-# It changes ONLY what differs for the Enterprise edition; postgres/redis/redpanda/
-# flower, networks, volumes, depends_on, healthchecks and base env are inherited.
+# It changes ONLY what differs for the Enterprise edition; postgres/redis/redpanda,
+# networks, volumes, depends_on, healthchecks and base env are inherited.
 # - swaps the API + workers + beat to the EE backend image (centralops-ee), and the
 # SPA to the EE frontend image (centralops-web-ee);
 # - swaps the Celery app to centralops_ee.celery_app so the EE task modules

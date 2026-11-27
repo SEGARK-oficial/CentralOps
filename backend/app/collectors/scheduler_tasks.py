@@ -89,7 +89,7 @@ def dispatch_due_scheduled_queries(self) -> dict:
     """Beat dispara a cada 60s. Varre o DB e enfileira tasks por schedule.
 
     Returns:
-        dict com contadores para observabilidade via Flower.
+        dict com contadores (aparecem no log da task e no resultado do Celery).
     """
     dispatched = 0
     skipped = 0
