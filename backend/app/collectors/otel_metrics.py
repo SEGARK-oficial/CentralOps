@@ -66,6 +66,31 @@ _SPEC: Dict[str, Dict[str, Any]] = {
     "collector_watermark_lag_seconds": {"kind": "gauge", "unit": "s", "labels": ("integration_id", "stream")},
     # Ciclo pulado porque o anterior do mesmo (integração, stream) ainda rodava.
     "collector_cycles_skipped_locked_total": {"kind": "counter", "unit": "1", "labels": ("integration_id", "stream")},
+    # ── Ciclo de coleta, por fluxo (nov/2026) ──
+    # Um fluxo ficou 47 h atrasado sem erro e nenhuma série mostrava: nada contava
+    # o que a COLETA trouxe (``collector_events_total`` sai do processor), "parou
+    # no teto" só existia no banco, e o atraso era um gauge gravado no fim do
+    # ciclo — que congela justamente quando o ciclo para de terminar.
+    #
+    # Eventos gravados no tópico raw pelo ciclo de coleta (inclui o que um ciclo
+    # com erro gravou antes de falhar — é trabalho feito, e relido depois).
+    "collector_events_collected_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "integration_id", "stream")},
+    # Ciclos encerrados. outcome: ok | capped (parou no teto, sobrou trabalho) |
+    # error (cursor não avançou). Ciclo pulado pela trava tem série própria acima.
+    "collector_cycles_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "integration_id", "stream", "outcome")},
+    # Tempo de relógio gasto em ciclos. Duração média = rate(este)/rate(cycles);
+    # comparada com a cadência abaixo diz se o fluxo cabe no próprio agendamento.
+    # Contador, e não histograma, de propósito: uma série por fluxo em vez de doze.
+    "collector_cycle_seconds_total": {"kind": "counter", "unit": "s", "labels": ("vendor", "integration_id", "stream")},
+    # Cadência agendada do stream (constante por vendor/stream).
+    "collector_stream_cadence_seconds": {"kind": "gauge", "unit": "s", "labels": ("vendor", "stream")},
+    # Watermark como INSTANTE (epoch), não como atraso: ``time() - max(este)``
+    # continua crescendo no Prometheus mesmo que nenhum ciclo volte a terminar.
+    # ``max`` entre processos é o valor certo — o watermark só anda para a frente.
+    "collector_watermark_timestamp_seconds": {"kind": "gauge", "unit": "s", "labels": ("integration_id", "stream")},
+    # Nome da integração e da organização, para os painéis mostrarem nome em vez
+    # de id (junção por integration_id). Valor sempre 1.
+    "collector_integration_info": {"kind": "gauge", "unit": "1", "labels": ("integration_id", "vendor", "integration_name", "organization_name")},
     "collector_task_duration_seconds": {"kind": "histogram", "unit": "s", "labels": ("stream", "queue"), "buckets": (1, 5, 15, 60, 300, 900)},
     "collector_rate_limit_backoffs_total": {"kind": "counter", "unit": "1", "labels": ("vendor",)},
     "collector_dedupe_drops_total": {"kind": "counter", "unit": "1", "labels": ("vendor", "stream")},

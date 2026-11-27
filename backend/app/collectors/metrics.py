@@ -134,6 +134,15 @@ WATERMARK_LAG = _instrument("collector_watermark_lag_seconds")
 # Subir de forma sustentada = a cadência do stream está menor que a duração do
 # ciclo, ou seja, há backlog e o coletor não está dando conta.
 COLLECT_SKIPPED_LOCKED = _instrument("collector_cycles_skipped_locked_total")
+# Ciclo de coleta, por fluxo: o que foi coletado, como cada ciclo terminou,
+# quanto tempo levou contra a cadência, e até onde o cursor chegou. Juntas
+# respondem "este fluxo está dando conta?" sem depender de o ciclo terminar.
+EVENTS_COLLECTED = _instrument("collector_events_collected_total")
+CYCLES_TOTAL = _instrument("collector_cycles_total")
+CYCLE_SECONDS = _instrument("collector_cycle_seconds_total")
+STREAM_CADENCE = _instrument("collector_stream_cadence_seconds")
+WATERMARK_TIMESTAMP = _instrument("collector_watermark_timestamp_seconds")
+INTEGRATION_INFO = _instrument("collector_integration_info")
 TASK_DURATION = _instrument("collector_task_duration_seconds")
 RATE_LIMIT_BACKOFFS = _instrument("collector_rate_limit_backoffs_total")
 DEDUPE_DROPS = _instrument("collector_dedupe_drops_total")
