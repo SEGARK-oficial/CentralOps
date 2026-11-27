@@ -303,7 +303,11 @@ def test_every_facade_maps_to_spec_and_vice_versa():
     # collector_ingest_buffer_depth e collector_ingest_dropped_total. 73 → 69.
     # +1: collector_parked_head_age_seconds — idade do lote estacionado mais
     # antigo, base do alerta de retenção do estacionamento. 69 → 70.
-    assert len(facade_names) == 70
+    # +6: ciclo de coleta por fluxo — collector_events_collected_total,
+    # collector_cycles_total, collector_cycle_seconds_total,
+    # collector_stream_cadence_seconds, collector_watermark_timestamp_seconds e
+    # collector_integration_info. 70 → 76.
+    assert len(facade_names) == 76
     # O catálogo tem as síncronas + ao menos o observável collector_up.
     assert "collector_up" in otel_metrics._SPEC
     assert "collector_up" not in facade_names

@@ -27,7 +27,7 @@ import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
 import aiohttp
@@ -51,14 +51,20 @@ from .domain_limiter import DomainLimiter
 from .metrics import (
     COLLECT_SKIPPED_LOCKED,
     CURSOR_LAG,
+    CYCLE_SECONDS,
+    CYCLES_TOTAL,
     DEDUPE_DROPS,
+    EVENTS_COLLECTED,
     EVENTS_TOTAL,
+    INTEGRATION_INFO,
     NORMALIZE_LATENCY,
     OCSF_INVALID,
     OCSF_VALID,
     OCSF_VALIDATE_LATENCY,
     QUARANTINE_TOTAL,
+    STREAM_CADENCE,
     WATERMARK_LAG,
+    WATERMARK_TIMESTAMP,
 )
 from . import ocsf_policy
 from .normalize import drift, sample_reservoir
@@ -1069,6 +1075,11 @@ async def _commit_cycle(
         WATERMARK_LAG.labels(
             integration_id=str(integration_id), stream=stream
         ).set(max((datetime.utcnow() - _watermark).total_seconds(), 0.0))
+        # O mesmo watermark como INSTANTE: o gauge de atraso acima só é regravado
+        # quando um ciclo termina, então congela justamente no caso que importa.
+        WATERMARK_TIMESTAMP.labels(
+            integration_id=str(integration_id), stream=stream
+        ).set(_epoch_seconds(_watermark))
     logger.info(
         "collection ok",
         extra={
@@ -1082,6 +1093,45 @@ async def _commit_cycle(
     # entregou (ack). Antes disso, uma falha deixaria a fila sem o evento e o
     # cursor sem a posição.
     await _notify_cycle_committed(collector, integration_id, stream)
+
+
+def _epoch_seconds(moment: datetime) -> float:
+    """Epoch de um ``datetime`` UTC (naive, como o ``watermark_at`` devolve, ou
+    aware)."""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.timestamp()
+
+
+def _record_cycle_outcome(
+    view: "_CycleIntegration",
+    registration: Any,
+    integration_id: int,
+    stream: str,
+    outcome: str,
+    started: float,
+) -> None:
+    """Métricas de fim de ciclo. Nunca derruba o ciclo: é só telemetria."""
+    try:
+        vendor = view.platform
+        labels = {
+            "vendor": vendor, "integration_id": str(integration_id), "stream": stream,
+        }
+        CYCLES_TOTAL.labels(outcome=outcome, **labels).inc()
+        CYCLE_SECONDS.labels(**labels).inc(max(time.monotonic() - started, 0.0))
+        cadence = getattr(registration, "schedule", None)
+        if cadence is not None:
+            STREAM_CADENCE.labels(vendor=vendor, stream=stream).set(
+                cadence.total_seconds()
+            )
+        INTEGRATION_INFO.labels(
+            integration_id=str(integration_id),
+            vendor=vendor,
+            integration_name=str(getattr(view.integration, "name", "") or ""),
+            organization_name=str(view.organization_name or ""),
+        ).set(1)
+    except Exception:  # pragma: no cover — telemetria nunca derruba coleta
+        logger.debug("collect: falha ao registrar métricas do ciclo", exc_info=True)
 
 
 async def _fail_cycle(
@@ -2084,12 +2134,22 @@ class RawProducer:
     (``historical=True``)."""
 
     def __init__(
-        self, integration_id: int, stream: str, config: Any, *, historical: bool = False
+        self,
+        integration_id: int,
+        stream: str,
+        config: Any,
+        *,
+        historical: bool = False,
+        vendor: Optional[str] = None,
     ) -> None:
         self.integration_id = integration_id
         self.stream = stream
         self.config = config
         self.historical = historical
+        # Só o ciclo de coleta informa o vendor: é o que liga a contagem de
+        # eventos coletados. O backfill não entra nessa série (é carga histórica,
+        # distorceria a vazão do fluxo).
+        self.vendor = vendor
         self.events_count = 0
         self._pending: list[Dict[str, Any]] = []
         self._ids: list[str] = []
@@ -2116,6 +2176,13 @@ class RawProducer:
                 self.integration_id, self.stream, self._pending, ids=self._ids,
                 historical=self.historical,
             )
+            if self.vendor:
+                # Depois do produce confirmado: conta o que de fato foi ao raw.
+                EVENTS_COLLECTED.labels(
+                    vendor=self.vendor,
+                    integration_id=str(self.integration_id),
+                    stream=self.stream,
+                ).inc(len(self._pending))
             self._pending, self._ids = [], []
         self._last_flush = time.monotonic()
 
@@ -2136,6 +2203,10 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
     cursor_before: Optional[Dict[str, Any]] = None
     collector: Optional[Any] = None
     events_count = 0
+    # Preenchido quando há um ciclo de verdade a medir (integração ativa, stream
+    # registrado, fonte pull) — skips não contam como ciclo.
+    measured: Optional[Tuple[_CycleIntegration, Any]] = None
+    cycle_started = time.monotonic()
     try:
         view = _load_cycle_integration(integration_id, stream)
         if view is None:
@@ -2153,6 +2224,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
                 integration_id, stream,
             )
             return
+        measured = (view, registration)
         access_token = await get_or_refresh_token(
             redis,
             integration_id=integration_id,
@@ -2165,7 +2237,7 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
         domain_limiter = DomainLimiter(redis, config.domain_concurrency_limits)
         cursor_before = await cursor_store.load(integration_id, stream)
 
-        producer = RawProducer(integration_id, stream, config)
+        producer = RawProducer(integration_id, stream, config, vendor=platform)
         async with _aiohttp_session() as session:
             ctx = CollectorContext(
                 integration_id=integration_id,
@@ -2192,7 +2264,15 @@ async def _run_collection_once(integration_id: int, stream: str) -> None:
             cursor_store, registration.collector_cls, ctx, collector,
             integration_id, stream, events_count,
         )
+        _record_cycle_outcome(
+            view, registration, integration_id, stream,
+            "capped" if ctx.hit_cycle_cap else "ok", cycle_started,
+        )
     except Exception as exc:
+        if measured is not None:
+            _record_cycle_outcome(
+                measured[0], measured[1], integration_id, stream, "error", cycle_started,
+            )
         await _fail_cycle(exc, cursor_store, cursor_before, collector, integration_id, stream)
         raise
     finally:
